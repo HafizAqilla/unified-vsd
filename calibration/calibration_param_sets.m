@@ -42,22 +42,22 @@ switch scenario
     % Free parameters: VSD resistance (primary pathology), pulmonary
     % circuit resistances, ventricular elastances.
     % ================================================================
+    % Resistances are pre-conditioned analytically by params_from_clinical
+    % (Ohm's law from SVR/PVR and VSD gradient/flow).  R.vsd is included
+    % here because the mean-gradient conversion factor adds uncertainty.
+    % The 4 elastance parameters are genuinely underdetermined.
     calib.names = {
-        'R.vsd'       % VSD shunt resistance (most important pre-surgery)
-        'R.PAR'       % Pulmonary arterial resistance
-        'R.PCOX'      % Pulmonary capillary (oxygenated) resistance
-        'R.PVEN'      % Pulmonary venous resistance
-        'E.LV.EA'     % LV active elastance
-        'E.LV.EB'     % LV passive elastance (diastolic stiffness)
-        'E.RV.EA'     % RV active elastance
-        'E.RV.EB'     % RV passive elastance
+        'R.vsd'       % VSD shunt resistance  — controls QpQs
+        'E.LV.EA'     % LV active elastance   — controls LVEF, LVEDV→LVESV
+        'E.LV.EB'     % LV passive elastance  — controls diastolic stiffness, LVEDV
+        'E.RV.EA'     % RV active elastance   — controls RVEF, RVEDV→RVESV
+        'E.RV.EB'     % RV passive elastance  — controls RV diastolic filling
         };
 
     calib.metricFields = {
         'RAP_mean'
-        'PAP_min'
-        'PAP_max'
         'PAP_mean'
+        'SAP_mean'
         'QpQs'
         'PVR'
         'SVR'
@@ -68,17 +68,20 @@ switch scenario
         'LVEF'
         };
 
-    % Weights — emphasise the shunt-related metrics
+    % Weights — emphasise volume/EF metrics (elastances are the free params)
     calib.weights = struct();
     for k = 1:numel(calib.metricFields)
         calib.weights.(calib.metricFields{k}) = 1.0;
     end
-    calib.weights.QpQs    = 6.0;   % primary indicator of shunt severity
-    calib.weights.PAP_mean = 3.0;  % pulmonary hypertension
-    calib.weights.PVR      = 3.0;
-    calib.weights.LVEDV    = 2.0;
-    calib.weights.RVEDV    = 2.0;
-    calib.weights.LVEF     = 2.0;
+    calib.weights.LVEF     = 4.0;   % primary elastance target
+    calib.weights.LVEDV    = 3.0;   % LV volume overload
+    calib.weights.LVESV    = 3.0;
+    calib.weights.RVEDV    = 2.5;
+    calib.weights.RVESV    = 2.5;
+    calib.weights.SAP_mean = 2.0;   % MAP — secondary check
+    calib.weights.PAP_mean = 1.5;   % should already be near-target from Ohm's law
+    calib.weights.PVR      = 1.5;
+    calib.weights.QpQs     = 1.5;
 
     %% ==================================================================
     case 'post_surgery'
@@ -130,7 +133,10 @@ switch scenario
 end
 
 %% Regularisation
-calib.regLambda = 0.01;
+%  Set to 0: the analytical pre-conditioning in params_from_clinical already
+%  provides a good starting point.  Non-zero lambda was preventing the
+%  optimiser from moving parameters far enough to match clinical targets.
+calib.regLambda = 0;
 
 %% Initial guess and bounds from current params0
 calib.x0 = pack_x(params0, calib.names);

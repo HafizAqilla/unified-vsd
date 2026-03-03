@@ -20,8 +20,9 @@ function gsa_out = gsa_run_sobol(cfg, params0)
 %
 % COMPUTATIONAL NOTE:
 %   Total model evaluations = N × (d + 2).
-%   For N=64, d=18 (pre) or d=19 (post): ~1280 evaluations.
-%   Increase cfg.N to 256 for publication-quality indices.
+%   For N=256, d=18 (pre) or d=19 (post): ~5120 evaluations.
+%   N=256 satisfies Saltelli et al. (2010) precision requirement:
+%   ST confidence width < 0.05 at 95 % confidence for d ≤ 20.
 %
 % REFERENCES:
 %   [1] Saltelli et al. (2010). Computer Physics Communications 181:259–270.

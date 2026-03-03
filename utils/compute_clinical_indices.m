@@ -44,6 +44,12 @@ function metrics = compute_clinical_indices(sim, params)
 t  = sim.t(:);
 XV = sim.V;           % [n × 14]
 
+%% Unpack state index struct (Guardrail §7.1)
+sidx = params.idx;
+
+%% Unpack unit conversion factors (Guardrail §6.3)
+mLs_to_Lmin = params.conv.mLs_to_Lmin;   % [L/min per mL/s]
+
 %% Reconstruct pressure and flow signals at each time point
 [P, Q] = reconstruct_signals(t, XV, params);
 
@@ -51,61 +57,63 @@ XV = sim.V;           % [n × 14]
 T_HB = 60 / params.HR;
 T1   = t(end);
 T0   = T1 - T_HB;
-idx  = (t >= T0) & (t <= T1);
+time_mask = (t >= T0) & (t <= T1);   % logical mask — renamed from 'idx' to avoid clash
 
-tc = t(idx);
+tc = t(time_mask);
 Pc = struct();
 Qc = struct();
 flds_P = fieldnames(P);
 flds_Q = fieldnames(Q);
-for i = 1:numel(flds_P), Pc.(flds_P{i}) = P.(flds_P{i})(idx); end
-for i = 1:numel(flds_Q), Qc.(flds_Q{i}) = Q.(flds_Q{i})(idx); end
+for i = 1:numel(flds_P), Pc.(flds_P{i}) = P.(flds_P{i})(time_mask); end
+for i = 1:numel(flds_Q), Qc.(flds_Q{i}) = Q.(flds_Q{i})(time_mask); end
 
 mean_t = @(y) trapz(tc, y) / max(tc(end) - tc(1), 1e-9);
 
 metrics = struct();
 
 %% Atrial pressures
-metrics.RAP_mean = mean_t(Pc.RA);
-metrics.LAP_mean = mean_t(Pc.LA);
+metrics.RAP_mean = mean_t(Pc.RA);   % [mmHg]
+metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
 
 %% Pulmonary artery  (P_PAR)
-metrics.PAP_min  = min(Pc.PAR);
-metrics.PAP_max  = max(Pc.PAR);
-metrics.PAP_mean = mean_t(Pc.PAR);
+metrics.PAP_min  = min(Pc.PAR);     % [mmHg]
+metrics.PAP_max  = max(Pc.PAR);     % [mmHg]
+metrics.PAP_mean = mean_t(Pc.PAR);  % [mmHg]
 
 %% Systemic artery  (P_SAR)
-metrics.SAP_min  = min(Pc.SAR);
-metrics.SAP_max  = max(Pc.SAR);
-metrics.SAP_mean = mean_t(Pc.SAR);
+metrics.SAP_min  = min(Pc.SAR);     % [mmHg]
+metrics.SAP_max  = max(Pc.SAR);     % [mmHg]
+metrics.SAP_mean = mean_t(Pc.SAR);  % [mmHg]
 
-%% Flows  (mL/s → L/min)
-Qsys_mLs  = mean_t(Qc.SVEN);    % systemic: venous return to RA
-Qpul_mLs  = mean_t(Qc.PVEN);    % pulmonary: venous return to LA
-Qsys_Lmin = Qsys_mLs  * 60/1000;
-Qpul_Lmin = Qpul_mLs  * 60/1000;
+%% Flows: convert mL/s → L/min for resistance and output reporting
+Qsys_mLs  = mean_t(Qc.SVEN);                   % [mL/s]  systemic venous return
+Qpul_mLs  = mean_t(Qc.PVEN);                   % [mL/s]  pulmonary venous return
+Qsys_Lmin = Qsys_mLs  * mLs_to_Lmin;          % [L/min]
+Qpul_Lmin = Qpul_mLs  * mLs_to_Lmin;          % [L/min]
 
 %% Resistances  (Wood units = mmHg / [L/min])
-metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);
-metrics.PVR  = (metrics.PAP_mean - metrics.LAP_mean) / max(Qpul_Lmin, 1e-6);
-metrics.QpQs = Qpul_Lmin / max(Qsys_Lmin, 1e-6);
+metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);   % [WU]
+metrics.PVR  = (metrics.PAP_mean - metrics.LAP_mean) / max(Qpul_Lmin, 1e-6);   % [WU]
+metrics.QpQs = Qpul_Lmin / max(Qsys_Lmin, 1e-6);                               % [-]
 
 %% Ventricular volumes and ejection fractions
-V_LV_c = XV(idx, 4);
-V_RV_c = XV(idx, 2);
+%  Use params.idx to access state columns — never hardcode column numbers (Guardrail §7.1)
+V_LV_c = XV(time_mask, sidx.V_LV);   % [mL]
+V_RV_c = XV(time_mask, sidx.V_RV);   % [mL]
 
-metrics.LVEDV = max(V_LV_c);
-metrics.LVESV = min(V_LV_c);
-metrics.RVEDV = max(V_RV_c);
-metrics.RVESV = min(V_RV_c);
+metrics.LVEDV = max(V_LV_c);     % [mL]
+metrics.LVESV = min(V_LV_c);     % [mL]
+metrics.RVEDV = max(V_RV_c);     % [mL]
+metrics.RVESV = min(V_RV_c);     % [mL]
 
-metrics.LVEF  = (metrics.LVEDV - metrics.LVESV) / max(metrics.LVEDV, 1e-6);
-metrics.RVEF  = (metrics.RVEDV - metrics.RVESV) / max(metrics.RVEDV, 1e-6);
-metrics.LVSV  = metrics.LVEDV - metrics.LVESV;
-metrics.RVSV  = metrics.RVEDV - metrics.RVESV;
+% EF stored as fraction (0–1), NOT percentage (Guardrail §6.4)
+metrics.LVEF  = (metrics.LVEDV - metrics.LVESV) / max(metrics.LVEDV, 1e-6);   % [-]
+metrics.RVEF  = (metrics.RVEDV - metrics.RVESV) / max(metrics.RVEDV, 1e-6);   % [-]
+metrics.LVSV  = metrics.LVEDV - metrics.LVESV;   % [mL]
+metrics.RVSV  = metrics.RVEDV - metrics.RVESV;   % [mL]
 
 %% VSD shunt
-metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);
+metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);   % [mL/s]  positive = L→R
 
 end  % compute_clinical_indices
 
@@ -118,7 +126,8 @@ function [P, Q] = reconstruct_signals(t, XV, params)
 %   P.RA, P.RV, P.LA, P.LV, P.SAR, P.SVEN, P.PAR, P.PVEN [mmHg]
 %   Q.TV, Q.PVv, Q.MV, Q.AV, Q.SVEN, Q.PVEN, Q.VSD       [mL/s]
 
-n = numel(t);
+n    = numel(t);
+sidx = params.idx;   % state index struct (Guardrail §7.1)
 
 P.RA   = zeros(n,1); P.RV  = zeros(n,1);
 P.LA   = zeros(n,1); P.LV  = zeros(n,1);
@@ -132,39 +141,43 @@ Q.VSD  = zeros(n,1);
 
 for i = 1:n
     xi     = XV(i,:)';
-    V_RA   = xi(1); V_RV  = xi(2); V_LA = xi(3); V_LV = xi(4);
-    V_SAR  = xi(5);
-    V_SVEN = xi(8);  Q_SVEN_i = xi(9);
-    V_PAR  = xi(10);
-    P_PC_i = xi(12);
-    V_PVEN = xi(13); Q_PVEN_i = xi(14);
+    V_RA   = xi(sidx.V_RA);    % [mL]
+    V_RV   = xi(sidx.V_RV);    % [mL]
+    V_LA   = xi(sidx.V_LA);    % [mL]
+    V_LV   = xi(sidx.V_LV);    % [mL]
+    V_SAR  = xi(sidx.V_SAR);   % [mL]
+    V_SVEN = xi(sidx.V_SVEN);  % [mL]
+    Q_SVEN_i = xi(sidx.Q_SVEN); % [mL/s]
+    V_PAR  = xi(sidx.V_PAR);   % [mL]
+    P_PC_i = xi(sidx.P_PC);    % [mmHg]  (unused in pressure reconstruction; suppress warning)
+    V_PVEN = xi(sidx.V_PVEN);  % [mL]
+    Q_PVEN_i = xi(sidx.Q_PVEN); % [mL/s]
 
     [E_LV_i, E_RV_i, E_LA_i, E_RA_i] = elastance_model(t(i), params);
 
-    P_RA_i = max(E_RA_i * (V_RA - params.V0.RA), -5);
-    P_RV_i = E_RV_i * (V_RV - params.V0.RV);
-    P_LA_i = max(E_LA_i * (V_LA - params.V0.LA), -5);
-    P_LV_i = E_LV_i * (V_LV - params.V0.LV);
+    P_RA_i = max(E_RA_i * (V_RA - params.V0.RA), -5);    % [mmHg]
+    P_RV_i = E_RV_i * (V_RV - params.V0.RV);              % [mmHg]
+    P_LA_i = max(E_LA_i * (V_LA - params.V0.LA), -5);    % [mmHg]
+    P_LV_i = E_LV_i * (V_LV - params.V0.LV);              % [mmHg]
 
-    P_SAR_i  = (V_SAR  - params.V0.SAR)  / params.C.SAR;
-    P_SVEN_i = max((V_SVEN - params.V0.SVEN) / params.C.SVEN, -5);
-    P_PAR_i  = (V_PAR  - params.V0.PAR)  / params.C.PAR;
-    P_PVEN_i = max((V_PVEN - params.V0.PVEN) / params.C.PVEN, -5);
+    P_SAR_i  = (V_SAR  - params.V0.SAR)  / params.C.SAR;             % [mmHg]
+    P_SVEN_i = max((V_SVEN - params.V0.SVEN) / params.C.SVEN, -5);   % [mmHg]
+    P_PAR_i  = (V_PAR  - params.V0.PAR)  / params.C.PAR;             % [mmHg]
+    P_PVEN_i = max((V_PVEN - params.V0.PVEN) / params.C.PVEN, -5);   % [mmHg]
 
     P.RA(i)   = P_RA_i; P.RV(i) = P_RV_i;
     P.LA(i)   = P_LA_i; P.LV(i) = P_LV_i;
     P.SAR(i)  = P_SAR_i; P.SVEN(i) = P_SVEN_i;
     P.PAR(i)  = P_PAR_i; P.PVEN(i) = P_PVEN_i;
 
-    Q.TV(i)   = valve_model(P_RA_i,  P_RV_i,  params);
-    Q.PVv(i)  = valve_model(P_RV_i,  P_PAR_i, params);
-    Q.MV(i)   = valve_model(P_LA_i,  P_LV_i,  params);
-    Q.AV(i)   = valve_model(P_LV_i,  P_SAR_i, params);
-    Q.SVEN(i) = Q_SVEN_i;
-    Q.PVEN(i) = Q_PVEN_i;
-    Q.VSD(i)  = (P_LV_i - P_RV_i) / params.R.vsd;
+    Q.TV(i)   = valve_model(P_RA_i,  P_RV_i,  params);   % [mL/s]
+    Q.PVv(i)  = valve_model(P_RV_i,  P_PAR_i, params);   % [mL/s]
+    Q.MV(i)   = valve_model(P_LA_i,  P_LV_i,  params);   % [mL/s]
+    Q.AV(i)   = valve_model(P_LV_i,  P_SAR_i, params);   % [mL/s]
+    Q.SVEN(i) = Q_SVEN_i;                                 % [mL/s]
+    Q.PVEN(i) = Q_PVEN_i;                                 % [mL/s]
+    Q.VSD(i)  = (P_LV_i - P_RV_i) / params.R.vsd;        % [mL/s] positive = L→R
 
-    % Suppress unused variable warnings
-    P_PC_i; %#ok<VUNUS>
+    P_PC_i; %#ok<VUNUS>  % P_PC is a state but not re-derived from volumes here
 end
 end  % reconstruct_signals

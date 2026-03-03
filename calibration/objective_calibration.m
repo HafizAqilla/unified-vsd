@@ -28,6 +28,23 @@ for i = 1:numel(calib.names)
 end
 
 %% 2. Simulate to steady state
+% Calibration-specific integration settings:
+%
+%   nCyclesSteady = 40  — same as full validation run.  During optimisation
+%     the solver explores parameter regions far from the baseline (e.g. very
+%     high elastances), which drive slow-settling RLC modes.  25 cycles was
+%     insufficient for those regions, causing spurious "not reached" warnings
+%     and a noisy objective landscape.
+%
+%   ss_tol_P / ss_tol_V — loosened to 0.5 mmHg / 0.5 mL during calibration.
+%     The optimiser needs a stable objective value, not a clinically exact
+%     limit cycle.  Looser tolerances prevent the fallback re-integration
+%     path (which doubles the cost) from triggering repeatedly.
+%     Full 0.1 mmHg / 0.1 mL tolerances are restored in main_run after
+%     calibration completes.
+params.sim.nCyclesSteady = 40;    % matches full-run value; adequate for all explored regions
+params.sim.ss_tol_P      = 0.5;   % [mmHg]  loosened for calibration speed
+params.sim.ss_tol_V      = 0.5;   % [mL]    loosened for calibration speed
 try
     sim = integrate_system(params);
 catch
@@ -106,6 +123,7 @@ switch scenario
         fmap.PAP_min   = 'PAP_sys_mmHg';
         fmap.PAP_max   = 'PAP_sys_mmHg';
         fmap.PAP_mean  = 'PAP_mean_mmHg';
+        fmap.SAP_mean  = 'SAP_mean_mmHg';   % MAP — pre.SAP_mean_mmHg in patient profiles
         fmap.QpQs      = 'QpQs';
         fmap.PVR       = 'PVR_WU';
         fmap.SVR       = 'SVR_WU';

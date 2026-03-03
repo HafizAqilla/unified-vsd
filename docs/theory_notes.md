@@ -96,17 +96,21 @@ $$Q_{VSD} = \frac{P_{LV} - P_{RV}}{R_{VSD}}$$
 Scale factor: $s = \mathrm{BSA}_{\text{patient}} / \mathrm{BSA}_{\text{ref}}$,
 where $\mathrm{BSA}_{\text{ref}} = 1.73\,\mathrm{m}^2$ (adult male, Mosteller).
 
-| Parameter class | Exponent | Physical derivation |
-|---|---|---|
-| Resistance R | $s^{-1}$ | Poiseuille: $R \propto L/r^4$; $r \propto s^{1/2}$ |
-| Compliance C | $s^{+1}$ | $C \propto r^2 \cdot L \propto s$ |
-| Inertance L | $s^{-1}$ | $L \propto \rho L / r^2$ |
-| Unstressed V₀ | $s^{+1}$ | Compartment volume ∝ body size |
-| Heart rate HR | $s^{-0.33}$ | Metabolic (basal) scaling |
-| E_LV/LA | $s^{-1}$ | Systemic pressure load |
-| E_RV/RA | $s^{-1.5}$ | Pulmonary (lower pressure load) |
+| Parameter class | Exponent | Source | Physical derivation |
+|---|---|---|---|
+| Resistance R | $s^{-1}$ | Lundquist (2025) Table 1 | Poiseuille: $R \propto L/r^4$; $r \propto s^{1/2}$ |
+| Compliance C | $s^{+1}$ | Lundquist (2025) Table 2 | $C \propto r^2 \cdot L \propto s$ |
+| Inertance L | $s^{-1}$ | Geometry analogous to R | $L \propto \rho L / r^2$ |
+| Unstressed V₀ | $s^{+1}$ | Lundquist (2025) Table 2 | Compartment volume ∝ body size |
+| Heart rate HR | $s^{-0.33}$ | Lundquist (2025) Table 2 | Metabolic (basal) scaling |
+| E_LV/LA | $s^{-1}$ | Lundquist (2025) Table 2 | Systemic pressure load |
+| E_RV/RA | $s^{-1.5}$ | Lundquist (2025) Table 2 | Pulmonary (lower pressure load) |
+| Valve open area | $s^{+1}$ → $R_{\text{valve}} \propto s^{-1}$ | Lundquist (2025) Table 3 | Orifice flow: $Q \propto A$ at const $\Delta P$ |
+| VSD shunt area | $s^{+1}$ → $R_{\text{VSD}} \propto s^{-1}$ | Lundquist (2025) Table 3 | Patient-specific R_VSD from `params_from_clinical.m` |
 
-Reference: Lundquist et al. (2025), Table 3.1.
+> **BSA reference note.** The code uses $\mathrm{BSA}_{\text{ref}} = 1.73\,\mathrm{m}^2$, which corresponds to the standard 70 kg / 175 cm adult implicit in the Valenti (2023) parameter set. The Lundquist (2025) paper's own reference subject is a 30-year-old, 85 kg, 180 cm male ($\mathrm{BSA} \approx 2.06\,\mathrm{m}^2$) — this difference is intentional: only the **scaling exponents** are borrowed from Lundquist; the **absolute parameter values** derive from Valenti.
+
+> **Parameters not scaled.** (a) `epsilon_valve` (tanh smoothing pressure, 0.5 mmHg): Lundquist Table 3 lists valve opening/closing constants at $s^{-0.5}$, but those are physiological pressure thresholds in the Lundquist model; `epsilon_valve` is a numerical continuity parameter in our tanh valve model and is not equivalent. (b) `R_VSD`: pathological parameter set per patient by `params_from_clinical.m` — not scaled allometrically.
 
 ---
 
@@ -123,9 +127,14 @@ and $Q_{\text{shunt}}$ is the net shunt flow (mL/s) from catheterisation.
 
 $$Q = C_c \cdot A \cdot \sqrt{\frac{2 \Delta P}{\rho}}, \quad R_{VSD} = \frac{\Delta P_{\text{ref}}}{Q}$$
 
-with $C_c = 0.7$ (contraction coefficient), $\rho = 1060\,\mathrm{kg/m^3}$
-(blood density), and $A = \pi (D/2)^2$ determined from echo-measured defect
-diameter $D$.
+with:
+- $C_c = 0.7$ (contraction / discharge coefficient) — Gorlin & Gorlin (1951); Baumgartner et al. (2009)
+- $\rho = 1060\,\mathrm{kg/m^3}$ (blood density) — Levick (2010), p. 13
+- $A = \pi (D/2)^2$ determined from echo-measured defect diameter $D$
+- $\Delta P_{\text{ref}} = 20\,\mathrm{mmHg}$ reference gradient (typical peak LV–RV gradient)
+
+> **Note:** Option A is preferred when direct catheterisation shunt-flow data are available;
+> Option B introduces additional uncertainty from $C_c$ and $\Delta P_{\text{ref}}$ choices.
 
 ---
 
@@ -148,6 +157,10 @@ $$S_1^i = 1 - \frac{\mathbb{E}\left[(f_B - f_{A_B^i})^2\right]}{2\,\mathrm{Var}(
 
 Saltelli (2010) quasi-random sampling with Sobol sequences.
 
+**Sample size:** $N = 256$ per direction, giving $N(d+2) \geq 4608$ model evaluations
+for $d = 18$ parameters. This satisfies the Saltelli (2010) recommendation for
+precision of $S_T$ within $\pm 0.05$ (95 % confidence).
+
 ---
 
 ## Assumptions
@@ -159,12 +172,24 @@ Saltelli (2010) quasi-random sampling with Sobol sequences.
 4. No coronary circulation, no pericardium, no ventricular interaction.
 5. Allometric scaling uses BSA-based geometric power laws; metabolic scaling
    for HR only.
+6. Diastolic chamber stiffness is modelled as a **linear** passive elastance $E_B$
+   (Valenti Eq. 2.2), not as the exponential pressure-volume law used in some
+   models (Lundquist Table 2 lists a `Lambda` parameter for exponential fitting;
+   this is not applicable to the Valenti formulation).
+7. `epsilon_valve` (valve smoothing constant, 0.5 mmHg) is **not** scaled with
+   body size. Lundquist (2025) Table 3 scales valve opening/closure constants at
+   $s^{-0.5}$, but those refer to physiological pressure thresholds, not the
+   numerical tanh continuity parameter used here.
 
 ---
 
 ## References
 
 1. Valenti (2023). Thesis: *Full-order 0D cardiovascular model*. Eqs. 2.1–2.7, Table 3.3.
-2. Lundquist et al. (2025). *Allometric Scaling in Pediatric Cardiology*. Eqs. 3.2, 4.1, 4.3.
+2. Lundquist et al. (2025). *Patient-Specific Pediatric Cardiovascular Lumped Parameter Modeling — Scaling Across Ages and Sizes*. ASAIO J. DOI: 10.1097/MAT.0000000000002528. **Table 2** (cardiac: HR, E, V₀, blood volume) and **Table 3** (valve open/closed area, shunt area, ventilation).
 3. Saltelli et al. (2010). *Variance based sensitivity analysis of model output*. CPC 181:259–270.
 4. Jansen (1999). *Analysis of variance designs for model output*. CPC 117:35–43.
+5. Gorlin R & Gorlin SG (1951). *Hydraulic formula for calculation of the area of the stenotic mitral valve*. Am Heart J 41(1):1–29.  (orifice Cd = 0.7)
+6. Baumgartner H et al. (2009). *Echocardiographic assessment of valve stenosis: EAE/ASE recommendations*. J Am Soc Echocardiogr 22(1):1–23.  (Cd confirmation)
+7. Levick JR (2010). *An Introduction to Cardiovascular Physiology*, 5th ed. Hodder Arnold, London. p. 13.  (rho_blood = 1060 kg/m³)
+8. Nichols WW & O’Rourke MF (2005). *McDonald’s Blood Flow in Arteries*, 5th ed. Hodder Arnold, London.  (physiological reference ranges)

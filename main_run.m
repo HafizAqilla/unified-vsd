@@ -57,19 +57,26 @@ root = fileparts(mfilename('fullpath'));
 addpath(genpath(root));
 
 %% ---- user toggles (edit here) -----------------------------------------
+% DO_CALIBRATION: set true only when you want fmincon/MultiStart tuning.
+% Leave false for a quick baseline simulation (calibration takes ~5–30 min).
 DO_CALIBRATION = true;
 DO_GSA         = false;
 DO_PLOTS       = true;
 
 %% ---- validate inputs ---------------------------------------------------
-validatestring(scenario, {'pre_surgery', 'post_surgery'}, ...
-    'main_run', 'scenario');
+if nargin < 1 || isempty(scenario)
+    scenario = 'pre_surgery';
+    fprintf('[main_run] No scenario specified — defaulting to "%s".\n', scenario);
+end
 
 if nargin < 2 || isempty(clinical)
     clinical = patient_template();
     warning('main_run:noClinicalData', ...
         'No clinical struct provided; using patient_template() defaults (all NaN).');
 end
+
+validatestring(scenario, {'pre_surgery', 'post_surgery'}, ...
+    'main_run', 'scenario');
 
 fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...

@@ -43,6 +43,7 @@ switch scenario
             'PAP_min',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure'
             'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (max)'
             'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
+            'SAP_mean',  'SAP_mean_mmHg',  'mmHg',   'Mean arterial pressure (MAP)'
             'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
             'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
             'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'

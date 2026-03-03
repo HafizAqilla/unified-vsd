@@ -55,16 +55,26 @@ function dXdt = system_rhs(t, X, params)
 %
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-02-26
-% VERSION:  1.0
+% VERSION:  1.1
 % -----------------------------------------------------------------------
 
-% --- Unpack state -------------------------------------------------------
-V_RA   = X(1);  V_RV  = X(2);  V_LA  = X(3);  V_LV  = X(4);
-V_SAR  = X(5);  Q_SAR = X(6);  V_SC  = X(7);
-V_SVEN = X(8);  Q_SVEN= X(9);
-V_PAR  = X(10); Q_PAR = X(11);
-P_PC   = X(12);                         % pressure state (Eq. 2.7)
-V_PVEN = X(13); Q_PVEN= X(14);
+% --- Unpack state index struct (Guardrail §7.1: never hardcode indices) ---
+idx    = params.idx;
+
+V_RA   = X(idx.V_RA);    % [mL]
+V_RV   = X(idx.V_RV);    % [mL]
+V_LA   = X(idx.V_LA);    % [mL]
+V_LV   = X(idx.V_LV);    % [mL]
+V_SAR  = X(idx.V_SAR);   % [mL]
+Q_SAR  = X(idx.Q_SAR);   % [mL/s]
+V_SC   = X(idx.V_SC);    % [mL]
+V_SVEN = X(idx.V_SVEN);  % [mL]
+Q_SVEN = X(idx.Q_SVEN);  % [mL/s]
+V_PAR  = X(idx.V_PAR);   % [mL]
+Q_PAR  = X(idx.Q_PAR);   % [mL/s]
+P_PC   = X(idx.P_PC);    % [mmHg]  pressure state (Eq. 2.7)
+V_PVEN = X(idx.V_PVEN);  % [mL]
+Q_PVEN = X(idx.Q_PVEN);  % [mL/s]
 
 % --- Chamber pressures  (Eq. 2.1–2.2) ----------------------------------
 [E_LV, E_RV, E_LA, E_RA] = elastance_model(t, params);
@@ -150,8 +160,20 @@ dV_RV = Q_TV    + Q_VSD  - Q_PVv;
 dV_LA = Q_PVEN  - Q_MV;
 dV_LV = Q_MV    - Q_AV   - Q_VSD;
 
-% --- Assemble output (14 states) ----------------------------------------
-dXdt = [dV_RA;  dV_RV;  dV_LA;  dV_LV;
-        dV_SAR; dQ_SAR; dV_SC;  dV_SVEN; dQ_SVEN;
-        dV_PAR; dQ_PAR; dP_PC;  dV_PVEN; dQ_PVEN];
+% --- Assemble output via index struct (Guardrail §7.1) -------------------
+dXdt = zeros(14, 1);
+dXdt(idx.V_RA)   = dV_RA;
+dXdt(idx.V_RV)   = dV_RV;
+dXdt(idx.V_LA)   = dV_LA;
+dXdt(idx.V_LV)   = dV_LV;
+dXdt(idx.V_SAR)  = dV_SAR;
+dXdt(idx.Q_SAR)  = dQ_SAR;
+dXdt(idx.V_SC)   = dV_SC;
+dXdt(idx.V_SVEN) = dV_SVEN;
+dXdt(idx.Q_SVEN) = dQ_SVEN;
+dXdt(idx.V_PAR)  = dV_PAR;
+dXdt(idx.Q_PAR)  = dQ_PAR;
+dXdt(idx.P_PC)   = dP_PC;
+dXdt(idx.V_PVEN) = dV_PVEN;
+dXdt(idx.Q_PVEN) = dQ_PVEN;
 end

@@ -37,6 +37,7 @@ unified_vsd/
 │
 ├── main_run.m                    ← Entry point. No physics. No plotting logic.
 ├── README.md                     ← This file.
+├── AGENTS.md                     ← Coding standards and guardrails for this codebase.
 │
 ├── config/
 │   ├── default_parameters.m      ← Adult Valenti reference (BSA = 1.73 m²)
@@ -140,6 +141,19 @@ $$J(x) = \sum_k w_k \left(\frac{y_k(x) - y_k^{\text{clin}}}{y_k^{\text{clin}}}\r
 | Flow | mL/s (ODE) | L/min (metrics) |
 | Resistance | mmHg·s/mL | Wood units (÷ 0.06) |
 | Compliance | mL/mmHg | mL/mmHg |
+
+---
+
+## Coding Standards
+
+All code in this repository follows the guardrails defined in [AGENTS.md](AGENTS.md). Key rules:
+
+- State vector accessed only via `params.idx` — never hardcoded indices
+- All unit conversions via `params.conv.*` named constants (see `utils/unit_conversion.m`)
+- Valve switching uses smooth `tanh` blending (`params.epsilon_valve`)
+- Solver choice and tolerances justified in `solvers/integrate_system.m`
+- All figures exported as vector PDF; publication-ready from day one
+- `tests/test_baseline.m` must pass before any patient simulation
 
 ---
 
