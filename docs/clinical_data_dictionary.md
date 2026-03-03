@@ -1,10 +1,34 @@
 # Clinical Data Dictionary
 
-Maps clinical record terminology to MATLAB variable names in the unified VSD model.
+**Last updated:** 2026-03-03
 
-All variables live inside the `clinical` struct returned by `patient_template.m`.
+Maps clinical record terminology to MATLAB variable names in the unified VSD model.
+All values derive from `patient_template.m`; filled examples are in
+`config/patient_profile_A.m` (Profile A: 1.6-month, 3.7 kg infant) and
+`config/patient_profile_B.m`.
+
 **Raw clinical data and model outputs are strictly separate namespaces** —
-never assign clinical values directly to model output variables.
+never assign clinical values directly to model output variables (AGENTS.md §3.11).
+
+---
+
+## Mapping pipeline
+
+```
+clinical struct (28 fields)
+    │
+    ▼  utils/params_from_clinical.m  (Phase 0 — deterministic)
+    │
+    ├─ R.SAR, R.SVEN, R.PAR, R.PCOX, R.PVEN  ← SVR/PVR Wood units + Ohm's law
+    ├─ R.vsd                                   ← Gorlin eq. or peak gradient/flow
+    ├─ E.LV.EA/EB, E.RV.EA/EB                  ← Derived from LVEDV/LVESV/SAP
+    ├─ V0.LV, V0.RV                             ← Estimated from volumes + EF
+    └─ params.ic.V (14×1)                       ← Initial conditions from echo
+
+params struct  →  calibration/run_calibration.m  (Phase 1 — Nelder-Mead)
+    │
+    └─ R.vsd, E.LV.EA/EB, E.RV.EA/EB refined to match clinical targets
+```
 
 ---
 

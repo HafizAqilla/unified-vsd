@@ -138,12 +138,62 @@ with:
 
 ---
 
-## 6. Calibration objective
+## 6. Calibration
 
-$$J(x) = \sum_k w_k \left(\frac{y_k(x) - y_k^{\text{clin}}}{y_k^{\text{clin}}}\right)^2
-+ \lambda \sum_i \left(\frac{x_i - x_0^i}{x_0^i}\right)^2$$
+### 6.1 Two-phase architecture
 
-Free parameters per scenario: see `calibration/calibration_param_sets.m`.
+**Phase 0 (deterministic, zero optimiser calls):** `utils/params_from_clinical.m`
+maps the 28 clinical inputs to model parameters via Ohm's law and conservation
+principles. This ensures the starting point is physically self-consistent.
+
+**Phase 1 (Nelder-Mead polish):** `calibration/run_calibration.m` refines
+elastances and `R.vsd` using `fminsearch` (Nelder-Mead simplex, Torczon 1991).
+Nelder-Mead was chosen because:
+1. The problem is smooth and low-dimensional ($d \le 5$).
+2. `fmincon` (gradient-based) fails here — finite-difference step sizes
+   (~$10^{-8}$) are swamped by ODE solver noise (~$10^{-6}$), producing
+   random gradient estimates and zero-length steps.
+3. `particleswarm` converges to the same solution in 4× more evaluations.
+
+### 6.2 Objective function
+
+$$J(x) = \sum_k w_k \left(\frac{y_k(x) - y_k^{\text{clin}}}{y_k^{\text{clin}}}\right)^2$$
+
+No Tikhonov regularisation (`regLambda = 0`): the analytic pre-conditioning in
+Phase 0 already provides a good starting point; regularisation was found to
+prevent parameters from moving far enough to reach clinical targets.
+
+Bound enforcement: quadratic penalty added to $J$ for parameter violations,
+allowing `fminsearch` (which has no native bound support) to operate within
+physiological ranges:
+$$J_{\text{pen}}(x) = J(x) + \lambda_{\text{pen}} \sum_i \left[\max(0,\, l_i - x_i)^2 + \max(0,\, x_i - u_i)^2\right]$$
+
+where $\lambda_{\text{pen}} = 100$.
+
+### 6.3 Free parameters and bounds
+
+**Pre-surgery** (5 free parameters):
+
+| Parameter | Physical role | Bounds |
+|---|---|---|
+| `R.vsd` | Shunt resistance →控制 Qp/Qs | 0.05× – 20× $x_0$ |
+| `E.LV.EA` | LV active elastance → LVEF, LVESV | 0.3× – 3.0× $x_0$ |
+| `E.LV.EB` | LV diastolic stiffness → LVEDV | 0.3× – 3.0× $x_0$ |
+| `E.RV.EA` | RV active elastance → RVEF, RVESV | 0.3× – 3.0× $x_0$ |
+| `E.RV.EB` | RV diastolic stiffness → RVEDV | 0.3× – 3.0× $x_0$ |
+
+**Post-surgery** (11 free parameters): R.SAR, R.SVEN, R.PAR, R.PCOX, R.PVEN,
+C.SAR, C.PAR, + 4 elastances. See `calibration_param_sets.m` for full details.
+
+### 6.4 Speed settings inside `objective_calibration.m`
+
+Calibration overrides steady-state settings for speed per evaluation:
+
+| Setting | Calibration evals | Baseline / Validation |
+|---|---|---|
+| `nCyclesSteady` | 40 | 80 |
+| `ss_tol_P` | 0.5 mmHg | 0.1 mmHg |
+| `ss_tol_V` | 0.5 mL | 0.1 mL |
 
 ---
 
