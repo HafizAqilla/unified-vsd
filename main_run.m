@@ -59,9 +59,9 @@ addpath(genpath(root));
 %% ---- user toggles (edit here) -----------------------------------------
 % DO_CALIBRATION: set true only when you want fmincon/MultiStart tuning.
 % Leave false for a quick baseline simulation (calibration takes ~5–30 min).
-DO_CALIBRATION = true;
-DO_GSA         = false;
-DO_PLOTS       = true;
+DO_CALIBRATION = false;
+DO_GSA         = true;
+DO_PLOTS       = false;
 
 %% ---- validate inputs ---------------------------------------------------
 if nargin < 1 || isempty(scenario)
