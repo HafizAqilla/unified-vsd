@@ -225,6 +225,15 @@ $$J(x) = \sum_k w_k \left(\frac{y_k(x) - y_k^{\text{clin}}}{y_k^{\text{clin}}}\r
 
 ---
 
+## Dependencies
+
+To run the Global Sensitivity Analysis (GSA) module, the following third-party toolboxes are required. **They are not tracked in this repository** due to size limits and licensing. You must download them and place them in the `Toolbox/` directory (or update the paths in `main_run.m`):
+
+1. **UQLab** (Release 2.2.0 or later): Framework for uncertainty quantification.
+2. **SoBioS**: Surrogate-based optimization and sensitivity analysis toolbox.
+
+---
+
 ## Coding Standards
 
 All code in this repository follows the guardrails defined in [AGENTS.md](AGENTS.md). Key rules:
