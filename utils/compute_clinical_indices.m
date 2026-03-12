@@ -16,6 +16,13 @@ function metrics = compute_clinical_indices(sim, params)
 %   PAP_min    [mmHg]   PA pressure minimum
 %   PAP_max    [mmHg]   PA pressure maximum
 %   PAP_mean   [mmHg]   PA time-averaged mean
+%   PVP_mean   [mmHg]   pulmonary venous mean pressure
+%   RVP_min    [mmHg]   RV pressure minimum
+%   RVP_max    [mmHg]   RV pressure maximum
+%   RVP_mean   [mmHg]   RV time-averaged mean pressure
+%   LVP_min    [mmHg]   LV pressure minimum
+%   LVP_max    [mmHg]   LV pressure maximum
+%   LVP_mean   [mmHg]   LV time-averaged mean pressure
 %   SAP_min    [mmHg]   systemic arterial minimum
 %   SAP_max    [mmHg]   systemic arterial maximum
 %   SAP_mean   [mmHg]   systemic arterial time-averaged mean
@@ -79,6 +86,19 @@ metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
 metrics.PAP_min  = min(Pc.PAR);     % [mmHg]
 metrics.PAP_max  = max(Pc.PAR);     % [mmHg]
 metrics.PAP_mean = mean_t(Pc.PAR);  % [mmHg]
+
+%% Pulmonary venous pressure (P_PVEN)
+metrics.PVP_mean = mean_t(Pc.PVEN); % [mmHg]
+
+%% Right ventricular pressure (P_RV)
+metrics.RVP_min  = min(Pc.RV);      % [mmHg]
+metrics.RVP_max  = max(Pc.RV);      % [mmHg]
+metrics.RVP_mean = mean_t(Pc.RV);   % [mmHg]
+
+%% Left ventricular pressure (P_LV)
+metrics.LVP_min  = min(Pc.LV);      % [mmHg]
+metrics.LVP_max  = max(Pc.LV);      % [mmHg]
+metrics.LVP_mean = mean_t(Pc.LV);   % [mmHg]
 
 %% Systemic artery  (P_SAR)
 metrics.SAP_min  = min(Pc.SAR);     % [mmHg]

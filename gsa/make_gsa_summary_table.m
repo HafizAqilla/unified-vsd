@@ -53,13 +53,24 @@ T = cell2table(rows, 'VariableNames', ...
 fprintf('\n=== Sobol GSA Summary — Scenario: %s ===\n', gsa_out.scenario);
 fprintf('    (showing top %d parameters per metric)\n\n', top_n);
 
-primary_rows = T(logical([T.IsPrimary{:}]'), :);
-fprintf('--- PRIMARY METRICS ---\n');
-disp(primary_rows(:, {'Metric','Parameter','Sobol_S1','Sobol_ST'}));
+% Robust indexing for IsPrimary column (it may be logical or cell array)
+if iscell(T.IsPrimary)
+    is_primary_mask = cell2mat(T.IsPrimary);
+else
+    is_primary_mask = T.IsPrimary;
+end
 
-secondary_rows = T(~logical([T.IsPrimary{:}]'), :);
+primary_rows = T(logical(is_primary_mask), :);
+fprintf('--- PRIMARY METRICS ---\n');
+if ~isempty(primary_rows)
+    disp(primary_rows(:, {'Metric','Parameter','Sobol_S1','Sobol_ST'}));
+else
+    fprintf('    (None found)\n');
+end
+
+secondary_rows = T(~logical(is_primary_mask), :);
 if ~isempty(secondary_rows)
-    fprintf('--- SECONDARY METRICS ---\n');
+    fprintf('\n--- SECONDARY METRICS ---\n');
     disp(secondary_rows(:, {'Metric','Parameter','Sobol_S1','Sobol_ST'}));
 end
 
