@@ -53,7 +53,7 @@ fprintf('[run_calibration] Starting from pre-conditioned baseline (J0 = %.6f)...
 % Nelder-Mead options
 % (fminsearch does not accept bounds; we handle bounds via quadratic penalty)
 opts_nm = optimset('fminsearch');
-opts_nm.MaxFunEvals = 250;   % ~12–15 min for d=5 at 4 s/eval
+opts_nm.MaxFunEvals = 500;   % increased for 11 free params (from 250)
 opts_nm.TolFun      = 1e-4;  % Stop when J stops improving by < 0.01%
 opts_nm.TolX        = 1e-5;  % Stop when all x change < 0.001%
 opts_nm.Display     = 'iter-detailed';

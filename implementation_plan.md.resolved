@@ -1,0 +1,82 @@
+# Implement GSA using Polynomial Chaos Expansion (PCE) via UQLab
+
+## Overview
+
+The existing Step 7 in [main_run.m](file:///c:/Users/asus/Documents/MATLAB/VSD/main_run.m) calls the Sobol QMC GSA (`gsa_sobol_setup` + `gsa_run_sobol`).
+This plan replaces it with a **PCE-based GSA** using UQLab, following the SoBioS pattern.
+
+The PCE approach:
+- Trains a polynomial surrogate (PCE) of the cardiovascular model
+- Computes S1 and ST Sobol indices **analytically from PCE coefficients** (no added Monte Carlo)
+- Requires fewer model runs (~300) vs. the QMC approach (~5 120)
+
+## User Review Required
+
+> [!IMPORTANT]
+> **UQLab is required.** Download free for academic use at [uqlab.com/download](https://www.uqlab.com/download).
+> Once installed, set the path in `gsa_pce_setup.m`. The `uqlab` initializer will be called automatically.
+
+> [!NOTE]
+> [make_gsa_summary_table.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/make_gsa_summary_table.m) is **not changed** — the PCE output struct matches the existing format.
+
+## Proposed Changes
+
+---
+
+### 1. Main Entry Point
+
+#### [MODIFY] [main_run.m](file:///c:/Users/asus/Documents/MATLAB/VSD/main_run.m)
+
+**Step 7 block** (lines 150–168) is replaced to call PCE functions:
+
+```diff
+-%  STEP 7 — Global Sensitivity Analysis (Sobol)
++%  STEP 7 — Global Sensitivity Analysis (PCE via UQLab)
+ if DO_GSA
+-    gsa_cfg = gsa_sobol_setup(params_for_gsa, scenario);
+-    gsa_out = gsa_run_sobol(gsa_cfg, params_for_gsa);
++    gsa_cfg = gsa_pce_setup(params_for_gsa, scenario);
++    gsa_out = gsa_run_pce(gsa_cfg, params_for_gsa);
+
+     gsa_summary = make_gsa_summary_table(gsa_out);
+     ...
+```
+
+Comment on line 29 and line 42 also updated to reference new PCE files.
+
+---
+
+### 2. New GSA Files
+
+#### [NEW] [gsa_pce_setup.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/gsa_pce_setup.m)
+
+Same interface as [gsa_sobol_setup.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/gsa_sobol_setup.m). Sets up:
+- Same `cfg.names`, `cfg.lb`, `cfg.ub`, `cfg.primary_metrics`, `cfg.secondary_metrics`, `cfg.all_metrics`
+- `cfg.pce_order = 3` (default)
+- `cfg.N_train = 300` (training sample size)
+- A **UQLab Input object** with `d` uniform marginals mapped to `[lb, ub]`, stored as `cfg.Input`
+- **UQLab MetaOpts** for LARS-PCE stored as `cfg.MetaOpts`
+
+#### [NEW] [gsa_run_pce.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/gsa_run_pce.m)
+
+Same output interface as [gsa_run_sobol.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/gsa_run_sobol.m). Executes:
+1. Generate training samples: `uq_getSample(cfg.Input, cfg.N_train, 'Sobol')`
+2. Evaluate model at each sample: `integrate_system` + `compute_clinical_indices`
+3. For each metric, train a PCE: `uq_createModel(MetaOpts)` with the sample output as response
+4. Run UQLab Sobol sensitivity on the PCE surrogate: `uq_createAnalysis(SobolOpts)`
+5. Extract S1/ST, build sorted table, set `.primary` flag
+6. Return `gsa_out` struct identical to [gsa_run_sobol.m](file:///c:/Users/asus/Documents/MATLAB/VSD/gsa/gsa_run_sobol.m) output
+
+---
+
+## Verification Plan
+
+Run [main_run.m](file:///c:/Users/asus/Documents/MATLAB/VSD/main_run.m) normally with `DO_GSA = true`:
+```matlab
+clinical = patient_template();
+main_run('pre_surgery', clinical);
+```
+**Pass criteria:**
+- Step 7 prints PCE progress messages and completes without error
+- `gsa_results_pre_surgery.mat` is saved
+- `make_gsa_summary_table` displays primary metric rankings correctly

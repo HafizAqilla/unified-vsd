@@ -47,11 +47,17 @@ switch scenario
     % here because the mean-gradient conversion factor adds uncertainty.
     % The 4 elastance parameters are genuinely underdetermined.
     calib.names = {
-        'R.vsd'       % VSD shunt resistance  — controls QpQs
-        'E.LV.EA'     % LV active elastance   — controls LVEF, LVEDV→LVESV
-        'E.LV.EB'     % LV passive elastance  — controls diastolic stiffness, LVEDV
-        'E.RV.EA'     % RV active elastance   — controls RVEF, RVEDV→RVESV
-        'E.RV.EB'     % RV passive elastance  — controls RV diastolic filling
+        'R.SAR'       % Systemic arterial resistance
+        'R.SVEN'      % Systemic venous resistance
+        'R.PAR'       % Pulmonary arterial resistance
+        'R.PVEN'      % Pulmonary venous resistance
+        'C.SVEN'      % Systemic venous compliance
+        'E.LV.EA'     % LV active elastance
+        'E.LV.EB'     % LV passive elastance
+        'E.RV.EA'     % RV active elastance
+        'V0.LV'       % LV unstressed volume
+        'V0.RV'       % RV unstressed volume
+        'R.vsd'       % VSD shunt resistance
         };
 
     calib.metricFields = {
