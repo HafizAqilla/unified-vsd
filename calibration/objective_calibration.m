@@ -45,6 +45,8 @@ end
 params.sim.nCyclesSteady = 40;    % matches full-run value; adequate for all explored regions
 params.sim.ss_tol_P      = 0.5;   % [mmHg]  loosened for calibration speed
 params.sim.ss_tol_V      = 0.5;   % [mL]    loosened for calibration speed
+params.sim.rtol          = 1e-8;  % [tightened for L-BFGS-B finite difference gradient noise]
+params.sim.atol          = 1e-10; % [tightened for L-BFGS-B finite difference gradient noise]
 try
     sim = integrate_system(params);
 catch
@@ -85,7 +87,14 @@ for k = 1:numel(calib.metricFields)
     if isfield(metrics, mf)
         y_model = metrics.(mf);
         denom   = max(abs(y_clin), 1e-6);
-        J = J + w * ((y_model - y_clin) / denom)^2;
+        err_rel = abs(y_model - y_clin) / denom;
+        
+        % 100x Barrier logic for primary metrics (> 5% error penalty)
+        if ismember(mf, {'QpQs', 'SAP_mean', 'LVEF'}) && (err_rel > 0.05)
+            w = w * 100;
+        end
+        
+        J = J + w * err_rel^2;
     end
 end
 
