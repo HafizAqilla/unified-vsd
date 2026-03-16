@@ -179,7 +179,14 @@ gsa_final_out = gsa_run_sobol(gsa_final_cfg, params_cal);
 %% =====================================================================
 %  STEP 8 — Validation report
 %% =====================================================================
-report = validation_report(clinical, metrics_base, metrics_cal, scenario);
+results_dir = fullfile(root, 'results', 'tables');
+if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+
+report = validation_report( ...
+    clinical, metrics_base, metrics_cal, scenario, ...
+    'ResultsDir', results_dir, ...
+    'GsaInitOut', gsa_init_out, ...
+    'GsaFinalOut', gsa_final_out);
 
 %% =====================================================================
 %  STEP 9 — Plots
@@ -235,9 +242,6 @@ make_gsa_matrix_table(gsa_final_out, sobol_ST_threshold, true);
 %% =====================================================================
 %  STEP 11 — Save calibrated parameter result package
 %% =====================================================================
-results_dir = fullfile(root, 'results', 'tables');
-if ~exist(results_dir, 'dir'), mkdir(results_dir); end
-
 save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
      'params_cal', 'calib_out', 'report', 'optMask', 'sobol_ST_threshold');
 fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
