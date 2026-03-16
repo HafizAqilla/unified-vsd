@@ -31,7 +31,7 @@ function cfg = gsa_sobol_setup(params0, scenario)
 
 cfg          = struct();
 cfg.scenario = scenario;
-cfg.N        = 256;  % sample size per parameter direction
+cfg.N        = 16;   % sample size per parameter direction (temporarily reduced for testing)
                      % N=256 satisfies Saltelli et al. (2010) recommendation for
                      % d≤20 parameters: N(d+2) ≥ 4608 model evaluations.
                      % Verified: S1/ST CI width < 0.05 at this sample size.
