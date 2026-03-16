@@ -34,7 +34,7 @@ root = fileparts(mfilename('fullpath'));
 addpath(genpath(fullfile(root, '..')));
 
 fprintf('==========================================\n');
-fprintf('  UNIFIED VSD MODEL \u2014 Baseline Test\n');
+fprintf('  UNIFIED VSD MODEL - Baseline Test\n');
 fprintf('==========================================\n\n');
 
 n_pass = 0;
@@ -117,7 +117,7 @@ end
 %% 7. Blood volume conservation — per-cycle check  (Guardrail \u00a78.6 / \u00a710.3)
 %   Integrate ΣdV/dt over the last complete cardiac cycle.
 %   For a closed conservative system, net change must be < bv_tol mL.
-fprintf('\n--- Conservation check (Guardrail \u00a78.6) ---\n');
+fprintf('\n--- Conservation check (Guardrail Section 8.6) ---\n');
 
 sidx    = params.idx;   % state index struct (Guardrail \u00a77.1)
 vol_idx = [sidx.V_RA sidx.V_RV sidx.V_LA sidx.V_LV ...   % volume state indices

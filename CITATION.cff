@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+type: software
+title: "Unified VSD: Cardiovascular Simulation and Optimization Framework"
+authors:
+  - family-names: "Aqilla S"
+    given-names: "Muhammad Hafiz"
+  - family-names: "Keisya"
+    given-names: "Collab"
+version: 1.0.0
+date-released: 2026-03-16
+url: "https://github.com/HafizAqilla/unified-vsd"
