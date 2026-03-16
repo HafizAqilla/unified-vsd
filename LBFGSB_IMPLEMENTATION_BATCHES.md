@@ -46,3 +46,5 @@ This document outlines the sequential coding batches required to fully refactor 
 **Files to touch:** `utils/validation_report.m`
 * **Step 5A:** Update the validation printout table. If any primary metric (Qp/Qs, MAP, LVEF) is `> 5%`, flag it in red/warning text in the MATLAB console.
 * **Step 5B:** Ensure the figures/tables export the *Final* GSA results overlaying the initialized Phase 0 parameters.
+
+**Status (2026-03-16):** ✅ Implemented via explicit 5% primary-metric gate checks and exported initial-vs-final Sobol overlay tables.

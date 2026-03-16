@@ -1,7 +1,8 @@
-function report = validation_report(clinical, metrics_baseline, metrics_cal, scenario)
+function report = validation_report(clinical, metrics_baseline, metrics_cal, scenario, varargin)
 % VALIDATION_REPORT
 % -----------------------------------------------------------------------
-% Produces a scenario-aware comparison table and RMSE summary.
+% Produces a scenario-aware comparison table, RMSE summary, and Batch 5
+% threshold gate checks for primary clinical targets.
 % Combines Hafiz-style formatted output with Keisya-style RMSE computation.
 %
 % INPUTS:
@@ -10,6 +11,10 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %   metrics_cal      - struct from compute_clinical_indices (post-calibration)
 %                      pass [] to skip calibrated column
 %   scenario         - 'pre_surgery' | 'post_surgery'
+%   varargin         - optional name/value inputs:
+%       'ResultsDir'   output directory for exported tables [char/string]
+%       'GsaInitOut'   initial Sobol output struct from gsa_run_sobol
+%       'GsaFinalOut'  final Sobol output struct from gsa_run_sobol
 %
 % OUTPUTS:
 %   report           - struct with:
@@ -17,6 +22,7 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %       .table_cal        MATLAB table: metric, clinical, calibrated, error%
 %       .rmse_baseline    scalar overall RMSE (dimensionless, normalised)
 %       .rmse_cal         scalar overall RMSE after calibration
+%       .primary_gate     table for QpQs / SAP_mean / LVEF pass/fail at 5%
 %
 % METRIC ROWS:
 %   pre_surgery:  RAP_mean, PAP_min/max/mean, QpQs, PVR, SVR,
@@ -30,9 +36,11 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %   [2] Keisya compare_metrics_table / compute_overall_rmse approach.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-02-26
-% VERSION:  1.0
+% DATE:     2026-03-16
+% VERSION:  2.0
 % -----------------------------------------------------------------------
+
+opts = parse_options(varargin{:});
 
 %% Select scenario-specific metric list
 switch scenario
@@ -125,6 +133,9 @@ end
 report.rmse_baseline = compute_rmse(clin_col, base_col);
 report.rmse_cal      = compute_rmse(clin_col, cal_col);
 
+%% Primary metric gate check (Batch 5: strict 5% target)
+report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline);
+
 %% Print to console
 fprintf('\n==========================================================\n');
 fprintf('  VALIDATION REPORT — %s\n', upper(strrep(scenario,'_',' ')));
@@ -139,7 +150,149 @@ if ~isempty(metrics_cal)
         100*(report.rmse_baseline - report.rmse_cal)/max(report.rmse_baseline, 1e-9));
 end
 
+print_primary_gate(report.primary_gate);
+
+%% Export overlay table for initial vs final GSA (Batch 5)
+if ~isempty(opts.ResultsDir) && ~isempty(opts.GsaInitOut) && ~isempty(opts.GsaFinalOut)
+    export_gsa_overlay_tables(opts.ResultsDir, scenario, opts.GsaInitOut, opts.GsaFinalOut);
+end
+
 end  % validation_report
+
+% =========================================================================
+function opts = parse_options(varargin)
+% PARSE_OPTIONS — parse optional name/value arguments.
+parser = inputParser;
+parser.FunctionName = mfilename;
+addParameter(parser, 'ResultsDir', '', @(x) ischar(x) || isstring(x));
+addParameter(parser, 'GsaInitOut', [], @(x) isempty(x) || isstruct(x));
+addParameter(parser, 'GsaFinalOut', [], @(x) isempty(x) || isstruct(x));
+parse(parser, varargin{:});
+opts = parser.Results;
+end
+
+function gate_tbl = primary_metric_gate(table_cal, table_base)
+% PRIMARY_METRIC_GATE — evaluate strict 5% absolute error gate.
+primary_names = {'QpQs', 'SAP_mean', 'LVEF'};
+metric_col = primary_names(:);
+clinical_col = nan(numel(primary_names), 1);
+model_col = nan(numel(primary_names), 1);
+abs_err_pct_col = nan(numel(primary_names), 1);
+pass_col = false(numel(primary_names), 1);
+
+src_tbl = table_base;
+if ~isempty(table_cal)
+    src_tbl = table_cal;
+end
+
+for i = 1:numel(primary_names)
+    idx = find(strcmp(src_tbl.Metric, primary_names{i}), 1, 'first');
+    if isempty(idx)
+        continue;
+    end
+
+    clinical_col(i) = src_tbl.Clinical(idx);
+    if ismember('Calibrated', src_tbl.Properties.VariableNames)
+        model_col(i) = src_tbl.Calibrated(idx);
+    else
+        model_col(i) = src_tbl.Baseline(idx);
+    end
+
+    abs_err_pct_col(i) = abs(src_tbl.Error_pct(idx));
+    pass_col(i) = ~isnan(abs_err_pct_col(i)) && abs_err_pct_col(i) <= 5.0;
+end
+
+gate_tbl = table(metric_col, clinical_col, model_col, abs_err_pct_col, pass_col, ...
+    'VariableNames', {'Metric', 'Clinical', 'Model', 'AbsError_pct', 'Pass_5pct'});
+end
+
+function print_primary_gate(gate_tbl)
+% PRINT_PRIMARY_GATE — print explicit pass/fail warning lines for 5% gate.
+fprintf('\n--- PRIMARY 5%% TARGET GATE (Qp/Qs, MAP, LVEF) ---\n');
+disp(gate_tbl);
+
+idx_fail = find(~gate_tbl.Pass_5pct | isnan(gate_tbl.Pass_5pct));
+if isempty(idx_fail)
+    fprintf('[PASS] All primary metrics are within 5%% absolute error.\n');
+    return;
+end
+
+for i = 1:numel(idx_fail)
+    k = idx_fail(i);
+    fprintf(2, '[WARNING] %s exceeds 5%% absolute error (|error| = %.2f%%).\n', ...
+        gate_tbl.Metric{k}, gate_tbl.AbsError_pct(k));
+end
+end
+
+function export_gsa_overlay_tables(results_dir, scenario, gsa_init_out, gsa_final_out)
+% EXPORT_GSA_OVERLAY_TABLES — export initial vs final Sobol ST overlay table.
+if ~exist(results_dir, 'dir')
+    mkdir(results_dir);
+end
+
+overlay_tbl = build_overlay_table(gsa_init_out, gsa_final_out);
+if isempty(overlay_tbl)
+    warning('validation_report:noGsaOverlayRows', ...
+        'No GSA overlay rows were generated; skipping table export.');
+    return;
+end
+
+csv_path = fullfile(results_dir, sprintf('gsa_overlay_%s.csv', scenario));
+mat_path = fullfile(results_dir, sprintf('gsa_overlay_%s.mat', scenario));
+
+writetable(overlay_tbl, csv_path);
+save(mat_path, 'overlay_tbl');
+
+fprintf('[validation_report] GSA overlay table saved:\n  %s\n  %s\n', ...
+    csv_path, mat_path);
+end
+
+function overlay_tbl = build_overlay_table(gsa_init_out, gsa_final_out)
+% BUILD_OVERLAY_TABLE — long table with initial/final ST and delta per metric.
+metrics_init = fieldnames(gsa_init_out);
+metrics_final = fieldnames(gsa_final_out);
+ignore_fields = {'scenario', 'cfg'};
+metrics_init = metrics_init(~ismember(metrics_init, ignore_fields));
+metrics_final = metrics_final(~ismember(metrics_final, ignore_fields));
+metrics = intersect(metrics_init, metrics_final, 'stable');
+
+rows = {};
+for m = 1:numel(metrics)
+    mf = metrics{m};
+    if ~isfield(gsa_init_out.(mf), 'table') || ~isfield(gsa_final_out.(mf), 'table')
+        continue;
+    end
+
+    t_init = gsa_init_out.(mf).table;
+    t_final = gsa_final_out.(mf).table;
+    if isempty(t_init) || isempty(t_final)
+        continue;
+    end
+
+    [is_common, idx_final] = ismember(t_init.Parameter, t_final.Parameter);
+    idx_init = find(is_common);
+    idx_final = idx_final(is_common);
+    if isempty(idx_init)
+        continue;
+    end
+
+    for r = 1:numel(idx_init)
+        p_name = t_init.Parameter{idx_init(r)};
+        st_init = t_init.Sobol_ST(idx_init(r));
+        st_final = t_final.Sobol_ST(idx_final(r));
+        rows(end+1, :) = {mf, p_name, st_init, st_final, st_final - st_init}; %#ok<AGROW>
+    end
+end
+
+if isempty(rows)
+    overlay_tbl = table();
+    return;
+end
+
+overlay_tbl = cell2table(rows, ...
+    'VariableNames', {'Metric', 'Parameter', 'ST_Initial', 'ST_Final', 'Delta_ST'});
+overlay_tbl = sortrows(overlay_tbl, {'Metric', 'ST_Final'}, {'ascend', 'descend'});
+end
 
 % =========================================================================
 function rmse = compute_rmse(y_clin, y_model)
