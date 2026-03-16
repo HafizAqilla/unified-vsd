@@ -39,6 +39,8 @@ This document outlines the sequential coding batches required to fully refactor 
     3. Call `run_calibration` using the mask.
     4. Call `gsa_run_sobol` *again* using the newly optimized parameters for final reporting.
 
+**Status (2026-03-16):** ✅ Implemented in `main_run.m` as a mandatory sequential Sobol-driven calibration pipeline.
+
 ## 📦 BATCH 5: Validation & Final Output
 **Goal:** Ensure the system explicitly proves it hit the < 5% target and saves the final sensitivity data.
 **Files to touch:** `utils/validation_report.m`
