@@ -1,4 +1,4 @@
-function calib = calibration_param_sets(scenario, params0)
+function calib = calibration_param_sets(scenario, params0, optMask)
 % CALIBRATION_PARAM_SETS
 % -----------------------------------------------------------------------
 % Returns the scenario-specific calibration configuration struct.
@@ -18,13 +18,20 @@ function calib = calibration_param_sets(scenario, params0)
 % INPUTS:
 %   scenario  - 'pre_surgery' | 'post_surgery'
 %   params0   - current (scaled) parameter struct (used to set x0 & bounds)
+%   optMask   - optional logical mask for active parameters [nParam x 1]
+%               true  = active in optimisation
+%               false = frozen (kept at baseline)
 %
 % OUTPUTS:
 %   calib     - struct with fields:
-%     .names           cell array of parameter names (dot-notation)
+%     .names_all       full cell array of parameter names (dot-notation)
+%     .names           active-only parameter names
 %     .metricFields    cell array of metric field names to match
 %     .weights         struct of per-metric weights
 %     .regLambda       regularisation strength
+%     .mask            logical active-parameter mask
+%     .x0_all          full initial guess vector
+%     .lb_all, .ub_all full lower / upper bounds vectors
 %     .x0              initial guess vector
 %     .lb, .ub         lower / upper bounds vectors
 %
@@ -59,6 +66,7 @@ switch scenario
         'V0.RV'       % RV unstressed volume
         'R.vsd'       % VSD shunt resistance
         };
+    calib.names_all = calib.names;
 
     calib.metricFields = {
         'RAP_mean'
@@ -107,6 +115,7 @@ switch scenario
         'E.RV.EA'     % RV active elastance
         'E.RV.EB'     % RV passive elastance
         };
+    calib.names_all = calib.names;
 
     calib.metricFields = {
         'SAP_min'
@@ -144,9 +153,33 @@ end
 %  optimiser from moving parameters far enough to match clinical targets.
 calib.regLambda = 0;
 
-%% Initial guess and bounds from current params0
-calib.x0 = pack_x(params0, calib.names);
-[calib.lb, calib.ub] = bounds_from_names(params0, calib.names, scenario);
+%% Initial guess and bounds from current params0 (full parameter set)
+calib.x0_all = pack_x(params0, calib.names_all);
+[calib.lb_all, calib.ub_all] = bounds_from_names(params0, calib.names_all, scenario);
+
+%% Optional optimisation mask (Batch 2 GSA bridge)
+if nargin < 3 || isempty(optMask)
+    optMask = true(numel(calib.names_all), 1);
+end
+
+optMask = logical(optMask(:));
+if numel(optMask) ~= numel(calib.names_all)
+    error('calibration_param_sets:maskSizeMismatch', ...
+          'Mask length (%d) must match parameter count (%d).', ...
+          numel(optMask), numel(calib.names_all));
+end
+if ~any(optMask)
+    error('calibration_param_sets:emptyActiveSet', ...
+          'Mask deactivates all parameters. At least one active parameter is required.');
+end
+
+calib.mask = optMask;
+
+% Active subset passed to the optimizer.
+calib.names = calib.names_all(calib.mask);
+calib.x0    = calib.x0_all(calib.mask);
+calib.lb    = calib.lb_all(calib.mask);
+calib.ub    = calib.ub_all(calib.mask);
 
 end  % calibration_param_sets
 

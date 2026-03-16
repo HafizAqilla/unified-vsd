@@ -1,4 +1,4 @@
-function [params_best, calib_out] = run_calibration(params0, clinical, scenario)
+function [params_best, calib_out] = run_calibration(params0, clinical, scenario, optMask)
 % RUN_CALIBRATION
 % -----------------------------------------------------------------------
 % Calibrates a scenario-specific subset of model parameters to clinical
@@ -23,6 +23,7 @@ function [params_best, calib_out] = run_calibration(params0, clinical, scenario)
 %   params0   - baseline (scaled, pre-conditioned by params_from_clinical)
 %   clinical  - unified clinical struct
 %   scenario  - 'pre_surgery' | 'post_surgery'
+%   optMask   - optional logical mask of active parameters [nParam x 1]
 %
 % OUTPUTS:
 %   params_best - parameter struct with optimized elastances
@@ -40,7 +41,10 @@ function [params_best, calib_out] = run_calibration(params0, clinical, scenario)
 % -----------------------------------------------------------------------
 
 %% Retrieve scenario-specific calibration configuration
-calib = calibration_param_sets(scenario, params0);
+if nargin < 4
+    optMask = [];
+end
+calib = calibration_param_sets(scenario, params0, optMask);
 d     = numel(calib.names);
 
 %% Objective function handle
