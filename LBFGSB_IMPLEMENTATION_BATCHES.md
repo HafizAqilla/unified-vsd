@@ -27,6 +27,8 @@ This document outlines the sequential coding batches required to fully refactor 
     * `'FiniteDifferenceStepSize', 1e-5` *(Crucial to step over the ODE noise from Batch 1)*
 * **Step 3C:** Rewrite the `fmincon` call to only optimize the array subset defined by the `mask` from Batch 2, then automatically re-insert those optimized variables back into the full 11-parameter array.
 
+**Status (2026-03-16):** ✅ Implemented in `calibration/run_calibration.m` with `fmincon` (`interior-point` + `lbfgs`) and mask-aware active-subset optimization.
+
 ## 📦 BATCH 4: Re-Plumbing the Main Pipeline
 **Goal:** Force `main_run.m` to execute sequentially: Phase 0 $\rightarrow$ Initial GSA $\rightarrow$ Optimization $\rightarrow$ Final GSA, rather than using isolated toggles.
 **Files to touch:** `main_run.m`
