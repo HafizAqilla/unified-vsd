@@ -12,7 +12,11 @@ function metrics = compute_clinical_indices(sim, params)
 %
 % FIELDS RETURNED:
 %   RAP_mean   [mmHg]   right atrial mean pressure
+%   RAP_min    [mmHg]   right atrial diastolic-like minimum
+%   RAP_max    [mmHg]   right atrial systolic-like maximum
 %   LAP_mean   [mmHg]   left atrial mean pressure
+%   LAP_min    [mmHg]   left atrial diastolic-like minimum
+%   LAP_max    [mmHg]   left atrial systolic-like maximum
 %   PAP_min    [mmHg]   PA pressure minimum
 %   PAP_max    [mmHg]   PA pressure maximum
 %   PAP_mean   [mmHg]   PA time-averaged mean
@@ -37,7 +41,11 @@ function metrics = compute_clinical_indices(sim, params)
 %   RVEF       [-]      RV ejection fraction (fraction)
 %   LVSV       [mL]     LV stroke volume
 %   RVSV       [mL]     RV stroke volume
+%   CO_Lmin    [L/min]  cardiac output from LV stroke volume and HR
+%   Qp_mean_mLs [mL/s]  mean pulmonary flow proxy (Q_PVEN)
+%   Qs_mean_mLs [mL/s]  mean systemic flow proxy (Q_SVEN)
 %   Q_shunt_mean_mLs  [mL/s]   mean VSD shunt flow
+%   VSD_frac_pct [%]   shunt fraction relative to pulmonary flow
 %
 % REFERENCES:
 %   [1] system_rhs.m — state layout and ODE formulation.
@@ -80,7 +88,11 @@ metrics = struct();
 
 %% Atrial pressures
 metrics.RAP_mean = mean_t(Pc.RA);   % [mmHg]
+metrics.RAP_min  = min(Pc.RA);      % [mmHg]
+metrics.RAP_max  = max(Pc.RA);      % [mmHg]
 metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
+metrics.LAP_min  = min(Pc.LA);      % [mmHg]
+metrics.LAP_max  = max(Pc.LA);      % [mmHg]
 
 %% Pulmonary artery  (P_PAR)
 metrics.PAP_min  = min(Pc.PAR);     % [mmHg]
@@ -110,6 +122,8 @@ Qsys_mLs  = mean_t(Qc.SVEN);                   % [mL/s]  systemic venous return
 Qpul_mLs  = mean_t(Qc.PVEN);                   % [mL/s]  pulmonary venous return
 Qsys_Lmin = Qsys_mLs  * mLs_to_Lmin;          % [L/min]
 Qpul_Lmin = Qpul_mLs  * mLs_to_Lmin;          % [L/min]
+metrics.Qs_mean_mLs = Qsys_mLs;               % [mL/s]
+metrics.Qp_mean_mLs = Qpul_mLs;               % [mL/s]
 
 %% Resistances  (Wood units = mmHg / [L/min])
 metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);   % [WU]
@@ -134,6 +148,10 @@ metrics.RVSV  = metrics.RVEDV - metrics.RVESV;   % [mL]
 
 %% VSD shunt
 metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);   % [mL/s]  positive = L→R
+metrics.VSD_frac_pct = 100 * metrics.Q_shunt_mean_mLs / max(metrics.Qp_mean_mLs, 1e-6); % [%]
+
+%% Cardiac output (LV-derived)
+metrics.CO_Lmin = metrics.LVSV * params.HR / 1000;   % [L/min]
 
 end  % compute_clinical_indices
 
