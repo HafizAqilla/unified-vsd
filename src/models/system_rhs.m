@@ -107,7 +107,8 @@ Q_AV  = valve_model(P_LV,  P_SAR, params);   % Aortic:     LV  → SAR
 % --- VSD shunt: LV ↔ RV  ------------------------------------------------
 % Q_VSD > 0  ≡  left-to-right shunt (L→R, physiologically typical for VSD)
 % When params.R.vsd is very large (post-surgery), Q_VSD ≈ 0.
-Q_VSD = (P_LV - P_RV) / params.R.vsd;
+% Smooth-diode gate prevents reverse shunt; see vsd_shunt_model.m for rationale.
+Q_VSD = vsd_shunt_model(P_LV, P_RV, params);
 
 % =====================================================================
 %  SYSTEMIC CIRCUIT  (Eq. 2.5)
