@@ -31,10 +31,16 @@ function cfg = gsa_sobol_setup(params0, scenario)
 
 cfg          = struct();
 cfg.scenario = scenario;
-cfg.N        = 16;   % sample size per parameter direction (temporarily reduced for testing)
-                     % N=256 satisfies Saltelli et al. (2010) recommendation for
-                     % d≤20 parameters: N(d+2) ≥ 4608 model evaluations.
-                     % Verified: S1/ST CI width < 0.05 at this sample size.
+cfg.N        = 512;  % sample size per parameter direction
+                     % For d=19 (pre-surgery): N_total = N(d+2) = 512×21 = 10,752 evaluations.
+                     % Saltelli et al. (2010): N(d+2) ≥ 4608 for d≤20 — this exceeds requirement.
+                     % Use N=256 during development; report N=512 in thesis.
+
+% GSA evaluations use reduced warmup for speed (SS not critical per-sample).
+% Without this, N=512 at full 80-cycle fidelity may take days, not hours.
+cfg.gsa_sim_overrides.nCyclesSteady = 10;   % not 80
+cfg.gsa_sim_overrides.ss_tol_P      = 1.0;  % [mmHg] relaxed
+cfg.gsa_sim_overrides.ss_tol_V      = 1.0;  % [mL]   relaxed
 
 %% =====================================================================
 %  UNCERTAIN PARAMETERS  (shared across both scenarios)

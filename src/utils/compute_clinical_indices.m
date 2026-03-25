@@ -146,58 +146,41 @@ function [P, Q] = reconstruct_signals(t, XV, params)
 %   P.RA, P.RV, P.LA, P.LV, P.SAR, P.SVEN, P.PAR, P.PVEN [mmHg]
 %   Q.TV, Q.PVv, Q.MV, Q.AV, Q.SVEN, Q.PVEN, Q.VSD       [mL/s]
 
-n    = numel(t);
 sidx = params.idx;   % state index struct (Guardrail §7.1)
 
-P.RA   = zeros(n,1); P.RV  = zeros(n,1);
-P.LA   = zeros(n,1); P.LV  = zeros(n,1);
-P.SAR  = zeros(n,1); P.SVEN= zeros(n,1);
-P.PAR  = zeros(n,1); P.PVEN= zeros(n,1);
+V_RA   = XV(:, sidx.V_RA);      % [mL]
+V_RV   = XV(:, sidx.V_RV);      % [mL]
+V_LA   = XV(:, sidx.V_LA);      % [mL]
+V_LV   = XV(:, sidx.V_LV);      % [mL]
+V_SAR  = XV(:, sidx.V_SAR);     % [mL]
+V_SVEN = XV(:, sidx.V_SVEN);    % [mL]
+Q_SVEN = XV(:, sidx.Q_SVEN);    % [mL/s]
+V_PAR  = XV(:, sidx.V_PAR);     % [mL]
+V_PVEN = XV(:, sidx.V_PVEN);    % [mL]
+Q_PVEN = XV(:, sidx.Q_PVEN);    % [mL/s]
 
-Q.TV   = zeros(n,1); Q.PVv  = zeros(n,1);
-Q.MV   = zeros(n,1); Q.AV   = zeros(n,1);
-Q.SVEN = zeros(n,1); Q.PVEN = zeros(n,1);
-Q.VSD  = zeros(n,1);
+[E_LV, E_RV, E_LA, E_RA] = elastance_model(t, params);
 
-for i = 1:n
-    xi     = XV(i,:)';
-    V_RA   = xi(sidx.V_RA);    % [mL]
-    V_RV   = xi(sidx.V_RV);    % [mL]
-    V_LA   = xi(sidx.V_LA);    % [mL]
-    V_LV   = xi(sidx.V_LV);    % [mL]
-    V_SAR  = xi(sidx.V_SAR);   % [mL]
-    V_SVEN = xi(sidx.V_SVEN);  % [mL]
-    Q_SVEN_i = xi(sidx.Q_SVEN); % [mL/s]
-    V_PAR  = xi(sidx.V_PAR);   % [mL]
-    P_PC_i = xi(sidx.P_PC);    % [mmHg]  (unused in pressure reconstruction; suppress warning)
-    V_PVEN = xi(sidx.V_PVEN);  % [mL]
-    Q_PVEN_i = xi(sidx.Q_PVEN); % [mL/s]
+P_RA   = max(E_RA .* (V_RA - params.V0.RA), -5);            % [mmHg]
+P_RV   = E_RV .* (V_RV - params.V0.RV);                     % [mmHg]
+P_LA   = max(E_LA .* (V_LA - params.V0.LA), -5);            % [mmHg]
+P_LV   = E_LV .* (V_LV - params.V0.LV);                     % [mmHg]
 
-    [E_LV_i, E_RV_i, E_LA_i, E_RA_i] = elastance_model(t(i), params);
+P_SAR  = (V_SAR  - params.V0.SAR)  ./ params.C.SAR;         % [mmHg]
+P_SVEN = max((V_SVEN - params.V0.SVEN) ./ params.C.SVEN, -5); % [mmHg]
+P_PAR  = (V_PAR  - params.V0.PAR)  ./ params.C.PAR;         % [mmHg]
+P_PVEN = max((V_PVEN - params.V0.PVEN) ./ params.C.PVEN, -5); % [mmHg]
 
-    P_RA_i = max(E_RA_i * (V_RA - params.V0.RA), -5);    % [mmHg]
-    P_RV_i = E_RV_i * (V_RV - params.V0.RV);              % [mmHg]
-    P_LA_i = max(E_LA_i * (V_LA - params.V0.LA), -5);    % [mmHg]
-    P_LV_i = E_LV_i * (V_LV - params.V0.LV);              % [mmHg]
+P.RA   = P_RA;   P.RV = P_RV;
+P.LA   = P_LA;   P.LV = P_LV;
+P.SAR  = P_SAR;  P.SVEN = P_SVEN;
+P.PAR  = P_PAR;  P.PVEN = P_PVEN;
 
-    P_SAR_i  = (V_SAR  - params.V0.SAR)  / params.C.SAR;             % [mmHg]
-    P_SVEN_i = max((V_SVEN - params.V0.SVEN) / params.C.SVEN, -5);   % [mmHg]
-    P_PAR_i  = (V_PAR  - params.V0.PAR)  / params.C.PAR;             % [mmHg]
-    P_PVEN_i = max((V_PVEN - params.V0.PVEN) / params.C.PVEN, -5);   % [mmHg]
-
-    P.RA(i)   = P_RA_i; P.RV(i) = P_RV_i;
-    P.LA(i)   = P_LA_i; P.LV(i) = P_LV_i;
-    P.SAR(i)  = P_SAR_i; P.SVEN(i) = P_SVEN_i;
-    P.PAR(i)  = P_PAR_i; P.PVEN(i) = P_PVEN_i;
-
-    Q.TV(i)   = valve_model(P_RA_i,  P_RV_i,  params);   % [mL/s]
-    Q.PVv(i)  = valve_model(P_RV_i,  P_PAR_i, params);   % [mL/s]
-    Q.MV(i)   = valve_model(P_LA_i,  P_LV_i,  params);   % [mL/s]
-    Q.AV(i)   = valve_model(P_LV_i,  P_SAR_i, params);   % [mL/s]
-    Q.SVEN(i) = Q_SVEN_i;                                 % [mL/s]
-    Q.PVEN(i) = Q_PVEN_i;                                 % [mL/s]
-    Q.VSD(i)  = (P_LV_i - P_RV_i) / params.R.vsd;        % [mL/s] positive = L→R
-
-    P_PC_i; %#ok<VUNUS>  % P_PC is a state but not re-derived from volumes here
-end
+Q.TV   = valve_model(P_RA,  P_RV,  params);                 % [mL/s]
+Q.PVv  = valve_model(P_RV,  P_PAR, params);                 % [mL/s]
+Q.MV   = valve_model(P_LA,  P_LV,  params);                 % [mL/s]
+Q.AV   = valve_model(P_LV,  P_SAR, params);                 % [mL/s]
+Q.SVEN = Q_SVEN;                                             % [mL/s]
+Q.PVEN = Q_PVEN;                                             % [mL/s]
+Q.VSD  = vsd_shunt_model(P_LV, P_RV, params);               % [mL/s] positive = L→R
 end  % reconstruct_signals

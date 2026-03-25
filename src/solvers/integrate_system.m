@@ -62,7 +62,8 @@ T_HB  = 60 / params.HR;           % cardiac cycle period  [s]
 % =====================================================================
 odefun = @(t_ode, X) system_rhs(t_ode, X, params);
 opts   = odeset('RelTol', params.sim.rtol, 'AbsTol', params.sim.atol, ...
-                'MaxStep', T_HB / 50);   % prevent solver from skipping valve events
+                'MaxStep', T_HB / 50, ...   % prevent solver from skipping valve events
+                'Refine', 4);               % 4 extra output points per accepted step
 
 nCyc     = params.sim.nCyclesSteady;
 X_current = params.ic.V(:);              % [14×1] initial condition  [mixed units]
@@ -77,37 +78,49 @@ ss_tol_V = params.sim.ss_tol_V;   % [mL]    steady-state volume tolerance
 sidx = params.idx;   % state index struct (Guardrail §7.1)
 
 % Volume state indices and pressure state index (for convergence test)
-vol_state_idx = [sidx.V_RA sidx.V_RV sidx.V_LA sidx.V_LV ...
-                 sidx.V_SAR sidx.V_SC sidx.V_SVEN sidx.V_PAR sidx.V_PVEN];
+vol_state_idx  = [sidx.V_RA sidx.V_RV sidx.V_LA sidx.V_LV ...
+                  sidx.V_SAR sidx.V_SC sidx.V_SVEN sidx.V_PAR sidx.V_PVEN];
 pres_state_idx = sidx.P_PC;   % only direct pressure state in the vector
+% Flow state indices — relative convergence check per plan §1.3
+% X_k columns at these indices hold Q states [mL/s] (see system_rhs.m layout)
+flow_state_idx = [sidx.Q_SAR sidx.Q_SVEN sidx.Q_PAR sidx.Q_PVEN];
 
 peak_prev = zeros(1, 14);
 ss_reached = false;
 
 for k = 1:nCyc
     t_span  = [(k-1)*T_HB, k*T_HB];
-    [t_k, V_k] = ode15s(odefun, t_span, X_current, opts);
-    X_current  = V_k(end, :)';
+    [t_k, X_k] = ode15s(odefun, t_span, X_current, opts);
+    % X_k is the full state matrix [n×14]: volumes, flows, and P_PC pressure.
+    % Variable named X_k (not V_k) to avoid confusion with volume-only arrays.
+    X_current  = X_k(end, :)';
 
-    peak_now = max(abs(V_k), [], 1);   % peak magnitude per state
+    peak_now = max(abs(X_k), [], 1);   % peak magnitude per state
 
     if k > 1
         delta_V = abs(peak_now(vol_state_idx)  - peak_prev(vol_state_idx));
         delta_P = abs(peak_now(pres_state_idx) - peak_prev(pres_state_idx));
-        if max(delta_V) < ss_tol_V && max(delta_P) < ss_tol_P
+
+        % Flow-state relative convergence (§1.3): 0.5% relative change
+        mean_Q        = mean(abs(X_k(:, flow_state_idx)), 1);   % cycle-mean |Q| [mL/s]
+        delta_Q_rel   = abs(peak_now(flow_state_idx) - peak_prev(flow_state_idx)) ...
+                        ./ max(mean_Q, 1e-6);
+        ss_converged_Q = all(delta_Q_rel < params.sim.ss_rtol);
+
+        if max(delta_V) < ss_tol_V && max(delta_P) < ss_tol_P && ss_converged_Q
             ss_reached = true;
             % Keep this cycle and the previous one for output
             t_last = t_k;
-            V_last = V_k;
+            V_last = X_k;
             % Allow nCyclesKeep-1 additional cycles to collect output
             remaining = params.sim.nCyclesKeep - 1;
             for j = 1:remaining
                 t_span = [t_k(end), t_k(end) + T_HB];
-                [t_j, V_j] = ode15s(odefun, t_span, V_k(end,:)', opts);
+                [t_j, X_j] = ode15s(odefun, t_span, X_k(end,:)', opts);
                 t_last = [t_last; t_j(2:end)]; %#ok<AGROW>
-                V_last = [V_last; V_j(2:end,:)]; %#ok<AGROW>
+                V_last = [V_last; X_j(2:end,:)]; %#ok<AGROW>
                 t_k = t_j;
-                V_k = V_j;
+                X_k = X_j;
             end
             break;
         end
@@ -115,7 +128,7 @@ for k = 1:nCyc
 
     % Save last two cycles for output fallback
     t_prev = t_k;
-    V_prev = V_k;
+    V_prev = X_k;
     peak_prev = peak_now;
 end
 

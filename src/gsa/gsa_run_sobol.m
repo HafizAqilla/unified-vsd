@@ -42,11 +42,29 @@ AB     = S.AB;
 
 all_metrics = cfg.all_metrics;
 
+% Apply GSA-mode simulation overrides (reduced warmup cycles for speed).
+% These are set in gsa_sobol_setup.m. Without them, N=512 at full fidelity
+% can take days. SS precision is not critical per GSA sample.
+if isfield(cfg, 'gsa_sim_overrides')
+    ov = cfg.gsa_sim_overrides;
+    if isfield(ov, 'nCyclesSteady'), params0.sim.nCyclesSteady = ov.nCyclesSteady; end
+    if isfield(ov, 'ss_tol_P'),      params0.sim.ss_tol_P      = ov.ss_tol_P;      end
+    if isfield(ov, 'ss_tol_V'),      params0.sim.ss_tol_V      = ov.ss_tol_V;      end
+end
+
 fprintf('[gsa_run_sobol] Evaluating A matrix (%d runs)...\n', cfg.N);
-YA = evaluate_sample_matrix(A, params0, names, all_metrics);
+YA = evaluate_sample_matrix(A, params0, names, all_metrics, 'A matrix');
 
 fprintf('[gsa_run_sobol] Evaluating B matrix (%d runs)...\n', cfg.N);
-YB = evaluate_sample_matrix(B, params0, names, all_metrics);
+YB = evaluate_sample_matrix(B, params0, names, all_metrics, 'B matrix');
+
+fprintf('[gsa_run_sobol] Evaluating A_Bi matrices (%d params, %d runs each)...\n', d, cfg.N);
+YAB = cell(d, 1);
+for i = 1:d
+    fprintf('[gsa_run_sobol]   Parameter %d/%d: %s\n', i, d, names{i});
+    YAB{i} = evaluate_sample_matrix(AB{i}, params0, names, all_metrics, ...
+                                    sprintf('AB matrix %d/%d', i, d));
+end
 
 gsa_out = struct();
 
@@ -62,10 +80,7 @@ for m = 1:numel(all_metrics)
     STi  = zeros(d, 1);
 
     for i = 1:d
-        fprintf('[gsa_run_sobol]   Parameter %d/%d: %s (metric: %s)\n', ...
-                i, d, names{i}, mf);
-        YABi  = evaluate_sample_matrix(AB{i}, params0, names, {mf});
-        yABi  = YABi.(mf);
+        yABi = YAB{i}.(mf);
 
         % Jansen estimators
         STi(i) = mean((yA - yABi).^2) / (2 * VY);
@@ -76,12 +91,34 @@ for m = 1:numel(all_metrics)
     S1i = max(min(S1i,  1.0), -0.2);
     STi = max(min(STi,  1.0),  0.0);
 
-    T = table(names(:), S1i, STi, ...
-        'VariableNames', {'Parameter', 'Sobol_S1', 'Sobol_ST'});
+    % Bootstrap 95% confidence intervals for S1 and ST (Saltelli 2010 §4)
+    n_boot   = 200;
+    N        = numel(yA);
+    S1_boot  = zeros(d, n_boot);
+    ST_boot  = zeros(d, n_boot);
+    for b = 1:n_boot
+        idx_b  = randi(N, N, 1);
+        yA_b   = yA(idx_b);
+        yB_b   = yB(idx_b);
+        VY_b   = max(var([yA_b; yB_b], 1), 1e-12);
+        for i = 1:d
+            yABi_b      = YAB{i}.(mf)(idx_b);
+            ST_boot(i,b) = mean((yA_b - yABi_b).^2) / (2 * VY_b);
+            S1_boot(i,b) = 1 - mean((yB_b - yABi_b).^2) / (2 * VY_b);
+        end
+    end
+    S1_CI = prctile(S1_boot, [2.5 97.5], 2);   % [d × 2]  lower/upper
+    ST_CI = prctile(ST_boot, [2.5 97.5], 2);   % [d × 2]  lower/upper
+
+    T = table(names(:), S1i, STi, S1_CI(:,1), S1_CI(:,2), ST_CI(:,1), ST_CI(:,2), ...
+        'VariableNames', {'Parameter', 'Sobol_S1', 'Sobol_ST', ...
+                          'S1_CI_lo', 'S1_CI_hi', 'ST_CI_lo', 'ST_CI_hi'});
     T = sortrows(T, 'Sobol_ST', 'descend');
 
     gsa_out.(mf).S1      = S1i;
     gsa_out.(mf).ST      = STi;
+    gsa_out.(mf).S1_CI   = S1_CI;   % [d × 2]  95% bootstrap CI for S1
+    gsa_out.(mf).ST_CI   = ST_CI;   % [d × 2]  95% bootstrap CI for ST
     gsa_out.(mf).table   = T;
     gsa_out.(mf).primary = ismember(mf, cfg.primary_metrics);
 end
@@ -97,32 +134,74 @@ end  % gsa_run_sobol
 %  LOCAL HELPER
 % =========================================================================
 
-function Y = evaluate_sample_matrix(X_mat, params0, names, metric_list)
+function Y = evaluate_sample_matrix(X_mat, params0, names, metric_list, stage_label)
 % EVALUATE_SAMPLE_MATRIX — run the model for each row of parameter matrix X_mat
 %   X_mat   : N × d  matrix of parameter values
 %   Returns struct Y with one N-vector per metric in metric_list.
 
 N = size(X_mat, 1);
-for f = 1:numel(metric_list)
-    Y.(metric_list{f}) = zeros(N, 1);
+F = numel(metric_list);
+Y_mat = zeros(N, F);
+
+% Live progress indicator so long GSA batches do not appear stuck.
+count_done = 0;
+last_pct   = -1;
+h_wait = [];
+show_waitbar = usejava('desktop') && feature('ShowFigureWindows');
+if show_waitbar
+    h_wait = waitbar(0, sprintf('%s: 0/%d', stage_label, N), ...
+        'Name', 'GSA Progress');
+else
+    fprintf('[gsa_run_sobol]   %s: 0%%\n', stage_label);
 end
 
-for k = 1:N
+dq = parallel.pool.DataQueue;
+afterEach(dq, @update_progress);
+
+parfor k = 1:N    % Switched to parfor for massively faster execution!
     params = apply_sample_row(params0, names, X_mat(k,:)');
+    row_out = zeros(1, F);
     try
         sim     = integrate_system(params);
         metrics = compute_clinical_indices(sim, params);
-        for f = 1:numel(metric_list)
+        for f = 1:F
             mf = metric_list{f};
             if isfield(metrics, mf)
-                Y.(mf)(k) = metrics.(mf);
+                row_out(f) = metrics.(mf);
             end
         end
     catch
         % Failed simulation: leave as 0 (contributes to variance but does
         % not crash the estimator; flag if too many failures occur)
     end
+    Y_mat(k, :) = row_out;
+    send(dq, 1);
 end
+
+if ~isempty(h_wait) && isvalid(h_wait)
+    close(h_wait);
+end
+
+Y = struct();
+for f = 1:F
+    Y.(metric_list{f}) = Y_mat(:, f);
+end
+
+    function update_progress(~)
+        count_done = count_done + 1;
+        pct = floor(100 * count_done / max(N, 1));
+        if pct == last_pct
+            return;
+        end
+        last_pct = pct;
+
+        if ~isempty(h_wait) && isvalid(h_wait)
+            waitbar(count_done / N, h_wait, sprintf('%s: %d/%d (%d%%)', ...
+                stage_label, count_done, N, pct));
+        elseif mod(pct, 10) == 0 || pct == 100
+            fprintf('[gsa_run_sobol]   %s: %d%%\n', stage_label, pct);
+        end
+    end
 end
 
 function params = apply_sample_row(params0, names, x)

@@ -79,8 +79,10 @@ params.sim.rtol          = 1e-7;   % ode15s relative tolerance
 params.sim.atol          = 1e-8;   % ode15s absolute tolerance
 % Convergence criterion: max peak-value change between last two cycles
 %   < 0.1 mmHg (pressures)  and  < 0.1 mL (volumes)  → steady state reached
+%   + relative change in flow states < ss_rtol (0.5%)  → flow-state convergence
 params.sim.ss_tol_P      = 0.1;    % [mmHg]  steady-state pressure tolerance
 params.sim.ss_tol_V      = 0.1;    % [mL]    steady-state volume tolerance
+params.sim.ss_rtol       = 0.005;  % [-]     flow-state relative convergence tolerance (0.5%)
 
 %% Patient demographics (overwritten by apply_scaling / params_from_clinical)
 params.HR = 75;   % [bpm]  adult resting heart rate — Source: Valenti Table 3.3
@@ -95,10 +97,13 @@ params.conv.mm_to_m    = 1e-3;      % mm   -> m   (length)
 params.conv.m3_to_mL   = 1e6;       % m³   -> mL  (volume, from SI flow to mL/s)
 
 %% Valve soft-switching parameter  (Guardrail §8.4)
-%   epsilon_valve [mmHg]: width of the smooth transition zone.
-%   Larger = smoother but less physiologically sharp.
-%   Source: tuned to prevent solver step-size collapse; see valve_model.m.
-params.epsilon_valve = 0.5;         % [mmHg]
+%   epsilon_valve [mmHg]: width of the smooth transition zone used in
+%   valve_model.m (all valves) and vsd_shunt_model.m (VSD diode gate).
+%   0.1 mmHg preserves >99% of diastolic L→R shunt flow at ΔP ≈ 2 mmHg
+%   (restrictive pediatric VSD). At 0.5 mmHg the gate clips ~10% of
+%   diastolic shunt — too aggressive for the VSD case.
+%   See vsd_shunt_model.m header for full derivation.
+params.epsilon_valve = 0.1;         % [mmHg]
 
 %% =====================================================================
 %  CARDIAC CHAMBERS  —  Valenti Table 3.3
