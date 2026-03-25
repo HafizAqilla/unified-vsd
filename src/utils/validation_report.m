@@ -25,10 +25,10 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %       .primary_gate     table for QpQs / SAP_mean / LVEF pass/fail at 5%
 %
 % METRIC ROWS:
-%   pre_surgery:  RAP_mean, PAP_min/max/mean, QpQs, PVR, SVR,
-%                 LVEDV, LVESV, RVEDV, RVESV, LVEF
+%   pre_surgery:  RAP/LAP min/mean/max, PAP_min/max/mean, QpQs, PVR, SVR,
+%                 CO_Lmin, VSD_frac_pct, LVEDV, LVESV, RVEDV, RVESV, LVEF
 %   post_surgery: SAP_min/max/mean, MAP (=SAP_mean), SVR, PVR,
-%                 LVEF, RVEF, QpQs, LVEDV, RVEDV
+%                 LVEF, RVEF, QpQs, CO_Lmin, VSD_frac_pct, LVEDV, RVEDV
 %   Rows with NaN clinical value are shown but excluded from RMSE.
 %
 % REFERENCES:
@@ -47,7 +47,12 @@ switch scenario
     case 'pre_surgery'
         src = clinical.pre_surgery;
         metric_defs = {
+            'RAP_min',   'RAP_dia_mmHg',   'mmHg',   'Right atrial diastolic-like minimum'
             'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
+            'RAP_max',   'RAP_sys_mmHg',   'mmHg',   'Right atrial systolic-like maximum'
+            'LAP_min',   'LAP_dia_mmHg',   'mmHg',   'Left atrial diastolic-like minimum'
+            'LAP_mean',  'LAP_mean_mmHg',  'mmHg',   'Left atrial mean pressure'
+            'LAP_max',   'LAP_sys_mmHg',   'mmHg',   'Left atrial systolic-like maximum'
             'PAP_min',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure'
             'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (max)'
             'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
@@ -55,6 +60,8 @@ switch scenario
             'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
             'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
             'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
+            'CO_Lmin',   'CO_Lmin',        'L/min',  'Cardiac output'
+            'VSD_frac_pct', 'VSD_frac_pct', '%',     'VSD shunt fraction of Qp'
             'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
             'LVESV',     'LVESV_mL',       'mL',     'LV end-systolic volume'
             'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
@@ -65,6 +72,12 @@ switch scenario
     case 'post_surgery'
         src = clinical.post_surgery;
         metric_defs = {
+            'RAP_min',   'RAP_dia_mmHg',   'mmHg',   'Right atrial diastolic-like minimum'
+            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
+            'RAP_max',   'RAP_sys_mmHg',   'mmHg',   'Right atrial systolic-like maximum'
+            'LAP_min',   'LAP_dia_mmHg',   'mmHg',   'Left atrial diastolic-like minimum'
+            'LAP_mean',  'LAP_mean_mmHg',  'mmHg',   'Left atrial mean pressure'
+            'LAP_max',   'LAP_sys_mmHg',   'mmHg',   'Left atrial systolic-like maximum'
             'SAP_min',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (min)'
             'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (max)'
             'SAP_mean',  'MAP_mmHg',       'mmHg',   'Mean arterial pressure'
@@ -73,6 +86,8 @@ switch scenario
             'LVEF',      'LVEF',           '—',      'LV ejection fraction'
             'RVEF',      'RVEF',           '—',      'RV ejection fraction'
             'QpQs',      'QpQs',           '—',      'Qp/Qs ratio (should be ~1.0)'
+            'CO_Lmin',   'CO_Lmin',        'L/min',  'Cardiac output'
+            'VSD_frac_pct', 'VSD_frac_pct', '%',     'VSD shunt fraction of Qp'
             'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
             'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
             };
