@@ -237,7 +237,12 @@ if isfield(params.V0,'PCOX'), params.V0.PCOX = params_ref.V0.PCOX * BV_scale; en
 if isfield(params.V0,'PCNO'), params.V0.PCNO = params_ref.V0.PCNO * BV_scale; end
 
 % --- Nominal filling pressures (size-independent) ----------------------
-P_nom_SAR   = 65;   % [mmHg]  conservative diastolic nominal
+% P_nom_SAR uses mean arterial pressure (MAP≈93 mmHg), NOT diastolic (65 mmHg).
+% Using 65 mmHg (diastolic) caused V_SAR_ic to be ~40 mL too low; blood
+% conservation then raised V0.SVEN by the same amount, creating a single
+% low-CO equilibrium. At MAP=93 mmHg, V_SAR starts at its true mean
+% operating point and the correct adult steady state is reachable.
+P_nom_SAR   = 93;   % [mmHg]  mean arterial pressure (MAP) — Source: standard adult physiology
 P_nom_SC    = 15;   % [mmHg]  systemic capillary
 P_nom_SVEN  =  2;   % [mmHg]  CVP — V0.SVEN will be adjusted to conserve BV
 P_nom_PAR   = 15;   % [mmHg]  PA diastolic
@@ -266,12 +271,20 @@ ic_p(sidx.V_LA) = params.V0.LA + P_nom_LA_ED / params.E.LA.EB;
 ic_p(sidx.V_RA) = params.V0.RA + P_nom_RA_ED / params.E.RA.EB;
 
 % Flow states: initialise to cardiac output estimate (converges within 1–2 cycles)
-%   CO_est ≈ HR[bps] × SV_est where SV_est ~ 5 mL  (conservative nominal)
-Q_init = params.HR / 60 * 5;              % [mL/s]
+%   CO_adult_ref ≈ 5 L/min = 83 mL/s for a 70 kg adult.
+%   Scale by BV_scale (blood-volume ratio) so that:
+%     Adult  (BV_scale = 1.0): Q_init = 83    mL/s  (~5 L/min)   ✓
+%     Infant (BV_scale = 0.06): Q_init =  5.1 mL/s  (~0.3 L/min) ✓
+%   Using SV_est=5 mL (old code) gave Q_init=6.1 mL/s for adults — 14× too low —
+%   trapping the ODE in a collapsed, low-CO equilibrium that never recovers.
+CO_adult_ref_mLs = 83;                     % [mL/s]  5 L/min adult reference CO
+Q_init = CO_adult_ref_mLs * BV_scale;     % [mL/s]  patient-scaled CO estimate
 ic_p(sidx.Q_SAR)  = Q_init;
 ic_p(sidx.Q_SVEN) = Q_init;
 ic_p(sidx.Q_PAR)  = Q_init;
 ic_p(sidx.Q_PVEN) = Q_init;
+fprintf('[apply_scaling] Q_init=%.1f mL/s  (CO_est=%.2f L/min)  P_nom_SAR=%g mmHg\n', ...
+    Q_init, Q_init*60/1000, P_nom_SAR);
 
 % --- Blood conservation: adjust V0.SVEN so sum(V_ic) = BV_patient -----
 %   SVEN is the dominant venous reservoir. Shift V0.SVEN (keeping

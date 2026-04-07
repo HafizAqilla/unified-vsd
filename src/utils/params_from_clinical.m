@@ -417,16 +417,20 @@ end  % params_from_clinical
 
 function params = recompute_timing(params, T_HB)
 % RECOMPUTE_TIMING — convert fractional phase parameters to absolute seconds
-params.Tc_LV   = params.Tc_LV_frac   * T_HB;
-params.Tr_LV   = params.Tr_LV_frac   * T_HB;
-params.Tc_RV   = params.Tc_RV_frac   * T_HB;
-params.Tr_RV   = params.Tr_RV_frac   * T_HB;
-params.t_ac_LA = params.t_ac_LA_frac * T_HB;
-params.Tc_LA   = params.Tc_LA_frac   * T_HB;
-params.t_ar_LA = params.t_ac_LA + params.Tc_LA;
-params.Tr_LA   = params.Tr_LA_frac   * T_HB;
-params.t_ac_RA = params.t_ac_RA_frac * T_HB;
-params.Tc_RA   = params.Tc_RA_frac   * T_HB;
-params.t_ar_RA = params.t_ac_RA + params.Tc_RA;
-params.Tr_RA   = params.Tr_RA_frac   * T_HB;
+params.t_ac_LV = params.t_ac_LV_frac * T_HB;  % LV contraction instant [s]
+params.Tc_LV   = params.Tc_LV_frac   * T_HB;  % LV contraction duration [s]
+params.t_ar_LV = params.Tc_LV;                 % LV relaxation instant [s] (= Tc_LV, Valenti Table 2.1)
+params.Tr_LV   = params.Tr_LV_frac   * T_HB;  % LV relaxation duration [s]
+params.t_ac_RV = params.t_ac_RV_frac * T_HB;  % RV contraction instant [s]
+params.Tc_RV   = params.Tc_RV_frac   * T_HB;  % RV contraction duration [s]
+params.t_ar_RV = params.Tc_RV;                 % RV relaxation instant [s] (= Tc_RV, Valenti Table 2.1)
+params.Tr_RV   = params.Tr_RV_frac   * T_HB;  % RV relaxation duration [s]
+params.t_ac_LA = params.t_ac_LA_frac * T_HB;  % LA contraction instant [s]
+params.Tc_LA   = params.Tc_LA_frac   * T_HB;  % LA contraction duration [s]
+params.t_ar_LA = params.t_ac_LA + params.Tc_LA; % LA relaxation instant [s]
+params.Tr_LA   = params.Tr_LA_frac   * T_HB;  % LA relaxation duration [s]
+params.t_ac_RA = params.t_ac_RA_frac * T_HB;  % RA contraction instant [s]
+params.Tc_RA   = params.Tc_RA_frac   * T_HB;  % RA contraction duration [s]
+params.t_ar_RA = params.t_ac_RA + params.Tc_RA; % RA relaxation instant [s]
+params.Tr_RA   = params.Tr_RA_frac   * T_HB;  % RA relaxation duration [s]
 end

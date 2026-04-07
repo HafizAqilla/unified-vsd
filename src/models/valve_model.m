@@ -1,11 +1,20 @@
 function Q = valve_model(P_up, P_down, params)
 % VALVE_MODEL
 % -----------------------------------------------------------------------
-% Non-ideal diode cardiac valve model (Valenti Eq. 2.6).
+% Ideal hard-switch (diode) cardiac valve model.
 %
-% The valve opens when upstream pressure exceeds downstream pressure and
-% closes otherwise.  Two discrete resistance values model open / closed
-% states; no dynamical valve mass is included.
+% Replaces the earlier smooth tanh-blended model (Valenti Eq. 2.6 variant)
+% with a strict pressure-threshold switch to test whether the epsilon_valve
+% smoothing was blunting isovolumetric phases and distorting PV loop shape.
+%
+% VALVE LOGIC:
+%   dP > 0  →  valve OPEN  → R_eff = R_open  (forward flow)
+%   dP ≤ 0  →  valve CLOSED → R_eff = R_closed (reverse pressure blocked)
+%
+% Note: R_closed >> R_open (≈ 9.4×10⁴ vs 6.3×10⁻³ mmHg·s/mL) so a tiny
+% reverse bleed exists numerically.  This is intentional — hard zero flow
+% is not used because it introduces a true discontinuity that can degrade
+% solver accuracy on the LV isovolumetric phases.
 %
 % INPUTS:
 %   P_up    - upstream pressure                             [mmHg]
@@ -13,58 +22,43 @@ function Q = valve_model(P_up, P_down, params)
 %   params  - parameter struct with:
 %               params.Rvalve.open      R_min (open)    [mmHg·s/mL]
 %               params.Rvalve.closed    R_max (closed)  [mmHg·s/mL]
-%               params.epsilon_valve    smooth-switch width  [mmHg]
 %
 % OUTPUTS:
 %   Q       - volumetric flow through valve                 [mL/s]
 %
 % SIGN CONVENTIONS:
 %   Q > 0 : forward (upstream → downstream)
-%   Q < 0 : small reverse flow through R_closed (regurgitation prevented
-%            by R_closed >> R_open; not set to hard zero to avoid
-%            discontinuities in the ODE).
+%   Q < 0 : tiny reverse bleed through R_closed
 %
-% NUMERICAL METHOD (Guardrail §8.4):
-%   Hard if/else switching creates near-discontinuities that collapse the
-%   ODE solver step size.  This implementation uses a smooth blending:
+% EXPECTED EFFECT vs SMOOTH MODEL:
+%   - Sharper PV loop corners (more rectangular shape)
+%   - More vertical isovolumetric contraction / relaxation phases
+%   - More abrupt valve opening and closing
+%   - Possible increase in solver step rejections — monitor simulation time
 %
-%     weight = 0.5 + 0.5·tanh(dP / epsilon_valve)   ∈ (0,1)
-%     R_eff  = weight·R_open + (1-weight)·R_closed
-%     Q      = dP / R_eff
-%
-%   where epsilon_valve [mmHg] controls the width of the transition zone.
-%   Smaller epsilon → sharper physiological switch but increased stiffness.
-%   Larger epsilon → smoother numerics but blunted valve closure.
-%   Default epsilon_valve = 0.5 mmHg (< 1% of typical dP across open valve).
-%
-%   At dP = 0:  weight = 0.5; R_eff = 0.5·(R_open+R_closed) ≈ R_closed/2
-%               → Q ≈ 0 (effectively closed).
-%   At dP >> epsilon:  R_eff → R_open  (fully open).
-%   At dP << -epsilon: R_eff → R_closed (fully closed).
-%
-% ASSUMPTIONS:
-%   - Incompressible flow; inertia neglected at valve level.
-%   - All four cardiac valves share identical open/closed resistances.
-%     Per-valve overrides can be added by extending params.Rvalve.
+% ⚠ SOLVER NOTE:
+%   Hard switching may increase ode15s step-size rejections if the valve
+%   event occurs mid-step.  If simulations become very slow or unstable,
+%   consider reverting to the tanh model (epsilon_valve = 0.5 mmHg) or
+%   using odeset('Events', ...) to trigger step resets at dP = 0.
 %
 % REFERENCES:
-%   [1] Valenti (2023). Thesis. Eq. (2.6).
-%   [2] Guardrail §8.4 — smooth switching for stiff ODE robustness.
+%   [1] Valenti (2023). Thesis. Eq. (2.6) — two-resistance diode model.
+%   [2] Guardrail §8.4 — numerical robustness note on valve switching.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-02-26
-% VERSION:  1.1
+% DATE:     2026-04-07
+% VERSION:  2.0  (hard-switch; replaces tanh-blended v1.1)
 % -----------------------------------------------------------------------
 
-dP     = P_up - P_down;                           % pressure gradient  [mmHg]
-eps_v  = params.epsilon_valve;                    % transition width   [mmHg]
+dP = P_up - P_down;   % pressure gradient across valve  [mmHg]
 
-% Smooth weight: 1 = fully open, 0 = fully closed
-weight = 0.5 + 0.5 * tanh(dP / eps_v);           % [dimensionless]
+if dP > 0
+    R_eff = params.Rvalve.open;     % [mmHg·s/mL]  valve open
+else
+    R_eff = params.Rvalve.closed;   % [mmHg·s/mL]  valve closed
+end
 
-% Effective resistance: blends open and closed states continuously
-R_eff  = weight * params.Rvalve.open + (1 - weight) * params.Rvalve.closed;  % [mmHg·s/mL]
-
-Q = dP / R_eff;                                   % volumetric flow    [mL/s]
+Q = dP / R_eff;   % volumetric flow  [mL/s]
 
 end
