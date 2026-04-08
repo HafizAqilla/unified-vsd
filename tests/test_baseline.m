@@ -31,7 +31,10 @@
 
 clear; clc;
 root = fileparts(mfilename('fullpath'));
-addpath(genpath(fullfile(root, '..')));
+project_root = fullfile(root, '..');
+project_paths = strsplit(genpath(project_root), pathsep);
+is_shadow = contains(project_paths, [filesep '.claude' filesep]);
+addpath(strjoin(project_paths(~is_shadow), pathsep));
 
 fprintf('==========================================\n');
 fprintf('  UNIFIED VSD MODEL - Baseline Test\n');
@@ -177,13 +180,24 @@ fprintf('\n--- LV P-V loop shape check (Guardrail §10.2) ---\n');
 
 t_cyc  = sim.t(cmask);
 V_LV_c = sim.V(cmask, sidx.V_LV);   % [mL]
+V_SAR_c = sim.V(cmask, sidx.V_SAR); % [mL]
 
-% --- Reconstruct P_LV over the cycle via elastance model
+% --- Reconstruct P_LV and E_LV over the cycle via elastance model
+E_LV_c = zeros(size(t_cyc));
 P_LV_c = zeros(size(t_cyc));
 for ki = 1:numel(t_cyc)
     [E_LV_ki, ~, ~, ~] = elastance_model(t_cyc(ki), params);   % t_cyc is already absolute sim time
+    E_LV_c(ki) = E_LV_ki;                                       % [mmHg/mL]
     P_LV_c(ki) = E_LV_ki * (V_LV_c(ki) - params.V0.LV);        % [mmHg]
 end
+
+% Reconstruct systemic arterial pressure and aortic valve flow on the same cycle.
+P_SAR_c = (V_SAR_c - params.V0.SAR) ./ params.C.SAR;           % [mmHg]
+dP_AV_c = P_LV_c - P_SAR_c;                                     % [mmHg]
+w_AV_c  = 0.5 + 0.5 * tanh(dP_AV_c ./ params.epsilon_valve);   % [-]
+R_AV_c  = w_AV_c .* params.Rvalve.open + ...                    % [mmHg·s/mL]
+          (1 - w_AV_c) .* params.Rvalve.closed;
+Q_AV_c  = dP_AV_c ./ R_AV_c;                                    % [mL/s]
 
 % (a) Stroke work  SW = ∮ P dV  (positive = counter-clockwise = systole ejects blood)
 %     Negate trapz sign because for a CCW loop ∮P dV > 0 when integrating with
@@ -194,14 +208,24 @@ SW_LV = -trapz(V_LV_c, P_LV_c);   % [mmHg·mL]  — should be 3000–12000 for h
 [~, idx_ed] = max(V_LV_c);
 LVEDP = P_LV_c(idx_ed);   % [mmHg]
 
-% (c) LVESP — pressure at the time of minimum LV volume
-[~, idx_es] = min(V_LV_c);
-LVESP = P_LV_c(idx_es);   % [mmHg]
+% (c) LVESP — pressure at end-systole defined by peak LV elastance during
+%     ejection (Q_AV > threshold). This matches elastance-model physiology
+%     more robustly than sampling exactly min(V_LV) in discretized traces.
+q_close_thresh = 1.0;                                         % [mL/s]
+idx_eject = find(Q_AV_c > q_close_thresh);
+if ~isempty(idx_eject)
+    [~, k_es] = max(E_LV_c(idx_eject));
+    idx_es = idx_eject(k_es);
+else
+    [~, idx_es] = min(V_LV_c);                                % fallback if no clear ejection phase
+end
+LVESP = P_LV_c(idx_es);                                       % [mmHg]
+LVESV_es = V_LV_c(idx_es);                                    % [mL]
 
-% (d) ESPVR slope: Emax_derived = LVESP / (LVESV - V0_LV)
+% (d) ESPVR slope: Emax_derived = LVESP / (LVESV_es - V0_LV)
 %     For a healthy adult, this should be within ±40% of params.E.LV.EA
 %     (the passive baseline EB is small, so EA ≈ Emax).
-denom_espvr = max(metrics.LVESV - params.V0.LV, 1e-6);
+denom_espvr = max(LVESV_es - params.V0.LV, 1e-6);
 Emax_derived = LVESP / denom_espvr;   % [mmHg/mL]
 
 pv_checks = {

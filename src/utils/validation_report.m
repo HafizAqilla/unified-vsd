@@ -1,8 +1,8 @@
 function report = validation_report(clinical, metrics_baseline, metrics_cal, scenario, varargin)
 % VALIDATION_REPORT
 % -----------------------------------------------------------------------
-% Produces a scenario-aware comparison table, RMSE summary, and Batch 5
-% threshold gate checks for primary clinical targets.
+% Produces a scenario-aware comparison table, RMSE summary, primary target
+% gate checks, sorted error ranking, and baseline-to-calibrated delta table.
 % Combines Hafiz-style formatted output with Keisya-style RMSE computation.
 %
 % INPUTS:
@@ -23,6 +23,8 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %       .rmse_baseline    scalar overall RMSE (dimensionless, normalised)
 %       .rmse_cal         scalar overall RMSE after calibration
 %       .primary_gate     table for QpQs / SAP_mean / LVEF pass/fail at 5%
+%       .table_delta      per-metric delta: BaseErr_pct, CalErr_pct, Delta_pct
+%       .sorted_errors    calibrated errors sorted by |Error_pct| descending
 %
 % METRIC ROWS:
 %   pre_surgery:  RAP/LAP min/mean/max, PAP_min/max/mean, QpQs, PVR, SVR,
@@ -36,8 +38,8 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %   [2] Keisya compare_metrics_table / compute_overall_rmse approach.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-16
-% VERSION:  2.0
+% DATE:     2026-04-08
+% VERSION:  3.0
 % -----------------------------------------------------------------------
 
 opts = parse_options(varargin{:});
@@ -148,6 +150,28 @@ end
 report.rmse_baseline = compute_rmse(clin_col, base_col);
 report.rmse_cal      = compute_rmse(clin_col, cal_col);
 
+%% Per-metric delta table (baseline → calibrated)
+% Delta_pct < 0 means the error shrank (improvement).
+% Rows with NaN clinical or both model values NaN are included but delta = NaN.
+delta_err = cal_err - base_err;   % [%] negative = improvement
+report.table_delta = table(metric_names, units_col, clin_col, base_err, cal_err, delta_err, ...
+    'VariableNames', {'Metric','Unit','Clinical_val', ...
+                      'BaseErr_pct','CalErr_pct','Delta_pct'});
+
+%% Sorted top absolute errors (calibrated, or baseline if no calibration)
+err_for_sort = cal_err;
+if all(isnan(err_for_sort))
+    err_for_sort = base_err;
+end
+valid_rows   = find(~isnan(err_for_sort));
+[~, sort_ix] = sort(abs(err_for_sort(valid_rows)), 'descend');
+sorted_idx   = valid_rows(sort_ix);
+report.sorted_errors = table( ...
+    metric_names(sorted_idx), units_col(sorted_idx), ...
+    clin_col(sorted_idx), err_for_sort(sorted_idx), ...
+    abs(err_for_sort(sorted_idx)), ...
+    'VariableNames', {'Metric','Unit','Clinical','Error_pct','AbsError_pct'});
+
 %% Primary metric gate check (Batch 5: strict 5% target)
 report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline);
 
@@ -166,6 +190,14 @@ if ~isempty(metrics_cal)
 end
 
 print_primary_gate(report.primary_gate);
+
+%% Sorted top absolute errors
+print_sorted_errors(report.sorted_errors);
+
+%% Baseline → calibrated delta table
+if ~isempty(metrics_cal)
+    print_delta_table(report.table_delta);
+end
 
 %% Export overlay table for initial vs final GSA (Batch 5)
 if ~isempty(opts.ResultsDir) && ~isempty(opts.GsaInitOut) && ~isempty(opts.GsaFinalOut)
@@ -307,6 +339,58 @@ end
 overlay_tbl = cell2table(rows, ...
     'VariableNames', {'Metric', 'Parameter', 'ST_Initial', 'ST_Final', 'Delta_ST'});
 overlay_tbl = sortrows(overlay_tbl, {'Metric', 'ST_Final'}, {'ascend', 'descend'});
+end
+
+% =========================================================================
+function print_sorted_errors(sorted_tbl)
+% PRINT_SORTED_ERRORS — print metrics ranked by absolute error (worst first).
+TOP_N = 5;
+n = min(TOP_N, height(sorted_tbl));
+fprintf('\n--- TOP %d ABSOLUTE ERRORS ---\n', n);
+fprintf('  %-10s  %6s  %10s  %10s  %10s\n', ...
+        'Metric', 'Unit', 'Clinical', 'Error(%)', '|Error|(%)');
+fprintf('  %s\n', repmat('-', 1, 54));
+for i = 1:n
+    fprintf('  %-10s  %6s  %10.4g  %+10.2f  %10.2f\n', ...
+        sorted_tbl.Metric{i}, sorted_tbl.Unit{i}, ...
+        sorted_tbl.Clinical(i), sorted_tbl.Error_pct(i), ...
+        sorted_tbl.AbsError_pct(i));
+end
+end
+
+% =========================================================================
+function print_delta_table(delta_tbl)
+% PRINT_DELTA_TABLE — per-metric baseline→calibrated error delta table.
+% Rows sorted by |delta| descending so largest changes appear first.
+% Delta_pct < 0 is an improvement (error shrank).
+valid = ~isnan(delta_tbl.Delta_pct);
+if ~any(valid)
+    return;
+end
+[~, sort_ix] = sort(abs(delta_tbl.Delta_pct(valid)), 'descend');
+rows = find(valid);
+rows = rows(sort_ix);
+
+fprintf('\n--- BASELINE → CALIBRATED DELTA (sorted by |change|) ---\n');
+fprintf('  %-10s  %8s  %8s  %8s  %s\n', ...
+        'Metric', 'Base(%)', 'Cal(%)', 'Delta(%)', 'Dir');
+fprintf('  %s\n', repmat('-', 1, 52));
+for i = 1:numel(rows)
+    r   = rows(i);
+    dir = '';
+    if ~isnan(delta_tbl.Delta_pct(r))
+        if delta_tbl.Delta_pct(r) < -0.1
+            dir = '[+]';   % improved
+        elseif delta_tbl.Delta_pct(r) > 0.1
+            dir = '[-]';   % worsened
+        else
+            dir = '[=]';
+        end
+    end
+    fprintf('  %-10s  %+8.2f  %+8.2f  %+8.2f  %s\n', ...
+        delta_tbl.Metric{r}, delta_tbl.BaseErr_pct(r), ...
+        delta_tbl.CalErr_pct(r), delta_tbl.Delta_pct(r), dir);
+end
 end
 
 % =========================================================================

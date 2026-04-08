@@ -65,13 +65,14 @@ DO_PLOTS       = true;
 
 ## ⚙️ Under The Hood: The Calibration Engine
 
-Calibration employs a powerful **two-phase approach** mitigating ODE solver noise and prioritizing physiological intuition.
+Calibration employs a **two-phase approach** combining deterministic physics-based initialisation with a multi-start bounded optimisation.
 
 ### Phase 0: Deterministic Mapping
 `utils/params_from_clinical.m` maps 28 detailed patient clinical inputs directly to fundamental model parameters before simulating. Utilizing Ohm's law and basic mass conservation, it secures a pre-conditioned starting state mathematically verified to generally sit right around ±15% of all clinical targets sans optimization.
 
-### Phase 1: High-Dimensional Nelder-Mead Polish
-`run_calibration.m` refines the Phase 0 mapping using a **bound-constrained Nelder-Mead** optimizer (`fminsearch`). Our most recent upgrade amplifies this dimensional loop inside `calibration_param_sets.m`, tracking **11 separate physical constants** concurrently in `pre_surgery`:
+### Phase 1: Two-Stage Bounded L-BFGS Optimisation
+
+`run_calibration.m` refines the Phase 0 mapping using **`fmincon` interior-point with an L-BFGS Hessian approximation**. The active parameter subset is screened first via Sobol total-order indices (GSA). `calibration_param_sets.m` tracks **11 separate physical constants** concurrently in `pre_surgery`:
 
 1. `R.SAR` & `R.SVEN`: Systemic arterial and venous resistance
 2. `R.PAR` & `R.PVEN`: Pulmonary arterial and venous resistance
@@ -79,10 +80,12 @@ Calibration employs a powerful **two-phase approach** mitigating ODE solver nois
 4. `E.LV.EA` & `E.LV.EB`: Left ventricular active and passive elastance
 5. `E.RV.EA`: Right ventricular active elastance
 6. `V0.LV` & `V0.RV`: Left and right ventricular unstressed volume
-7. `R.vsd`: VSD shunt resistance 
+7. `R.vsd`: VSD shunt resistance
 
 **Solver Profile:**
-We utilize `MaxFunEvals = 500` to properly accommodate the heightened parameters, completing convergence comfortably in 5–15 minutes bypassing traditional gradient disruptions.
+
+- **Stage 1** — single start from the analytical baseline with soft L2 regularisation (`λ = 0.005`). `MaxFunctionEvaluations = 4000`.
+- **Stage 2** — three diverse restarts (lower-quartile, upper-quartile, uniform random within bounds) without regularisation. `MaxFunctionEvaluations = 2000` each. Best solution across all starts is kept.
 
 ---
 
@@ -150,7 +153,7 @@ run('tests/test_ic_perturbation.m')
 | **Keisya** | Valenti 14-state model mapping, Sobol GSA integrations. |
 | **Joint** | 11-Parameter Multi-Dimensional Calibration Engine, architecture management, clinical abstractions. |
 
-*Last Updated: March 2026*
+*Last Updated: April 2026*
 
 ---
 
@@ -160,5 +163,5 @@ run('tests/test_ic_perturbation.m')
 2. **Lundquist et al. (2025).** *Patient-Specific Pediatric Cardiovascular Lumped Parameter Modeling*. ASAIO J.
 3. **Saltelli et al. (2010).** *Variance based sensitivity analysis of model output*. CPC 181:259–270.
 4. **Jansen (1999).** *Analysis of variance designs for model output*. CPC 117:35–43.
-5. **Torczon V (1991).** *On the convergence of pattern search algorithms*. SIAM J. Optimization 1(2):123–145. (Nelder-Mead convergence theory)
+5. **Byrd, Lu, Nocedal (1995).** *A Limited Memory Algorithm for Bound Constrained Optimization*. SIAM J. Scientific Computing 16(5). (L-BFGS algorithm used by fmincon)
 6. **Gorlin R & Gorlin SG (1951).** *Hydraulic formula for valve area*. Am Heart J 41(1):1–29.

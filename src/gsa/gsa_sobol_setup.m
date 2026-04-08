@@ -1,4 +1,4 @@
-function cfg = gsa_sobol_setup(params0, scenario)
+function cfg = gsa_sobol_setup(params0, scenario, N_override)
 % GSA_SOBOL_SETUP
 % -----------------------------------------------------------------------
 % Configure the Sobol sensitivity analysis.
@@ -14,6 +14,10 @@ function cfg = gsa_sobol_setup(params0, scenario)
 %               sensitivity ranking:
 %                 pre_surgery:  QpQs, PAP_mean, PVR  (shunt / PH)
 %                 post_surgery: LVEF, SAP_mean, SVR  (recovery)
+%   N_override - optional explicit Sobol base sample count N.
+%                If omitted, function uses this priority:
+%                1) environment variable GSA_SOBOL_N (if valid > 0)
+%                2) default N = 512
 %
 % OUTPUTS:
 %   cfg       - struct with all Sobol configuration fields
@@ -31,10 +35,31 @@ function cfg = gsa_sobol_setup(params0, scenario)
 
 cfg          = struct();
 cfg.scenario = scenario;
-cfg.N        = 512;  % sample size per parameter direction
-                     % For d=19 (pre-surgery): N_total = N(d+2) = 512×21 = 10,752 evaluations.
-                     % Saltelli et al. (2010): N(d+2) ≥ 4608 for d≤20 — this exceeds requirement.
-                     % Use N=256 during development; report N=512 in thesis.
+
+% Base Sobol sample count per Saltelli A/B block.
+default_N = 512;
+cfg.N     = default_N;
+N_source  = 'default';
+
+if nargin >= 3 && ~isempty(N_override)
+    cfg.N = max(1, round(N_override));
+    N_source = 'function_override';
+else
+    env_N = getenv('GSA_SOBOL_N');
+    if ~isempty(env_N)
+        env_N_num = str2double(env_N);
+        if ~isnan(env_N_num) && isfinite(env_N_num) && env_N_num > 0
+            cfg.N = round(env_N_num);
+            N_source = 'environment';
+        end
+    end
+end
+
+cfg.N_source = N_source;
+
+% Total model evaluations = N * (d + 2).
+% Example d=19: N=512 -> 10,752 evals, N=1024 -> 21,504 evals.
+% Use higher N when screening stability is insufficient.
 
 % GSA evaluations use reduced warmup for speed (SS not critical per-sample).
 % Without this, N=512 at full 80-cycle fidelity may take days, not hours.
@@ -168,6 +193,11 @@ cfg.saltelli = struct('A', A, 'B', B, 'AB', {AB});
 
 fprintf('[gsa_sobol_setup] d=%d params | N=%d samples | scenario=%s\n', ...
         d, cfg.N, scenario);
+fprintf('[gsa_sobol_setup] N source: %s\n', cfg.N_source);
+
+if bitand(cfg.N, cfg.N - 1) ~= 0
+    fprintf(2, '[gsa_sobol_setup] Warning: N=%d is not a power of two; Sobol stability may degrade.\n', cfg.N);
+end
 
 end  % gsa_sobol_setup
 

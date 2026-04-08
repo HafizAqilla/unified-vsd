@@ -85,7 +85,7 @@ params.sim.ss_tol_V      = 0.1;    % [mL]    steady-state volume tolerance
 params.sim.ss_rtol       = 0.005;  % [-]     flow-state relative convergence tolerance (0.5%)
 
 %% Patient demographics (overwritten by apply_scaling / params_from_clinical)
-params.HR = 75;   % [bpm]  adult resting heart rate — Source: Valenti Table 3.3
+params.HR = 75;   % [bpm]  adult resting heart rate — Source: Bozkurt2019/Colebank2025
 
 %% Unit conversion constants  (Section 6 — never scatter raw numbers in physics code)
 params.conv.WU_to_R    = 60/1000;   % Wood units -> mmHg·s/mL  (1 WU = 1 mmHg/(L/min))
@@ -110,44 +110,44 @@ params.epsilon_valve = 0.1;         % [mmHg]
 %% =====================================================================
 
 %-- Unstressed volumes [mL]  — Source: Valenti Table 3.3
-params.V0.RA = 3.5385;    % [mL]  Right atrial unstressed volume    — Source: Valenti Table 3.3
-params.V0.RV = 8.4067;    % [mL]  Right ventricular unstressed V    — Source: Valenti Table 3.3
-params.V0.LA = 2.3085;    % [mL]  Left atrial unstressed volume     — Source: Valenti Table 3.3
-params.V0.LV = 3.5385;    % [mL]  Left ventricular unstressed V     — Source: Valenti Table 3.3
+params.V0.RA = 5.0;       % [mL]  Right atrial unstressed volume    — Source: Bozkurt2019 (corrected baseline package)
+params.V0.RV = 40.0;      % [mL]  Right ventricular unstressed V    — Source: Bozkurt2019 (corrected baseline package)
+params.V0.LA = 5.0;       % [mL]  Left atrial unstressed volume     — Source: Bozkurt2019 (corrected baseline package)
+params.V0.LV = 15.0;      % [mL]  Left ventricular unstressed V     — Source: Bozkurt2019 (corrected baseline package)
 
 %-- Atrial compliance placeholders  [mL/mmHg]
 %   (not used in the elastance model; retained for legacy / postprocess)
-params.C.RA = 1/0.195;    % [mL/mmHg]  — Source: Valenti Table 3.3 (EB_RA = 0.195 mmHg/mL)
-params.C.LA = 1/0.27;     % [mL/mmHg]  — Source: Valenti Table 3.3 (EB_LA = 0.27 mmHg/mL)
+params.C.RA = 5.0;        % [mL/mmHg]  atrial placeholder (not used in elastance state eq.)
+params.C.LA = 5.0;        % [mL/mmHg]  atrial placeholder (not used in elastance state eq.)
 
 %-- Elastance — active (EA) and passive (EB)  [mmHg/mL]
 %   ODE: E_ch(t) = EA * e(t) + EB   (Valenti Eq. 2.2)
 
 % Left ventricle
-params.E.LV.EA = 2.7;       % Source: Valenti Table 3.3
-params.E.LV.EB = 0.069;
+params.E.LV.EA = 4.7524;    % [mmHg/mL]  Ees-Emin = 4.80-0.0476 (corrected adult baseline)
+params.E.LV.EB = 0.0476;    % [mmHg/mL]  Emin from P_ed/(V_ed-V0) = 5/(120-15)
 
 % Right ventricle
-params.E.RV.EA = 0.43;      % Source: Valenti Table 3.3
-params.E.RV.EB = 0.041264;
+params.E.RV.EA = 0.4875;    % [mmHg/mL]  Ees-Emin = 0.525-0.0375 (corrected adult baseline)
+params.E.RV.EB = 0.0375;    % [mmHg/mL]  Emin from P_ed/(V_ed-V0) = 3/(160-40)
 
 % Left atrium
-params.E.LA.EA = 0.38;      % Source: Valenti Table 3.3
-params.E.LA.EB = 0.27;
+params.E.LA.EA = 0.10;      % [mmHg/mL]  Emax-Emin = 0.30-0.20
+params.E.LA.EB = 0.20;      % [mmHg/mL]  corrected adult baseline
 
 % Right atrium
-params.E.RA.EA = 0.126;     % Source: Valenti Table 3.3
-params.E.RA.EB = 0.195;
+params.E.RA.EA = 0.10;      % [mmHg/mL]  Emax-Emin = 0.30-0.20
+params.E.RA.EB = 0.20;      % [mmHg/mL]  corrected adult baseline
 
 %-- Cardiac phase timings (stored as fractions of T_HB)
 %   Converted to absolute seconds by apply_scaling and params_from_clinical.
 %   Reference: Valenti Table 2.1
 
 % Ventricular
-params.Tc_LV_frac  = 0.265;   % LV contraction duration / T_HB
-params.Tr_LV_frac  = 0.40;    % LV relaxation  duration / T_HB
-params.Tc_RV_frac  = 0.30;    % RV contraction duration / T_HB
-params.Tr_RV_frac  = 0.40;    % RV relaxation  duration / T_HB
+params.Tc_LV_frac  = 0.30;    % LV contraction duration / T_HB (timing-aligned baseline)
+params.Tr_LV_frac  = 0.10;    % LV relaxation  duration / T_HB (shorter to align ESP timing)
+params.Tc_RV_frac  = 0.30;    % RV contraction duration / T_HB (kept aligned with LV)
+params.Tr_RV_frac  = 0.10;    % RV relaxation  duration / T_HB
 
 % Atrial
 params.t_ac_LA_frac = 0.75;   % LA contraction start   / T_HB
@@ -163,23 +163,23 @@ params.Tr_RA_frac   = 0.70;   % RA relaxation  duration/ T_HB
 %% =====================================================================
 
 % Systemic arterial  —  RLC segment
-params.R.SAR  = 0.5911;           % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.SAR  = 1.3315;           % [mL/mmHg]     Source: Valenti T3.3
-params.L.SAR  = 2.9643e-4;        % [mmHg·s²/mL]  Source: Valenti T3.3
+params.R.SAR  = 0.050;            % [mmHg·s/mL]   Aortic resistance (corrected baseline package)
+params.C.SAR  = 0.900;            % [mL/mmHg]     Systemic arterial compliance (tuned split)
+params.L.SAR  = 1.0e-5;           % [mmHg·s²/mL]  Aortic inertance (corrected baseline package)
 
 % Systemic capillary  —  RC segment
-params.R.SC   = 2.17e-2;          % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.SC   = 2.7981e-1;        % [mL/mmHg]     Source: Valenti T3.3
+params.R.SC   = 0.730;            % [mmHg·s/mL]   Systemic arteriolar resistance (MAP-consistent correction)
+params.C.SC   = 1.000;            % [mL/mmHg]     Systemic capillary compliance (tuned split)
 
 % Systemic venous  —  RLC segment
-params.R.SVEN = 3.596e-1;         % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.SVEN = 75.0;             % [mL/mmHg]     Source: Valenti T3.3
-params.L.SVEN = 2.0643e-5;        % [mmHg·s²/mL]  Source: Valenti T3.3
+params.R.SVEN = 0.050;            % [mmHg·s/mL]   Systemic venous resistance (corrected baseline package)
+params.C.SVEN = 30.0;             % [mL/mmHg]     Systemic venous compliance (corrected baseline package)
+params.L.SVEN = 1.0e-5;           % [mmHg·s²/mL]  Systemic venous inertance (aligned magnitude)
 
 % Unstressed volumes  [mL]  —  adult estimates (Valenti T3.3)
-params.V0.SAR  = 250;             % [mL]  Source: Valenti T3.3
-params.V0.SC   = 50;              % [mL]  Source: Valenti T3.3
-params.V0.SVEN = 3200;            % [mL]  Source: Valenti T3.3
+params.V0.SAR  = 183.9;           % [mL]  from V_SAR0 - P_SAR0*C_SAR with V_SAR0=202.5, P_SAR0=93 mmHg
+params.V0.SC   = 49.0;            % [mL]  from V_SC0 - P_SC0*C_SC with V_SC0=100, P_SC0=30 mmHg
+params.V0.SVEN = 450.0;           % [mL]  from V_SVEN0 - P_SVEN0*C_SVEN with V_SVEN0=750, P_SVEN0=10 mmHg
 
 %% =====================================================================
 %  PULMONARY CIRCUIT  —  Valenti Table 3.3
@@ -187,33 +187,33 @@ params.V0.SVEN = 3200;            % [mL]  Source: Valenti T3.3
 %% =====================================================================
 
 % Pulmonary arterial  —  RLC segment
-params.R.PAR  = 7.14e-2;          % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.PAR  = 6.0043;           % [mL/mmHg]     Source: Valenti T3.3
-params.L.PAR  = 2.0643e-5;        % [mmHg·s²/mL]  Source: Valenti T3.3
+params.R.PAR  = 0.010;            % [mmHg·s/mL]   Pulmonary arterial resistance (corrected baseline package)
+params.C.PAR  = 5.000;            % [mL/mmHg]     Pulmonary arterial compliance (corrected baseline package)
+params.L.PAR  = 1.0e-5;           % [mmHg·s²/mL]  Pulmonary arterial inertance (corrected baseline package)
 
 % Oxygenated pulmonary capillary branch
-params.R.PCOX = 1.7538e-2;        % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.PCOX = 5.7803;           % [mL/mmHg]     Source: Valenti T3.3
+params.R.PCOX = 0.0630;           % [mmHg·s/mL]   Pulm cap branch 1 (parallel eqv target ~0.06)
+params.C.PCOX = 0.1983;           % [mL/mmHg]     Pulm cap branch 1, total cap compliance ~0.20
 
 % Non-oxygenated pulmonary capillary branch
-params.R.PCNO = 3.5174e-1;        % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.PCNO = 4.9043e-2;        % [mL/mmHg]     Source: Valenti T3.3
+params.R.PCNO = 1.2640;           % [mmHg·s/mL]   Pulm cap branch 2 (keeps Valenti-like branch ratio)
+params.C.PCNO = 0.0017;           % [mL/mmHg]     Pulm cap branch 2, total cap compliance ~0.20
 
 % Pulmonary venous  —  RLC segment
-params.R.PVEN = 3.75e-2;          % [mmHg·s/mL]   Source: Valenti T3.3
-params.C.PVEN = 11.381;           % [mL/mmHg]     Source: Valenti T3.3
-params.L.PVEN = 2.0643e-5;        % [mmHg·s²/mL]  Source: Valenti T3.3
+params.R.PVEN = 0.020;            % [mmHg·s/mL]   Pulmonary venous resistance (corrected baseline package)
+params.C.PVEN = 13.750;           % [mL/mmHg]     Pulmonary venous compliance from V/P = 55/4
+params.L.PVEN = 1.0e-5;           % [mmHg·s²/mL]  Pulmonary venous inertance (aligned magnitude)
 
 % Pulmonary unstressed volumes  [mL]  — Source: Valenti T3.3
-params.V0.PAR  = 150;             % [mL]  Source: Valenti T3.3
-params.V0.PCOX = 80;              % [mL]  retained for postprocess reference only — Source: Valenti T3.3
-params.V0.PCNO = 5;               % [mL]  retained for postprocess reference only — Source: Valenti T3.3
-params.V0.PVEN = 400;             % [mL]  Source: Valenti T3.3
+params.V0.PAR  = 196.0;           % [mL]  from V_PAR0 - P_PAR0*C_PAR with V_PAR0=261, P_PAR0=13 mmHg
+params.V0.PCOX = 0.0;             % [mL]  cap reference volume placeholder (pressure-state formulation)
+params.V0.PCNO = 0.0;             % [mL]  cap reference volume placeholder (pressure-state formulation)
+params.V0.PVEN = 0.0;             % [mL]  from V_PVEN0 - P_PVEN0*C_PVEN with V_PVEN0=55, P_PVEN0=4 mmHg
 
 %% =====================================================================
 %  VALVE resistances  —  Valenti Table 3.3, Eq. (2.6)
 %% =====================================================================
-params.Rvalve.open   = 6.2872e-3;   % R_min  [mmHg·s/mL]  — Source: Valenti Table 3.3
+params.Rvalve.open   = 4.0e-3;      % R_min  [mmHg·s/mL]  tuned open-valve resistance for waveform stability
 params.Rvalve.closed = 9.4168e+4;   % R_max  [mmHg·s/mL]  — Source: Valenti Table 3.3 (numerical guard for closed valve)
 
 %% =====================================================================
@@ -236,20 +236,20 @@ params.R.vsd = 1e6;   % [mmHg·s/mL]  healthy adult: VSD not present → effecti
 %% =====================================================================
 %  Each entry is physiologically motivated (not zeros) per Guardrail §8.5:
 ic = zeros(14, 1);
-ic(idx.V_RA)   = 150;   % [mL]    RA volume ≈ RVEDV ballpark — Source: Valenti T3.3
-ic(idx.V_RV)   = 150;   % [mL]    RV volume initial          — Source: Valenti T3.3
-ic(idx.V_LA)   = 150;   % [mL]    LA volume initial          — Source: Valenti T3.3
-ic(idx.V_LV)   = 150;   % [mL]    LV volume ≈ LVEDV ballpark — Source: Valenti T3.3
-ic(idx.V_SAR)  = 850;   % [mL]    Systemic arterial volume   — Source: Valenti T3.3
-ic(idx.Q_SAR)  = 60;    % [mL/s]  SAR flow ≈ resting CO/60s  — Source: estimated
-ic(idx.V_SC)   = 55;    % [mL]    Systemic capillary volume  — Source: Valenti T3.3
-ic(idx.V_SVEN) = 3300;  % [mL]    Systemic venous volume     — Source: Valenti T3.3
-ic(idx.Q_SVEN) = 60;    % [mL/s]  SVEN flow                  — Source: estimated
-ic(idx.V_PAR)  = 200;   % [mL]    Pulmonary arterial volume  — Source: Valenti T3.3
-ic(idx.Q_PAR)  = 60;    % [mL/s]  PAR flow                   — Source: estimated
-ic(idx.P_PC)   = 0.9;   % [mmHg]  Pulmonary cap. pressure    — Source: Valenti Eq. 2.7
-ic(idx.V_PVEN) = 450;   % [mL]    Pulmonary venous volume    — Source: Valenti T3.3
-ic(idx.Q_PVEN) = 60;    % [mL/s]  PVEN flow                  — Source: estimated
+ic(idx.V_RA)   = 25.0;    % [mL]    RA initial volume (adult male target)
+ic(idx.V_RV)   = 160.0;   % [mL]    RVEDV corrected for RV elastance consistency
+ic(idx.V_LA)   = 25.0;    % [mL]    LA initial volume (adult male target)
+ic(idx.V_LV)   = 120.0;   % [mL]    LVEDV (adult male target)
+ic(idx.V_SAR)  = 202.5;   % [mL]    systemic arterial initial volume
+ic(idx.Q_SAR)  = 100.0;   % [mL/s]  baseline CO = 6.0 L/min
+ic(idx.V_SC)   = 100.0;   % [mL]    systemic microvascular initial volume
+ic(idx.V_SVEN) = 750.0;   % [mL]    systemic venous initial volume
+ic(idx.Q_SVEN) = 100.0;   % [mL/s]  baseline CO = 6.0 L/min
+ic(idx.V_PAR)  = 261.0;   % [mL]    pulmonary arterial initial volume
+ic(idx.Q_PAR)  = 100.0;   % [mL/s]  baseline CO = 6.0 L/min
+ic(idx.P_PC)   = 10.0;    % [mmHg]  pulmonary capillary pressure seed
+ic(idx.V_PVEN) = 55.0;    % [mL]    pulmonary venous initial volume
+ic(idx.Q_PVEN) = 100.0;   % [mL/s]  baseline CO = 6.0 L/min
 params.ic.V = ic';
 
 end

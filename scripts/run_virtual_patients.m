@@ -4,9 +4,9 @@
 % Pediatric_VSD_Clinical_Parameters.md benchmark document.
 %
 % USAGE — in MATLAB Command Window:
-%   run('run_virtual_patients.m')    % run both profiles
-%   PROFILE = 'A'; run('run_virtual_patients.m')   % Profile A only
-%   PROFILE = 'B'; run('run_virtual_patients.m')   % Profile B only
+%   run('scripts/run_virtual_patients.m')    % run both profiles
+%   PROFILE = 'A'; run('scripts/run_virtual_patients.m')   % Profile A only
+%   PROFILE = 'B'; run('scripts/run_virtual_patients.m')   % Profile B only
 %
 % PROFILES:
 %   A — "The High-Flow Infant"    : 3.7 kg, 1.6 mo, Qp/Qs 3.44, PAP mean 28 mmHg
@@ -20,8 +20,11 @@
 % =========================================================================
 
 %% ---- setup -------------------------------------------------------------
-root = fileparts(mfilename('fullpath'));
-addpath(genpath(root));
+script_dir = fileparts(mfilename('fullpath'));
+project_root = fileparts(script_dir);
+project_paths = strsplit(genpath(project_root), pathsep);
+is_shadow = contains(project_paths, [filesep '.claude' filesep]);
+addpath(strjoin(project_paths(~is_shadow), pathsep));
 
 if ~exist('PROFILE', 'var')
     PROFILE = 'both';   % 'A', 'B', or 'both'
