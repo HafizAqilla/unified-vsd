@@ -49,7 +49,10 @@
 
 clear; clc;
 root = fileparts(mfilename('fullpath'));
-addpath(genpath(fullfile(root, '..')));
+project_root = fullfile(root, '..');
+project_paths = strsplit(genpath(project_root), pathsep);
+is_shadow = contains(project_paths, [filesep '.claude' filesep]);
+addpath(strjoin(project_paths(~is_shadow), pathsep));
 
 fprintf('==========================================\n');
 fprintf('  UNIFIED VSD MODEL — IC Perturbation Test\n');

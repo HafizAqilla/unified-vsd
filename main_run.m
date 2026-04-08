@@ -53,7 +53,9 @@ function main_run(scenario, clinical)
 
 %% ---- housekeeping ------------------------------------------------------
 root = fileparts(mfilename('fullpath'));
-addpath(genpath(root));
+root_paths = strsplit(genpath(root), pathsep);
+is_shadow = contains(root_paths, [filesep '.claude' filesep]);
+addpath(strjoin(root_paths(~is_shadow), pathsep));
 
 %% ---- user toggles (edit here) -----------------------------------------
 % Plotting only: the core pipeline is always executed sequentially.

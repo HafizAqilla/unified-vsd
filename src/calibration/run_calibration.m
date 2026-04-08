@@ -44,10 +44,11 @@ d     = numel(calib.names);
 
 %% Objective function handle
 obj = @(x) objective_calibration(x, params0, clinical, calib, scenario);
+J0  = obj(calib.x0);
 
 %% Run fmincon with interior-point + L-BFGS Hessian approximation
 fprintf('[run_calibration] Phase 1: fmincon interior-point + L-BFGS (%d active params)...\n', d);
-fprintf('[run_calibration] Starting from pre-conditioned baseline (J0 = %.6f)...\n', obj(calib.x0));
+fprintf('[run_calibration] Starting from pre-conditioned baseline (J0 = %.6f)...\n', J0);
 
 if exist('fmincon', 'file') ~= 2
     error('run_calibration:missingFmincon', ...
@@ -96,10 +97,10 @@ calib_out.ub      = calib.ub;
 calib_out.scenario = scenario;
 calib_out.exitflag = exitflag;
 calib_out.output  = output;
-calib_out.improvement = obj(calib.x0) - fbest;
+calib_out.improvement = J0 - fbest;
 
 fprintf('[run_calibration] Improvement: J(x0)=%.6f → J(x*)=%.6f ΔJ=%.6f\n', ...
-        obj(calib.x0), fbest, calib_out.improvement);
+    J0, fbest, calib_out.improvement);
 
 end  % run_calibration
 
