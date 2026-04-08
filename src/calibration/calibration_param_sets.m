@@ -82,20 +82,28 @@ switch scenario
         'LVEF'
         };
 
-    % Weights — emphasise volume/EF metrics (elastances are the free params)
+    % Weights — drive optimizer toward the largest post-calibration residuals.
+    % Post-calibration error profile:
+    %   Very bad (>30%):  PAP_mean (-38%), PVR (-57%), LVEDV (-44%), RVEDV (-36%)
+    %   Significant:      RAP_mean (+35%), LVESV (-38%)
+    %   Good (<10%):      SAP_mean (1.6%), QpQs (-1.1%), LVEF (-5.7%)
+    % Primary metrics (QpQs, SAP_mean, LVEF) have smooth-scale amplification
+    % in objective_calibration.m so their base weight can be moderate here.
     calib.weights = struct();
     for k = 1:numel(calib.metricFields)
         calib.weights.(calib.metricFields{k}) = 1.0;
     end
-    calib.weights.LVEF     = 4.0;   % primary elastance target
-    calib.weights.LVEDV    = 3.0;   % LV volume overload
-    calib.weights.LVESV    = 3.0;
-    calib.weights.RVEDV    = 2.5;
-    calib.weights.RVESV    = 2.5;
-    calib.weights.SAP_mean = 2.0;   % MAP — secondary check
-    calib.weights.PAP_mean = 1.5;   % should already be near-target from Ohm's law
-    calib.weights.PVR      = 1.5;
-    calib.weights.QpQs     = 1.5;
+    calib.weights.LVEDV    = 5.0;   % major residual: -44%; top priority
+    calib.weights.RVEDV    = 4.5;   % major residual: -36%
+    calib.weights.PAP_mean = 3.5;   % major residual: -38%; was 1.5
+    calib.weights.PVR      = 3.0;   % major residual: -57%; was 1.5
+    calib.weights.LVESV    = 3.0;   % significant residual: -38%
+    calib.weights.LVEF     = 3.0;   % primary; smooth scaling handles constraint; was 4.0
+    calib.weights.RAP_mean = 2.0;   % significant residual: +35%; was 1.0
+    calib.weights.QpQs     = 2.0;   % primary; was 1.5
+    calib.weights.SAP_mean = 2.0;   % primary; MAP check
+    calib.weights.SVR      = 1.5;   % borderline: -5.7%; was 1.0
+    calib.weights.RVESV    = 1.5;   % minor residual: -11%; was 2.5
 
     %% ==================================================================
     case 'post_surgery'
@@ -208,6 +216,11 @@ for i = 1:numel(names)
         if strcmp(nm, 'R.vsd') && strcmp(scenario, 'pre_surgery')
             lb(i) = max(0.001, 0.05 * x0);
             ub(i) = min(500,   20.0 * x0);
+        elseif ismember(nm, {'R.SAR', 'R.SVEN'})
+            % Systemic resistances are analytically pre-conditioned; tighten
+            % to prevent large excursions away from the Ohm's-law estimate.
+            lb(i) = 0.4 * x0;
+            ub(i) = 2.5 * x0;
         else
             lb(i) = 0.3 * x0;
             ub(i) = 3.0 * x0;
@@ -218,6 +231,11 @@ for i = 1:numel(names)
     elseif startsWith(nm, 'E.')
         lb(i) = 0.3 * x0;
         ub(i) = 3.0 * x0;
+    elseif startsWith(nm, 'V0.')
+        % Widened upper bound: LVEDV and RVEDV are under-predicted by ~40%.
+        % The optimizer needs room to substantially increase unstressed volumes.
+        lb(i) = 0.2 * x0;
+        ub(i) = 4.0 * x0;
     else
         lb(i) = 0.5 * x0;
         ub(i) = 2.0 * x0;

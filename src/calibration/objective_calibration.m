@@ -3,8 +3,24 @@ function J = objective_calibration(x, params0, clinical, calib, scenario)
 % -----------------------------------------------------------------------
 % Weighted normalised least-squares objective for fmincon.
 %
-%   J = Σ_k  w_k · ((y_k(x) − y_k^{clin}) / y_k^{clin})²
+%   J = Σ_k  w_k(err_k) · ((y_k(x) − y_k^{clin}) / y_k^{clin})²
+%     + J_CO_guard                    (soft CO range penalty)
+%     + J_vol_balance                 (volume under-prediction guard)
 %     + λ · Σ_i  ((x_i − x0_i) / x0_i)²
+%
+% Primary metric penalty (QpQs, SAP_mean, LVEF):
+%   w_k is amplified smoothly as error grows above 5%:
+%     scale = 1 + 19 * t / (1 + t),  t = max(0, err/0.05 − 1)
+%   This replaces a hard 100x cliff.  The smooth curve keeps a finite
+%   gradient everywhere so L-BFGS can still improve volume/PAP metrics
+%   without hitting an objective wall.
+%     t=0 (≤5%) → 1x,  t=1 (10%) → ~10.5x,  t→∞ → 20x
+%
+% CO guard (§6b):
+%   Adds 10·((violation)/limit)² when CO < 1.5 or > 10.0 L/min.
+%
+% Volume balance guard (§6c):
+%   Adds 2·mean(rel_under²) when LVEDV or RVEDV is under-predicted.
 %
 % INPUTS:
 %   x         - parameter vector (free variables, ordered per calib.names)
@@ -17,8 +33,8 @@ function J = objective_calibration(x, params0, clinical, calib, scenario)
 %   J         - scalar objective value  (dimensionless)
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-02-26
-% VERSION:  1.0
+% DATE:     2026-04-08
+% VERSION:  2.0
 % -----------------------------------------------------------------------
 
 %% 1. Update parameter struct with trial x
@@ -45,12 +61,21 @@ end
 params.sim.nCyclesSteady = 40;    % matches full-run value; adequate for all explored regions
 params.sim.ss_tol_P      = 0.5;   % [mmHg]  loosened for calibration speed
 params.sim.ss_tol_V      = 0.5;   % [mL]    loosened for calibration speed
-params.sim.rtol          = 1e-8;  % [tightened for L-BFGS-B finite difference gradient noise]
-params.sim.atol          = 1e-10; % [tightened for L-BFGS-B finite difference gradient noise]
+params.sim.rtol          = 1e-8;  % [tightened for L-BFGS finite difference gradient noise]
+params.sim.atol          = 1e-10; % [tightened for L-BFGS finite difference gradient noise]
 try
     sim = integrate_system(params);
 catch
-    J = 1e9;   % large penalty for solver failure
+    % Distance-scaled failure penalty — replaces hard 1e9 constant.
+    % A fixed 1e9 creates an objective cliff that makes finite-difference
+    % gradient estimates point in arbitrary directions at the failed boundary.
+    % Scaling with distance from x0 ensures the gradient consistently points
+    % back toward the known-feasible baseline region.
+    %   J ≈ 1e4 at x = x0 (failure right at baseline — rare)
+    %   J grows quadratically as x moves away from x0 within [lb, ub]
+    x_range = max(calib.ub(:) - calib.lb(:), 1e-6);
+    dist_sq = sum(((x(:) - calib.x0(:)) ./ x_range).^2);
+    J = 1e4 * (1 + dist_sq);
     return;
 end
 
@@ -89,13 +114,62 @@ for k = 1:numel(calib.metricFields)
         denom   = max(abs(y_clin), 1e-6);
         err_rel = abs(y_model - y_clin) / denom;
         
-        % 100x Barrier logic for primary metrics (> 5% error penalty)
-        if ismember(mf, {'QpQs', 'SAP_mean', 'LVEF'}) && (err_rel > 0.05)
-            w = w * 100;
+        % Smooth amplification for primary metrics.
+        % Replaces the hard 100x cliff: that jump created a steep objective wall
+        % that caused L-BFGS to ignore volume/PAP directions.
+        % New rule: scale rises continuously from 1x (at <=5% error) toward
+        % ~20x asymptotically, keeping a finite gradient everywhere.
+        %   t = 0          → scale = 1x  (error at or below threshold)
+        %   t = 1 (10% err)→ scale ≈ 10.5x
+        %   t → ∞          → scale → 20x
+        if ismember(mf, {'QpQs', 'SAP_mean', 'LVEF'})
+            t = max(0, err_rel / 0.05 - 1);   % 0 below 5%, positive above
+            w = w * (1 + 19 * t / (1 + t));   % smooth, asymptotes to 20x
         end
-        
+
         J = J + w * err_rel^2;
     end
+end
+
+%% 6b. CO physiological guard
+% Soft penalty when cardiac output leaves a viable physiological range.
+% Does not require a patient-specific CO target — it guards against
+% parameter excursions that produce non-physiological haemodynamics.
+%   Paediatric VSD range: 1.5 – 10.0 L/min (covers high-shunt states).
+if isfield(metrics, 'CO_Lmin')
+    co_val = metrics.CO_Lmin;
+    co_lo  = 1.5;   % [L/min]
+    co_hi  = 10.0;  % [L/min]
+    if co_val < co_lo
+        J = J + 10 * ((co_lo - co_val) / co_lo)^2;
+    elseif co_val > co_hi
+        J = J + 10 * ((co_val - co_hi) / co_hi)^2;
+    end
+end
+
+%% 6c. Ventricular volume balance guard
+% Extra penalty when both LVEDV and RVEDV are simultaneously under-predicted.
+% The weighted metric loop already includes these terms; this guard adds a
+% small asymmetric push to prevent the optimizer treating large volume under-
+% predictions as equally cheap as over-predictions of the same magnitude.
+vol_pairs = {{'LVEDV','LVEDV_mL'}, {'RVEDV','RVEDV_mL'}};
+vol_under  = 0;
+n_vol_valid = 0;
+for kv = 1:numel(vol_pairs)
+    vf   = vol_pairs{kv}{1};
+    cf   = vol_pairs{kv}{2};
+    if isfield(metrics, vf) && isfield(src, cf)
+        y_c = src.(cf);
+        y_m = metrics.(vf);
+        if ~isnan(y_c) && ~isnan(y_m) && y_m < y_c
+            rel_under = (y_c - y_m) / max(abs(y_c), 1e-6);
+            vol_under  = vol_under + rel_under^2;
+            n_vol_valid = n_vol_valid + 1;
+        end
+    end
+end
+if n_vol_valid > 0
+    J = J + 2.0 * vol_under / n_vol_valid;
 end
 
 %% 7. Regularisation: pull parameters toward initial guess

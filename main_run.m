@@ -30,6 +30,8 @@ function main_run(scenario, clinical)
 
 % USER TOGGLE:
 %   DO_PLOTS        — generate haemodynamic figures
+%   DO_OVERLAY      — baseline vs calibrated overlap curves in one canvas
+%   GSA_SOBOL_N     — optional override for Sobol base sample N
 %
 % FILE STRUCTURE:
 %   Entry point:    main_run.m            (this file — no physics)
@@ -60,6 +62,8 @@ addpath(strjoin(root_paths(~is_shadow), pathsep));
 %% ---- user toggles (edit here) -----------------------------------------
 % Plotting only: the core pipeline is always executed sequentially.
 DO_PLOTS       = true;
+DO_OVERLAY     = true;
+GSA_SOBOL_N    = 64;  % Fast end-to-end runtime for iterative runs; [] uses default/ENV
 
 %% ---- validate inputs ---------------------------------------------------
 if nargin < 1 || isempty(scenario)
@@ -111,7 +115,7 @@ fprintf('[main_run] Baseline complete.\n');
 %  STEP 4 — Initial GSA (Sobol)
 %% =====================================================================
 fprintf('\n[main_run] Running initial Sobol GSA (pre-calibration)...\n');
-gsa_init_cfg = gsa_sobol_setup(params0, scenario);
+gsa_init_cfg = gsa_sobol_setup(params0, scenario, GSA_SOBOL_N);
 gsa_init_out = gsa_run_sobol(gsa_init_cfg, params0);
 
 %% =====================================================================
@@ -125,10 +129,15 @@ sobol_ST_threshold = 0.10;   % [dimensionless]
 calib_seed = calibration_param_sets(scenario, params0);
 calib_names_all = calib_seed.names_all;
 
-primary_metrics = gsa_init_cfg.primary_metrics;
-n_calib_param = numel(calib_names_all);
-n_primary = numel(primary_metrics);
-ST_calib = zeros(n_calib_param, n_primary);
+% Build mask from primary AND secondary metrics (conservative union):
+%   Primary-only masking screened out V0.LV / V0.RV because their ST for
+%   QpQs/PAP/PVR is low, even though they directly control LVEDV/RVEDV.
+%   Including secondary metrics ensures volume-relevant parameters remain
+%   active without lowering the threshold globally.
+mask_metrics = unique([gsa_init_cfg.primary_metrics, gsa_init_cfg.secondary_metrics], 'stable');
+n_calib_param  = numel(calib_names_all);
+n_mask_metrics = numel(mask_metrics);
+ST_calib = zeros(n_calib_param, n_mask_metrics);
 
 [isFound, idx_in_gsa] = ismember(calib_names_all, gsa_init_cfg.names);
 if ~all(isFound)
@@ -137,19 +146,20 @@ if ~all(isFound)
           'Calibration parameters missing in GSA names: %s', strjoin(missing_names, ', '));
 end
 
-for m = 1:n_primary
-    mf = primary_metrics{m};
+for m = 1:n_mask_metrics
+    mf = mask_metrics{m};
     if ~isfield(gsa_init_out, mf) || ~isfield(gsa_init_out.(mf), 'ST')
-        error('main_run:missingPrimaryMetricST', ...
-              'Primary metric %s is missing ST values in initial GSA output.', mf);
+        warning('main_run:missingMaskMetricST', ...
+                'Mask metric %s missing ST values in GSA output; column skipped.', mf);
+        continue;
     end
     ST_vec = gsa_init_out.(mf).ST(:);
     ST_calib(:, m) = ST_vec(idx_in_gsa);
 end
 
 optMask = create_optimization_mask(ST_calib, sobol_ST_threshold);
-fprintf('[main_run] Active parameters after Sobol mask: %d/%d (threshold=%.2f)\n', ...
-        nnz(optMask), n_calib_param, sobol_ST_threshold);
+fprintf('[main_run] Active parameters after Sobol mask: %d/%d (threshold=%.2f, metrics=%s)\n', ...
+        nnz(optMask), n_calib_param, sobol_ST_threshold, strjoin(mask_metrics, '+'));
 
 active_names = calib_names_all(optMask);
 fprintf('[main_run] Active set: %s\n', strjoin(active_names, ', '));
@@ -175,7 +185,7 @@ disp(param_tbl);
 %  STEP 7 — Final GSA (Sobol) with calibrated parameters
 %% =====================================================================
 fprintf('\n[main_run] Running final Sobol GSA (post-calibration)...\n');
-gsa_final_cfg = gsa_sobol_setup(params_cal, scenario);
+gsa_final_cfg = gsa_sobol_setup(params_cal, scenario, GSA_SOBOL_N);
 gsa_final_out = gsa_run_sobol(gsa_final_cfg, params_cal);
 
 %% =====================================================================
@@ -197,6 +207,10 @@ if DO_PLOTS
     plotting_tools(sim_base, params0, 'Baseline', scenario);
     if ~isempty(metrics_cal)
         plotting_tools(sim_cal, params_cal, 'Calibrated', scenario);
+        if DO_OVERLAY
+            plot_overlay_comparison(sim_base, params0, 'Baseline', ...
+                sim_cal, params_cal, 'Calibrated', scenario);
+        end
     end
 end
 
@@ -228,6 +242,46 @@ gsa_save.calib_out       = calib_out;
 
 save(gsa_fname, '-struct', 'gsa_save');
 fprintf('[main_run] Pipeline artefacts saved to:\n          %s\n', gsa_fname);
+
+%% Compact calibration diagnostics artifact
+% A small, fast-loading file for run-to-run comparison and root-cause analysis.
+% Contains objective trace, multi-start summary, metric errors, and parameter changes.
+calib_diag = struct();
+calib_diag.scenario      = scenario;
+calib_diag.timestamp     = timestamp;
+
+% Objective trace
+calib_diag.J0            = calib_out.J0;
+calib_diag.fbest         = calib_out.fbest;
+calib_diag.improvement   = calib_out.improvement;
+calib_diag.best_stage    = calib_out.best_stage;
+calib_diag.best_restart  = calib_out.best_restart;
+calib_diag.restart_J     = calib_out.restart_J;
+calib_diag.restart_flag  = calib_out.restart_flag;
+
+% Active parameter changes
+calib_diag.active_params = calib_out.names(:);
+calib_diag.x0            = calib_out.x0;
+calib_diag.xbest         = calib_out.xbest;
+calib_diag.change_pct    = (calib_out.xbest - calib_out.x0) ./ ...
+                            max(abs(calib_out.x0), 1e-9) * 100;
+
+% Validation summary
+calib_diag.rmse_baseline = report.rmse_baseline;
+calib_diag.rmse_cal      = report.rmse_cal;
+calib_diag.table_delta   = report.table_delta;
+calib_diag.sorted_errors = report.sorted_errors;
+calib_diag.primary_gate  = report.primary_gate;
+
+% Mask configuration used
+calib_diag.sobol_threshold = sobol_ST_threshold;
+calib_diag.mask_metrics    = mask_metrics;
+calib_diag.optMask         = optMask;
+
+diag_fname = fullfile(results_dir, ...
+    sprintf('calib_diagnostics_%s_%s.mat', scenario, timestamp));
+save(diag_fname, 'calib_diag');
+fprintf('[main_run] Calibration diagnostics saved to:\n          %s\n', diag_fname);
 
 % Display summary table for initial and final GSA
 fprintf('\n[main_run] Initial Sobol summary table:\n');
