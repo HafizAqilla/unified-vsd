@@ -4,23 +4,26 @@
 %
 % PURPOSE:
 %   Runs the full ODE pipeline for (1) an adult reference and (2) a
-%   paediatric VSD patient, then renders the 4-figure comparison:
+%   healthy paediatric patient, then renders the 4-figure comparison:
 %
 %     Figure 1 — LV and RV PV loops
 %     Figure 2 — Pressure waveforms (LV, RV, SAR, PAR, LA, RA)
-%     Figure 3 — Flow waveforms (AV, MV, TV, PVv, SVEN, PVEN, VSD shunt)
-%     Figure 4 — Clinical metrics panel (Qp/Qs, EF, SV, SVR/PVR, summary)
+%     Figure 3 — Flow waveforms (AV, MV, TV, PVv, SVEN, PVEN)
+%     Figure 4 — Clinical metrics panel (EF, SV, SVR/PVR, summary)
+%
+%   The patient has NO structural defect.  Only allometric scaling
+%   (Zhang et al. 2019 via apply_scaling) is applied — no VSD shunt,
+%   no clinical overrides, no params_from_clinical.
 %
 % USAGE:
 %   >> cd <project_root>          % e.g. C:\Users\asus\Documents\MATLAB\VSD
 %   >> demo_sim_comparison
 %
-% To change the patient, edit Section 2 below.
-% To change the scenario ('pre_surgery' | 'post_surgery'), edit Section 3.
+% To change the patient demographics, edit Section 2 below.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-31
-% VERSION:  1.0
+% DATE:     2026-04-10
+% VERSION:  2.0  (healthy paediatric demo)
 % =========================================================================
 
 clear; clc; close all;
@@ -65,59 +68,45 @@ sim_adult = integrate_system(params_adult);
 fprintf('[demo] Adult simulation complete.\n\n');
 
 %% =========================================================================
-%  2. PAEDIATRIC VSD PATIENT  ← edit this block for your patient
+%  2. HEALTHY PAEDIATRIC PATIENT  ← edit demographics here
+%
+%  No VSD or other structural defect.  Only Zhang 2019 allometric
+%  scaling is applied via apply_scaling().
+%  params_from_clinical is NOT called — no pathology to configure.
 % =========================================================================
 
-% --- Demographics
-patient_pt.age_years = 1.6 / 12;   % [yr]   1.6 months
-patient_pt.weight_kg = 3.7;         % [kg]
-patient_pt.height_cm = 54;          % [cm]
+% --- Demographics (typical healthy 6-month-old male)
+patient_pt.age_years = 6 / 12;    % [yr]   6 months
+patient_pt.weight_kg = 7.5;        % [kg]   50th percentile WHO growth chart
+patient_pt.height_cm = 67;         % [cm]   50th percentile WHO growth chart
 patient_pt.sex       = 'M';
 
-% --- Clinical measurements (fill what you have; leave NaN if unavailable)
-clinical = patient_template();
-clinical.common.age_years = patient_pt.age_years;
-clinical.common.weight_kg = patient_pt.weight_kg;
-clinical.common.height_cm = patient_pt.height_cm;
-clinical.common.sex       = patient_pt.sex;
-% clinical.common.HR      = NaN;    % [bpm] — leave NaN → scaled by BSA^-0.33
-
-% VSD shunt (pre-surgery)
-clinical.pre_surgery.VSD_diameter_mm   = 6.0;   % [mm]     defect diameter
-clinical.pre_surgery.VSD_gradient_mmHg = NaN;   % [mmHg]   Doppler gradient
-
-% Pulmonary haemodynamics
-clinical.pre_surgery.PAP_mean_mmHg = NaN;   % [mmHg]
-clinical.pre_surgery.PVR_WU        = NaN;   % [WU]
-
-% Systemic haemodynamics
-clinical.pre_surgery.SVR_WU        = NaN;   % [WU]
-
 %% =========================================================================
-%  3. SCENARIO: 'pre_surgery' | 'post_surgery'
+%  3. SCALE + SIMULATE HEALTHY PAEDIATRIC PATIENT
+%
+%  apply_scaling applies Zhang 2019 weight-based allometric scaling:
+%    HR    ~ w^(-0.30)    V0   ~ w^(+0.80)
+%    E_LV  ~ w^(-0.50)    R    ~ w^(-0.475) systemic
+%    E_RV  ~ w^(-0.75)    R    ~ w^(-0.70)  pulmonary
+%    C     ~ w^(+1.00)
+%  params_from_clinical is intentionally skipped (no pathology).
 % =========================================================================
-scenario = 'pre_surgery';
-
-%% =========================================================================
-%  4. SCALE + SIMULATE PATIENT
-% =========================================================================
-fprintf('[demo] Scaling patient parameters...\n');
-params_ref = default_parameters();          % reference for patient allometric scaling
-params_pat = apply_scaling(params_ref, patient_pt);
-params_pat = params_from_clinical(params_pat, clinical, scenario);
+fprintf('[demo] Scaling healthy paediatric parameters (Zhang 2019)...\n');
+params_ref = default_parameters();           % adult reference baseline
+params_pat = apply_scaling(params_ref, patient_pt);   % allometric scaling only
 
 fprintf('[demo] Integrating patient ODE...\n');
 sim_pat = integrate_system(params_pat);
 fprintf('[demo] Patient simulation complete.\n\n');
 
 %% =========================================================================
-%  5. BUILD COMPARISON LABEL
+%  4. BUILD COMPARISON LABEL
 % =========================================================================
-label = sprintf('Patient (%.0f mo, %.1f kg) – %s', ...
-    patient_pt.age_years * 12, patient_pt.weight_kg, scenario);
+label = sprintf('Healthy paediatric (%.0f mo, %.1f kg, M)', ...
+    patient_pt.age_years * 12, patient_pt.weight_kg);
 
 %% =========================================================================
-%  6. PLOT
+%  5. PLOT
 % =========================================================================
 fprintf('[demo] Rendering 4-figure comparison...\n');
 plot_simulation_comparison(sim_adult, params_adult, ...
