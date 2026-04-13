@@ -219,12 +219,12 @@ params.C.PAR  = 5.000;    % [mL/mmHg]    PA compliance         — Bozkurt2019
 params.L.PAR  = 1e-5;     % [mmHg·s²/mL] PA inertance          — Bozkurt2019
 
 % PCOX — pulmonary arteriolar (maps to Rap, Cap) — ACTIVE branch
-params.R.PCOX = 0.060;    % [mmHg·s/mL]  arteriolar resistance — Bozkurt2019 (corrected)
-params.C.PCOX = 0.200;    % [mL/mmHg]    arteriolar compliance  — Bozkurt2019
+params.R.PCOX = 1.7538e-2;    % [mmHg·s/mL]  arteriolar resistance — Bozkurt2019 (corrected)
+params.C.PCOX = 5.7803;    % [mL/mmHg]    arteriolar compliance  — Bozkurt2019
 
 % PCNO — DISABLED (Bozkurt2019 has single arteriolar compartment)
-params.R.PCNO = 1e6;      % [mmHg·s/mL]  >> infinite → Q_CNO ≈ 0
-params.C.PCNO = 1e-8;     % [mL/mmHg]    ≈ 0 → no volume contribution
+params.R.PCNO = 3.5174e-1;      % [mmHg·s/mL]  >> infinite → Q_CNO ≈ 0
+params.C.PCNO = 4.9043e-2;     % [mL/mmHg]    ≈ 0 → no volume contribution
 
 % PVEN — pulmonary venous segment (maps to Rvp, Cvp)
 params.R.PVEN = 0.020;    % [mmHg·s/mL]  PV resistance         — Bozkurt2019 (corrected)

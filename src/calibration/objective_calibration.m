@@ -89,8 +89,11 @@ for k = 1:numel(calib.metricFields)
         denom   = max(abs(y_clin), 1e-6);
         err_rel = abs(y_model - y_clin) / denom;
         
-        % 100x Barrier logic for primary metrics (> 5% error penalty)
-        if ismember(mf, {'QpQs', 'SAP_mean', 'LVEF'}) && (err_rel > 0.05)
+        % 100x Barrier logic for primary metrics (> 5% error = large penalty).
+        % These are the most clinically important targets. Errors > 5% are
+        % physiologically unacceptable and must be penalised heavily.
+        primary_metrics = {'QpQs', 'SAP_max', 'SAP_mean', 'PAP_max', 'PAP_mean'};
+        if ismember(mf, primary_metrics) && (err_rel > 0.05)
             w = w * 100;
         end
         
@@ -129,10 +132,12 @@ fmap = struct();
 switch scenario
     case 'pre_surgery'
         fmap.RAP_mean  = 'RAP_mean_mmHg';
-        fmap.PAP_min   = 'PAP_sys_mmHg';
+        fmap.PAP_min   = 'PAP_dia_mmHg';
         fmap.PAP_max   = 'PAP_sys_mmHg';
         fmap.PAP_mean  = 'PAP_mean_mmHg';
-        fmap.SAP_mean  = 'SAP_mean_mmHg';   % MAP — pre.SAP_mean_mmHg in patient profiles
+        fmap.SAP_min   = 'SAP_dia_mmHg';
+        fmap.SAP_max   = 'SAP_sys_mmHg';
+        fmap.SAP_mean  = 'SAP_mean_mmHg';   % MAP
         fmap.QpQs      = 'QpQs';
         fmap.PVR       = 'PVR_WU';
         fmap.SVR       = 'SVR_WU';

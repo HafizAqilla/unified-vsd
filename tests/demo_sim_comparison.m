@@ -113,3 +113,44 @@ plot_simulation_comparison(sim_adult, params_adult, ...
                             sim_pat,   params_pat, ...
                             label);
 fprintf('[demo] Done. 4 figures are now open.\n');
+
+%% =========================================================================
+%  6. CLINICAL METRICS — Stroke Volume and Haemodynamic Summary
+%
+%  compute_clinical_indices derives LVSV, RVSV, EF, CO, SVR, PVR, etc.
+%  from the last complete cardiac cycle of each simulation.
+% =========================================================================
+fprintf('[demo] Computing clinical indices...\n');
+metrics_adult = compute_clinical_indices(sim_adult, params_adult);
+metrics_pat   = compute_clinical_indices(sim_pat,   params_pat);
+
+% Cardiac output: SV [mL] × HR [bpm] → CO [L/min]
+CO_adult = metrics_adult.LVSV * params_adult.HR / 1000;   % [L/min]
+CO_pat   = metrics_pat.LVSV   * params_pat.HR   / 1000;   % [L/min]
+
+fprintf('\n');
+fprintf('============================================================\n');
+fprintf('  CLINICAL METRICS SUMMARY\n');
+fprintf('============================================================\n');
+fprintf('  Metric                Adult (ref)     Patient (%s)\n', label);
+fprintf('  ----------------------------------------------------------\n');
+fprintf('  LV Stroke Volume      %6.1f mL       %6.1f mL\n', ...
+    metrics_adult.LVSV, metrics_pat.LVSV);
+fprintf('  RV Stroke Volume      %6.1f mL       %6.1f mL\n', ...
+    metrics_adult.RVSV, metrics_pat.RVSV);
+fprintf('  LV Ejection Fraction  %6.1f %%        %6.1f %%\n', ...
+    metrics_adult.LVEF * 100, metrics_pat.LVEF * 100);
+fprintf('  RV Ejection Fraction  %6.1f %%        %6.1f %%\n', ...
+    metrics_adult.RVEF * 100, metrics_pat.RVEF * 100);
+fprintf('  Heart Rate            %6.0f bpm      %6.0f bpm\n', ...
+    params_adult.HR, params_pat.HR);
+fprintf('  Cardiac Output        %6.2f L/min    %6.2f L/min\n', ...
+    CO_adult, CO_pat);
+fprintf('  SVR                   %6.2f WU       %6.2f WU\n', ...
+    metrics_adult.SVR, metrics_pat.SVR);
+fprintf('  PVR                   %6.2f WU       %6.2f WU\n', ...
+    metrics_adult.PVR, metrics_pat.PVR);
+fprintf('  PA sys / dia / mean   %4.0f / %4.0f / %4.0f mmHg   %4.0f / %4.0f / %4.0f mmHg\n', ...
+    metrics_adult.PAP_max, metrics_adult.PAP_min, metrics_adult.PAP_mean, ...
+    metrics_pat.PAP_max,   metrics_pat.PAP_min,   metrics_pat.PAP_mean);
+fprintf('============================================================\n\n');

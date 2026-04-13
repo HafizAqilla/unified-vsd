@@ -20,15 +20,16 @@ function main_run(scenario, clinical)
 %   1. Apply allometric scaling  →  patient-specific params
 %   2. Map clinical SVR/PVR/HR  →  params_from_clinical
 %   3. Baseline simulation       →  integrate_system
-%   4. Initial Sobol GSA         →  gsa_sobol_setup + gsa_run_sobol
-%   5. Build optimisation mask   →  create_optimization_mask
-%   6. Calibration (masked)      →  run_calibration
-%   7. Post-calibration sim + metrics
-%   8. Final Sobol GSA           →  gsa_sobol_setup + gsa_run_sobol
-%   9. Validation report         →  validation_report
-%   10. Plots                    →  plotting_tools
-
-% USER TOGGLE:
+%   4. Compute baseline metrics  →  compute_clinical_indices
+%   5. Calibration (optional)    →  run_calibration
+%   6. Post-calibration sim + metrics
+%   7. Validation report         →  validation_report
+%   8. Plots                     →  plotting_tools
+%   9. GSA (optional)            →  gsa_pce_setup   + gsa_run_pce  (PCE via UQLab)
+%
+% SIMULATION TOGGLES (edit below):
+%   DO_CALIBRATION  — run fmincon calibration (slow; set false for quick check)
+%   DO_GSA          — run Sobol GSA (very slow; set false by default)
 %   DO_PLOTS        — generate haemodynamic figures
 %
 % FILE STRUCTURE:
@@ -38,7 +39,7 @@ function main_run(scenario, clinical)
 %   Parameters:     config/default_parameters.m
 %   Scaling:        utils/apply_scaling.m
 %   Calibration:    calibration/run_calibration.m
-%   GSA:            gsa/gsa_sobol_setup.m + gsa/gsa_run_sobol.m
+%   GSA:            gsa/gsa_pce_setup.m   + gsa/gsa_run_pce.m   (PCE via UQLab/SoBioS)
 %   Validation:     utils/validation_report.m
 %
 % REFERENCES:
@@ -47,8 +48,8 @@ function main_run(scenario, clinical)
 %   [3] docs/theory_notes.md
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-16
-% VERSION:  2.0
+% DATE:     2026-02-26
+% VERSION:  1.0
 % -----------------------------------------------------------------------
 
 %% ---- housekeeping ------------------------------------------------------
@@ -56,7 +57,10 @@ root = fileparts(mfilename('fullpath'));
 addpath(genpath(root));
 
 %% ---- user toggles (edit here) -----------------------------------------
-% Plotting only: the core pipeline is always executed sequentially.
+% DO_CALIBRATION: set true only when you want fmincon/MultiStart tuning.
+% Leave false for a quick baseline simulation (calibration takes ~5–30 min).
+DO_CALIBRATION = true;
+DO_GSA         = false;
 DO_PLOTS       = true;
 
 %% ---- validate inputs ---------------------------------------------------
@@ -106,145 +110,113 @@ metrics_base = compute_clinical_indices(sim_base, params0);
 fprintf('[main_run] Baseline complete.\n');
 
 %% =====================================================================
-%  STEP 4 — Initial GSA (Sobol)
+%  STEP 4 — Calibration
 %% =====================================================================
-fprintf('\n[main_run] Running initial Sobol GSA (pre-calibration)...\n');
-gsa_init_cfg = gsa_sobol_setup(params0, scenario);
-gsa_init_out = gsa_run_sobol(gsa_init_cfg, params0);
+params_cal  = params0;
+metrics_cal = [];
+calib_out   = [];
 
-%% =====================================================================
-%  STEP 5 — Create optimisation mask from initial Sobol ST
-%% =====================================================================
-fprintf('\n[main_run] Building optimisation mask from initial Sobol ST...\n');
+if DO_CALIBRATION
+    fprintf('\n[main_run] Running calibration (fmincon)...\n');
+    [params_cal, calib_out] = run_calibration(params0, clinical, scenario);
 
-% Threshold for active parameter screening from Sobol ST.
-sobol_ST_threshold = 0.10;   % [dimensionless]
+    sim_cal     = integrate_system(params_cal);
+    metrics_cal = compute_clinical_indices(sim_cal, params_cal);
+    fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
 
-calib_seed = calibration_param_sets(scenario, params0);
-calib_names_all = calib_seed.names_all;
-
-primary_metrics = gsa_init_cfg.primary_metrics;
-n_calib_param = numel(calib_names_all);
-n_primary = numel(primary_metrics);
-ST_calib = zeros(n_calib_param, n_primary);
-
-[isFound, idx_in_gsa] = ismember(calib_names_all, gsa_init_cfg.names);
-if ~all(isFound)
-    missing_names = calib_names_all(~isFound);
-    error('main_run:missingGsaMapping', ...
-          'Calibration parameters missing in GSA names: %s', strjoin(missing_names, ', '));
+    %-- Calibration parameter summary table
+    fprintf('\n--- Calibrated parameter changes ---\n');
+    param_tbl = table(calib_out.names(:), calib_out.x0(:), calib_out.xbest(:), ...
+        (calib_out.xbest(:) - calib_out.x0(:)) ./ abs(calib_out.x0(:)) * 100, ...
+        'VariableNames', {'Parameter', 'Initial', 'Calibrated', 'Change_pct'});
+    disp(param_tbl);
 end
 
-for m = 1:n_primary
-    mf = primary_metrics{m};
-    if ~isfield(gsa_init_out, mf) || ~isfield(gsa_init_out.(mf), 'ST')
-        error('main_run:missingPrimaryMetricST', ...
-              'Primary metric %s is missing ST values in initial GSA output.', mf);
-    end
-    ST_vec = gsa_init_out.(mf).ST(:);
-    ST_calib(:, m) = ST_vec(idx_in_gsa);
-end
-
-optMask = create_optimization_mask(ST_calib, sobol_ST_threshold);
-fprintf('[main_run] Active parameters after Sobol mask: %d/%d (threshold=%.2f)\n', ...
-        nnz(optMask), n_calib_param, sobol_ST_threshold);
-
-active_names = calib_names_all(optMask);
-fprintf('[main_run] Active set: %s\n', strjoin(active_names, ', '));
+%% =====================================================================
+%  STEP 5 — Validation report
+%% =====================================================================
+report = validation_report(clinical, metrics_base, metrics_cal, scenario);
 
 %% =====================================================================
-%  STEP 6 — Calibration (masked)
-%% =====================================================================
-fprintf('\n[main_run] Running masked calibration (fmincon)...\n');
-[params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask);
-
-sim_cal     = integrate_system(params_cal);
-metrics_cal = compute_clinical_indices(sim_cal, params_cal);
-fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
-
-% Calibration parameter summary table (active subset only)
-fprintf('\n--- Calibrated parameter changes (active subset) ---\n');
-param_tbl = table(calib_out.names(:), calib_out.x0(:), calib_out.xbest(:), ...
-    (calib_out.xbest(:) - calib_out.x0(:)) ./ abs(calib_out.x0(:)) * 100, ...
-    'VariableNames', {'Parameter', 'Initial', 'Calibrated', 'Change_pct'});
-disp(param_tbl);
-
-%% =====================================================================
-%  STEP 7 — Final GSA (Sobol) with calibrated parameters
-%% =====================================================================
-fprintf('\n[main_run] Running final Sobol GSA (post-calibration)...\n');
-gsa_final_cfg = gsa_sobol_setup(params_cal, scenario);
-gsa_final_out = gsa_run_sobol(gsa_final_cfg, params_cal);
-
-%% =====================================================================
-%  STEP 8 — Validation report
-%% =====================================================================
-results_dir = fullfile(root, 'results', 'tables');
-if ~exist(results_dir, 'dir'), mkdir(results_dir); end
-
-report = validation_report( ...
-    clinical, metrics_base, metrics_cal, scenario, ...
-    'ResultsDir', results_dir, ...
-    'GsaInitOut', gsa_init_out, ...
-    'GsaFinalOut', gsa_final_out);
-
-%% =====================================================================
-%  STEP 9 — Plots
+%  STEP 6 — Plots
 %% =====================================================================
 if DO_PLOTS
     plotting_tools(sim_base, params0, 'Baseline', scenario);
-    if ~isempty(metrics_cal)
+    if DO_CALIBRATION && ~isempty(metrics_cal)
         plotting_tools(sim_cal, params_cal, 'Calibrated', scenario);
     end
 end
 
 %% =====================================================================
-%  STEP 10 — Save GSA and calibration artefacts
+%  STEP 7 — Global Sensitivity Analysis (PCE via UQLab / SoBioS)
 %% =====================================================================
-gsa_results_dir = fullfile(root, 'results', 'gsa');
-if ~exist(gsa_results_dir, 'dir'), mkdir(gsa_results_dir); end
+if DO_GSA
+    % ---- GSA Paths (update these to your actual install locations) ----
+    UQLAB_PATH  = 'C:\Users\asus\Documents\MATLAB\VSD\Toolbox\UQLab_Rel2.2.0\core';
+    SOBIOS_PATH = 'C:\Users\asus\Documents\MATLAB\VSD\Toolbox\americocunhajr-SoBioS-426756c';
+    % -------------------------------------------------------------------
 
-timestamp  = datestr(now, 'yyyymmdd_HHMMSS');
-gsa_fname  = fullfile(gsa_results_dir, ...
-                      sprintf('gsa_sobol_pipeline_%s_%s.mat', scenario, timestamp));
+    fprintf('\n[main_run] Setting up PCE GSA (scenario: %s)...\n', scenario);
+    params_for_gsa = params_cal;   % use calibrated params as PCE training baseline
+    gsa_cfg = gsa_pce_setup(params_for_gsa, scenario, UQLAB_PATH, SOBIOS_PATH);
 
-gsa_save.scenario        = scenario;
-gsa_save.timestamp       = timestamp;
-gsa_save.clinical        = clinical;
-gsa_save.params_baseline = params0;
-gsa_save.params_cal      = params_cal;
-gsa_save.metrics_base    = metrics_base;
-gsa_save.metrics_cal     = metrics_cal;
-gsa_save.sobol_threshold = sobol_ST_threshold;
-gsa_save.optMask         = optMask;
-gsa_save.calib_names_all = calib_names_all;
-gsa_save.gsa_init_cfg    = gsa_init_cfg;
-gsa_save.gsa_init_out    = gsa_init_out;
-gsa_save.gsa_final_cfg   = gsa_final_cfg;
-gsa_save.gsa_final_out   = gsa_final_out;
-gsa_save.calib_out       = calib_out;
+    fprintf('[main_run] Running PCE GSA (%d training evaluations)...\n', gsa_cfg.PCEOpts.ExpDesign.NSamples);
+    gsa_out = gsa_run_pce(gsa_cfg, params_for_gsa);
 
-save(gsa_fname, '-struct', 'gsa_save');
-fprintf('[main_run] Pipeline artefacts saved to:\n          %s\n', gsa_fname);
+    %% -----------------------------------------------------------------
+    %  SAVE ALL GSA DATA immediately after computation
+    %  (saved BEFORE display so data is never lost if display crashes)
+    %  File: results/gsa/gsa_pce_<scenario>_<YYYYMMDD_HHMMSS>.mat
+    %% -----------------------------------------------------------------
+    gsa_results_dir = fullfile(root, 'results', 'gsa');
+    if ~exist(gsa_results_dir, 'dir'), mkdir(gsa_results_dir); end
 
-% Display summary table for initial and final GSA
-fprintf('\n[main_run] Initial Sobol summary table:\n');
-gsa_summary_init = make_gsa_summary_table(gsa_init_out);
-disp(gsa_summary_init);
+    timestamp  = datestr(now, 'yyyymmdd_HHMMSS');
+    gsa_fname  = fullfile(gsa_results_dir, ...
+                          sprintf('gsa_pce_%s_%s.mat', scenario, timestamp));
 
-fprintf('\n[main_run] Final Sobol summary table:\n');
-gsa_summary_final = make_gsa_summary_table(gsa_final_out);
-disp(gsa_summary_final);
+    % Package everything into a single struct for clean file management
+    gsa_save.scenario        = scenario;
+    gsa_save.timestamp       = timestamp;
+    gsa_save.clinical        = clinical;         % patient clinical inputs
+    gsa_save.params_baseline = params0;          % allometric-scaled params
+    gsa_save.params_gsa      = params_for_gsa;   % params used as PCE centre
+    gsa_save.metrics_base    = metrics_base;     % baseline haemodynamic metrics
+    gsa_save.gsa_cfg         = gsa_cfg;          % PCE setup config
+    gsa_save.gsa_out         = gsa_out;          % per-metric S1 / ST / tables
 
-% Matrix-style table for final sensitivities
-make_gsa_matrix_table(gsa_final_out, sobol_ST_threshold, true);
+    % Optionally include calibration artefacts if calibration was run
+    if DO_CALIBRATION && ~isempty(metrics_cal)
+        gsa_save.calib_out   = calib_out;
+        gsa_save.metrics_cal = metrics_cal;
+    end
+
+    save(gsa_fname, '-struct', 'gsa_save');
+    fprintf('[main_run] All GSA data saved to:\n          %s\n', gsa_fname);
+
+    %% -----------------------------------------------------------------
+    %  DISPLAY summary table (non-critical — crash here won't lose data)
+    %% -----------------------------------------------------------------
+    gsa_summary = make_gsa_summary_table(gsa_out);
+    disp(gsa_summary);
+
+    % Matrix-style table: parameters × metrics with Sobol ST values
+    make_gsa_matrix_table(gsa_out, 0.1, true);   % yellow threshold = 0.1, save PNG
+
+end
+
 
 %% =====================================================================
-%  STEP 11 — Save calibrated parameter result package
+%  STEP 8 — Save results
 %% =====================================================================
-save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
-     'params_cal', 'calib_out', 'report', 'optMask', 'sobol_ST_threshold');
-fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
+results_dir = fullfile(root, 'results', 'tables');
+if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+
+if DO_CALIBRATION
+    save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
+         'params_cal', 'calib_out', 'report');
+    fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
+end
 
 fprintf('\n[main_run] Done. Scenario: %s\n', scenario);
 

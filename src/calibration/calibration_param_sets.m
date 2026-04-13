@@ -1,4 +1,4 @@
-function calib = calibration_param_sets(scenario, params0, optMask)
+function calib = calibration_param_sets(scenario, params0)
 % CALIBRATION_PARAM_SETS
 % -----------------------------------------------------------------------
 % Returns the scenario-specific calibration configuration struct.
@@ -18,22 +18,18 @@ function calib = calibration_param_sets(scenario, params0, optMask)
 % INPUTS:
 %   scenario  - 'pre_surgery' | 'post_surgery'
 %   params0   - current (scaled) parameter struct (used to set x0 & bounds)
-%   optMask   - optional logical mask for active parameters [nParam x 1]
-%               true  = active in optimisation
-%               false = frozen (kept at baseline)
 %
 % OUTPUTS:
 %   calib     - struct with fields:
-%     .names_all       full cell array of parameter names (dot-notation)
-%     .names           active-only parameter names
+%     .names           cell array of ACTIVE parameter names (dot-notation)
+%     .names_all       cell array of ALL candidate names (superset of .names)
+%     .mask            logical column vector: true where param is active
 %     .metricFields    cell array of metric field names to match
 %     .weights         struct of per-metric weights
 %     .regLambda       regularisation strength
-%     .mask            logical active-parameter mask
-%     .x0_all          full initial guess vector
-%     .lb_all, .ub_all full lower / upper bounds vectors
-%     .x0              initial guess vector
-%     .lb, .ub         lower / upper bounds vectors
+%     .x0              initial guess vector for ACTIVE params only
+%     .x0_all          initial guess vector for ALL candidate params
+%     .lb, .ub         lower / upper bounds vectors (ACTIVE params only)
 %
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-02-26
@@ -54,48 +50,53 @@ switch scenario
     % here because the mean-gradient conversion factor adds uncertainty.
     % The 4 elastance parameters are genuinely underdetermined.
     calib.names = {
-        'R.SAR'       % Systemic arterial resistance
         'R.SVEN'      % Systemic venous resistance
-        'R.PAR'       % Pulmonary arterial resistance
-        'R.PVEN'      % Pulmonary venous resistance
-        'C.SVEN'      % Systemic venous compliance
+        'R.PAR'       % Pulmonary arterial resistance (must be included)
+        'R.PVEN'      % Pulmonary venous resistance (must be included)
+        'C.SVEN'      % Systemic venous compliance (must be included)
         'E.LV.EA'     % LV active elastance
         'E.LV.EB'     % LV passive elastance
-        'E.RV.EA'     % RV active elastance
-        'V0.LV'       % LV unstressed volume
+        'E.RV.EA'     % RV active elastance (second )
+        'E.RV.EB'     % RV passive elastance
         'V0.RV'       % RV unstressed volume
-        'R.vsd'       % VSD shunt resistance
+        'R.vsd'       % VSD shunt resistance (must be included)
+        'R.SC'        % Systemic arteriolar resistance   — primary SVR contributor
+        'R.PCOX'      % Pulmonary arteriolar resistance
+        'C.PVEN'      % Pulmonary venous compliance
+        'R.SAR'       % Aortic resistance               — controls MAP
+        'C.SAR'       % Aortic (Windkessel) compliance  — controls pulse pressure
         };
-    calib.names_all = calib.names;
 
     calib.metricFields = {
         'RAP_mean'
+        'PAP_min'
+        'PAP_max'
         'PAP_mean'
+        'SAP_min'
+        'SAP_max'
         'SAP_mean'
         'QpQs'
-        'PVR'
-        'SVR'
-        'LVEDV'
-        'LVESV'
-        'RVEDV'
-        'RVESV'
-        'LVEF'
         };
 
-    % Weights — emphasise volume/EF metrics (elastances are the free params)
+    % Weights — prioritise mean pressures and QpQs as primary targets.
+    % Systolic peaks (SAP_max, PAP_max) are the dominant clinical readouts
+    % for VSD severity; they receive the highest weight.
+    % Diastolic values (SAP_min, PAP_min) constrain vascular compliance
+    % and receive standard weight.
+    % RAP_mean is a secondary check (usually near-target from Ohm's law).
     calib.weights = struct();
     for k = 1:numel(calib.metricFields)
-        calib.weights.(calib.metricFields{k}) = 1.0;
+        calib.weights.(calib.metricFields{k}) = 1.0;   % default all to 1.0
     end
-    calib.weights.LVEF     = 4.0;   % primary elastance target
-    calib.weights.LVEDV    = 3.0;   % LV volume overload
-    calib.weights.LVESV    = 3.0;
-    calib.weights.RVEDV    = 2.5;
-    calib.weights.RVESV    = 2.5;
-    calib.weights.SAP_mean = 2.0;   % MAP — secondary check
-    calib.weights.PAP_mean = 1.5;   % should already be near-target from Ohm's law
-    calib.weights.PVR      = 1.5;
-    calib.weights.QpQs     = 1.5;
+    calib.weights.SAP_max  = 4.0;   % systolic BP — primary VSD target
+    calib.weights.SAP_mean = 3.0;   % MAP — key haemodynamic anchor
+    calib.weights.PAP_max  = 3.5;   % PA systolic — primary indicator of PH
+    calib.weights.PAP_mean = 3.0;   % mean PAP — pulmonary hypertension marker
+    calib.weights.QpQs     = 4.0;   % shunt ratio — #1 VSD severity metric
+    calib.weights.SAP_min  = 1.5;   % diastolic — constrains compliance
+    calib.weights.PAP_min  = 1.5;   % PA diastolic — constrains C.PAR
+    calib.weights.RAP_mean = 1.0;   % venous pressure — secondary check
+
 
     %% ==================================================================
     case 'post_surgery'
@@ -115,7 +116,6 @@ switch scenario
         'E.RV.EA'     % RV active elastance
         'E.RV.EB'     % RV passive elastance
         };
-    calib.names_all = calib.names;
 
     calib.metricFields = {
         'SAP_min'
@@ -153,33 +153,28 @@ end
 %  optimiser from moving parameters far enough to match clinical targets.
 calib.regLambda = 0;
 
-%% Initial guess and bounds from current params0 (full parameter set)
-calib.x0_all = pack_x(params0, calib.names_all);
-[calib.lb_all, calib.ub_all] = bounds_from_names(params0, calib.names_all, scenario);
+%% Initial guess and bounds from current params0
+calib.x0 = pack_x(params0, calib.names);
+[calib.lb, calib.ub] = bounds_from_names(params0, calib.names, scenario);
 
-%% Optional optimisation mask (Batch 2 GSA bridge)
-if nargin < 3 || isempty(optMask)
-    optMask = true(numel(calib.names_all), 1);
-end
-
-optMask = logical(optMask(:));
-if numel(optMask) ~= numel(calib.names_all)
-    error('calibration_param_sets:maskSizeMismatch', ...
-          'Mask length (%d) must match parameter count (%d).', ...
-          numel(optMask), numel(calib.names_all));
-end
-if ~any(optMask)
-    error('calibration_param_sets:emptyActiveSet', ...
-          'Mask deactivates all parameters. At least one active parameter is required.');
-end
-
-calib.mask = optMask;
-
-% Active subset passed to the optimizer.
-calib.names = calib.names_all(calib.mask);
-calib.x0    = calib.x0_all(calib.mask);
-calib.lb    = calib.lb_all(calib.mask);
-calib.ub    = calib.ub_all(calib.mask);
+%% Traceability fields — required by run_calibration.m for calib_out
+%
+%  names_all : the complete candidate set from which .names was drawn.
+%              Currently identical to .names (all candidates are active).
+%              Reserved for future partial-freeze workflows where some
+%              candidates may be frozen at their params0 values.
+%
+%  mask      : logical column vector (numel = numel(names_all)).
+%              mask(i) == true  → param i is free (included in x vector).
+%              mask(i) == false → param i is frozen at params0 value.
+%              Currently all-true because every candidate is free.
+%
+%  x0_all    : initial-guess values for every candidate param (same order
+%              as names_all).  Enables full audit of what was optimised
+%              vs what was held constant.
+calib.names_all = calib.names;               % [-]  all candidate names
+calib.mask      = true(numel(calib.names_all), 1);  % [-]  all active
+calib.x0_all    = calib.x0;                 % [-]  full initial vector
 
 end  % calibration_param_sets
 
@@ -206,21 +201,37 @@ for i = 1:numel(names)
 
     if startsWith(nm, 'R.')
         if strcmp(nm, 'R.vsd') && strcmp(scenario, 'pre_surgery')
-            lb(i) = max(0.001, 0.05 * x0);
-            ub(i) = min(500,   20.0 * x0);
+            % VSD resistance: very wide range — the Gorlin estimate has high
+            % uncertainty; the true R.vsd is the primary free variable.
+            lb(i) = max(0.001, 0.02 * x0);   % down to 2% of x0
+            ub(i) = min(500,   30.0 * x0);   % up to 30× x0
         else
-            lb(i) = 0.3 * x0;
-            ub(i) = 3.0 * x0;
+            % General resistances: wider than before (0.2×–5×) to allow
+            % paediatric scaling correction beyond allometric estimates.
+            lb(i) = 0.20 * x0;   % was 0.3×
+            ub(i) = 5.00 * x0;   % was 3.0×
         end
     elseif startsWith(nm, 'C.')
-        lb(i) = 0.5 * x0;
-        ub(i) = 2.0 * x0;
+        if strcmp(nm, 'C.SAR')
+            % C.SAR (aortic Windkessel compliance): Zhang allometric scaling
+            % gives C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — far too stiff.
+            % Clinical aortic compliance for a 3-year-old is typically
+            % 0.3–1.5 mL/mmHg. Wide bounds allow the optimizer to reach
+            % physiological values without being constrained by the allometric
+            % starting point.
+            lb(i) = 0.20 * x0;    % allow slightly smaller if needed
+            ub(i) = 20.0 * x0;   % must be much wider — key pulse-pressure param
+        else
+            % All other compliances: wider (0.3×–4×)
+            lb(i) = 0.30 * x0;
+            ub(i) = 4.00 * x0;
+        end
     elseif startsWith(nm, 'E.')
-        lb(i) = 0.3 * x0;
-        ub(i) = 3.0 * x0;
+        lb(i) = 0.20 * x0;   % was 0.3×
+        ub(i) = 5.00 * x0;   % was 3.0×
     else
-        lb(i) = 0.5 * x0;
-        ub(i) = 2.0 * x0;
+        lb(i) = 0.30 * x0;
+        ub(i) = 4.00 * x0;
     end
 end
 end

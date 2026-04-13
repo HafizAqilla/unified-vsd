@@ -25,8 +25,8 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %       .primary_gate     table for QpQs / SAP_mean / LVEF pass/fail at 5%
 %
 % METRIC ROWS:
-%   pre_surgery:  RAP_mean, PAP_min/max/mean, QpQs, PVR, SVR,
-%                 LVEDV, LVESV, RVEDV, RVESV, LVEF
+%   pre_surgery:  RAP_mean, PAP_min/max/mean, SAP_max, SAP_min, SAP_mean,
+%                 QpQs, PVR, SVR, LVEDV, LVESV, RVEDV, RVESV, LVEF
 %   post_surgery: SAP_min/max/mean, MAP (=SAP_mean), SVR, PVR,
 %                 LVEF, RVEF, QpQs, LVEDV, RVEDV
 %   Rows with NaN clinical value are shown but excluded from RMSE.
@@ -36,8 +36,8 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %   [2] Keisya compare_metrics_table / compute_overall_rmse approach.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-16
-% VERSION:  2.0
+% DATE:     2026-04-12
+% VERSION:  2.1
 % -----------------------------------------------------------------------
 
 opts = parse_options(varargin{:});
@@ -48,9 +48,11 @@ switch scenario
         src = clinical.pre_surgery;
         metric_defs = {
             'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
-            'PAP_min',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure'
-            'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (max)'
+            'PAP_min',   'PAP_dia_mmHg',   'mmHg',   'PA diastolic pressure (trough)'
+            'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (peak)'
             'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
+            'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (peak)'
+            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (trough)'
             'SAP_mean',  'SAP_mean_mmHg',  'mmHg',   'Mean arterial pressure (MAP)'
             'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
             'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
