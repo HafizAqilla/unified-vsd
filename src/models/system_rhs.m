@@ -11,6 +11,11 @@ function dXdt = system_rhs(t, X, params)
 %   t       - current time                                  [s]
 %   X       - state vector, 14×1                            (see below)
 %   params  - parameter struct (from default_parameters.m + apply_scaling.m)
+%             Hot-path precomputed fields (added by integrate_system.m):
+%               params.R_SC_half         = R.SC / 2
+%               params.C_PC_total        = C.PCOX + C.PCNO
+%               params.inv_Rvalve_open   = 1 / Rvalve.open
+%               params.inv_Rvalve_closed = 1 / Rvalve.closed
 %
 % OUTPUTS:
 %   dXdt    - time derivative of state vector, 14×1
@@ -35,27 +40,29 @@ function dXdt = system_rhs(t, X, params)
 %   Chambers   : Valenti Eq. (2.1–2.2)   P = E(t)*(V – V0)
 %   RLC compts : Valenti Eq. (2.5)       L·dQ/dt + R·Q = P_in – P_out
 %                                         dV/dt = Q_in – Q_out
-%   Valves     : Valenti Eq. (2.6)       non-ideal diode (open/closed R)
+%   Valves     : Valenti Eq. (2.6)       smooth tanh diode (inlined)
 %   Pulm. cap  : Valenti Eq. (2.7)       dP_PC/dt = (Q_PAR – Q_COX – Q_CNO)/C_PC
 %   VSD shunt  :                          Q_VSD = (P_LV – P_RV) / R_vsd
 %                                         R.vsd >> large  ↔  post-surgery (closed)
+%
+% PERFORMANCE NOTES:
+%   - Four cardiac valve flows are INLINED (not function-called) to eliminate
+%     per-step function-call overhead (~4× Rvalve calls removed per RHS eval).
+%   - R_SC_half and C_PC_total are precomputed once in integrate_system.m and
+%     stored in params to avoid per-call division/addition.
+%   - elastance_model() loops replaced with vectorised logical indexing.
+%   - VSD shunt kept as vsd_shunt_model() call (smooth tanh, single call).
 %
 % SIGN CONVENTIONS:
 %   All flows are positive in the physiologically forward direction.
 %   Q_VSD positive = LV→RV (left-to-right shunt).
 %
-% ASSUMPTIONS:
-%   - Incompressible, Newtonian flow in all compartments.
-%   - Valves are ideal diodes with two discrete resistance states.
-%   - P_PC is a lumped capillary pressure state (single ODE, not two
-%     separate volume ODEs) as per Valenti Eq. (2.7).
-%
 % REFERENCES:
 %   [1] Valenti (2023). Thesis. Eqs. 2.1–2.7, Table 3.3.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-02-26
-% VERSION:  1.1
+% DATE:     2026-04-14
+% VERSION:  2.0  (inlined valves, precomputed constants, vectorised elastance)
 % -----------------------------------------------------------------------
 
 % --- Unpack state index struct (Guardrail §7.1: never hardcode indices) ---
@@ -98,11 +105,28 @@ P_PVEN = (V_PVEN - params.V0.PVEN) / params.C.PVEN;
 P_SVEN = max(P_SVEN, -5);
 P_PVEN = max(P_PVEN, -5);
 
-% --- Valve flows  (Eq. 2.6) — non-ideal diode ---------------------------
-Q_TV  = valve_model(P_RA,  P_RV,  params);   % Tricuspid:  RA  → RV
-Q_PVv = valve_model(P_RV,  P_PAR, params);   % Pulmonic:   RV  → PAR
-Q_MV  = valve_model(P_LA,  P_LV,  params);   % Mitral:     LA  → LV
-Q_AV  = valve_model(P_LV,  P_SAR, params);   % Aortic:     LV  → SAR
+% --- Valve flows  (Eq. 2.6) — smooth tanh diode, INLINED for speed -----
+% gate = 0.5 + 0.5*tanh(dP/ε);  Q = dP*(gate*inv_Ro + (1-gate)*inv_Rc)
+% Precomputed by integrate_system.m: inv_Ro, inv_Rc, epsilon_valve
+eps_v  = params.epsilon_valve;
+inv_Ro = params.inv_Rvalve_open;
+inv_Rc = params.inv_Rvalve_closed;
+
+dP_TV  = P_RA  - P_RV;                                  % Tricuspid:  RA → RV
+g_TV   = 0.5 + 0.5 * tanh(dP_TV  / eps_v);
+Q_TV   = dP_TV  * (g_TV  * inv_Ro + (1 - g_TV)  * inv_Rc);
+
+dP_PVv = P_RV  - P_PAR;                                 % Pulmonic:   RV → PAR
+g_PVv  = 0.5 + 0.5 * tanh(dP_PVv / eps_v);
+Q_PVv  = dP_PVv * (g_PVv * inv_Ro + (1 - g_PVv) * inv_Rc);
+
+dP_MV  = P_LA  - P_LV;                                  % Mitral:     LA → LV
+g_MV   = 0.5 + 0.5 * tanh(dP_MV  / eps_v);
+Q_MV   = dP_MV  * (g_MV  * inv_Ro + (1 - g_MV)  * inv_Rc);
+
+dP_AV  = P_LV  - P_SAR;                                 % Aortic:     LV → SAR
+g_AV   = 0.5 + 0.5 * tanh(dP_AV  / eps_v);
+Q_AV   = dP_AV  * (g_AV  * inv_Ro + (1 - g_AV)  * inv_Rc);
 
 % --- VSD shunt: LV ↔ RV  ------------------------------------------------
 % Q_VSD > 0  ≡  left-to-right shunt (L→R, physiologically typical for VSD)
@@ -114,8 +138,9 @@ Q_VSD = vsd_shunt_model(P_LV, P_RV, params);
 %  SYSTEMIC CIRCUIT  (Eq. 2.5)
 %  SAR (RLC) → SC (RC) → SVEN (RLC) → RA
 %  Capillary resistance split equally: R_SC/2 inlet, R_SC/2 outlet.
+%  R_SC_half precomputed once in integrate_system.m (params.R_SC_half).
 % =====================================================================
-R_SC_half = params.R.SC / 2;
+R_SC_half = params.R_SC_half;   % precomputed: R.SC / 2
 
 % SC→SVEN algebraic flow (outlet half of capillary)
 Q_SC_out = (P_SC - P_SVEN) / R_SC_half;
@@ -134,8 +159,8 @@ dV_SVEN = Q_SC_out - Q_SVEN;
 %  PULMONARY CIRCUIT  (Eq. 2.5 + 2.7)
 %  PAR (RLC) → P_PC (combined capillary pressure state) → PVEN (RLC) → LA
 %  Parallel capillary branches (COX, CNO) share the same P_PC upstream.
+%  C_PC_total precomputed once in integrate_system.m (params.C_PC_total).
 % =====================================================================
-C_PC_total = params.C.PCOX + params.C.PCNO;   % combined capillary compliance
 
 % PAR inductor
 dQ_PAR = (P_PAR - P_PC - params.R.PAR*Q_PAR) / params.L.PAR;
@@ -146,7 +171,7 @@ Q_COX = (P_PC - P_PVEN) / params.R.PCOX;
 Q_CNO = (P_PC - P_PVEN) / params.R.PCNO;
 
 % Valenti Eq. (2.7) — combined capillary pressure ODE
-dP_PC = (Q_PAR - Q_COX - Q_CNO) / C_PC_total;
+dP_PC = (Q_PAR - Q_COX - Q_CNO) / params.C_PC_total;  % precomputed sum
 
 % PVEN inductor
 dQ_PVEN = (P_PVEN - P_LA - params.R.PVEN*Q_PVEN) / params.L.PVEN;
