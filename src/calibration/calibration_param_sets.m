@@ -76,6 +76,10 @@ switch scenario
         'SAP_max'
         'SAP_mean'
         'QpQs'
+        'LVEDV'
+        'LVESV'
+        'RVEDV'
+        'RVESV'
         };
 
     % Weights — prioritise mean pressures and QpQs as primary targets.
@@ -104,32 +108,35 @@ switch scenario
     % compliances, ventricular elastances.  R_VSD is NOT free.
     % ================================================================
     calib.names = {
-        'R.SAR'       % Systemic arterial resistance
         'R.SVEN'      % Systemic venous resistance
-        'R.PAR'       % Pulmonary arterial resistance
-        'R.PCOX'      % Pulmonary capillary resistance
-        'R.PVEN'      % Pulmonary venous resistance
-        'C.SAR'       % Systemic arterial compliance
-        'C.PAR'       % Pulmonary arterial compliance
+        'R.PAR'       % Pulmonary arterial resistance (must be included)
+        'R.PVEN'      % Pulmonary venous resistance (must be included)
+        'C.SVEN'      % Systemic venous compliance (must be included)
         'E.LV.EA'     % LV active elastance
         'E.LV.EB'     % LV passive elastance
-        'E.RV.EA'     % RV active elastance
+        'E.RV.EA'     % RV active elastance (second )
         'E.RV.EB'     % RV passive elastance
+        'V0.RV'       % RV unstressed volume
+        'R.SC'        % Systemic arteriolar resistance   — primary SVR contributor
+        'R.PCOX'      % Pulmonary arteriolar resistance
+        'C.PVEN'      % Pulmonary venous compliance
+        'R.SAR'       % Aortic resistance               — controls MAP
+        'C.SAR'       % Aortic (Windkessel) compliance  — controls pulse pressure
         };
 
     calib.metricFields = {
-        'SAP_min'
+        'PAP_max'
+        'PAP_min'
+        'PAP_mean'
         'SAP_max'
+        'SAP_min'
         'SAP_mean'
-        'SVR'
-        'PVR'
-        'LVEF'
-        'RVEF'
+        'RAP_mean'
         'QpQs'
         'LVEDV'
+        'LVESV'
         'RVEDV'
-        'RAP_mean'
-        'PAP_mean'
+        'RVESV'
         };
 
     calib.weights = struct();

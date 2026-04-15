@@ -59,7 +59,7 @@ addpath(genpath(root));
 %% ---- user toggles (edit here) -----------------------------------------
 % DO_CALIBRATION: set true only when you want fmincon/MultiStart tuning.
 % Leave false for a quick baseline simulation (calibration takes ~5–30 min).
-DO_CALIBRATION = true;
+DO_CALIBRATION = true; % false di post surgery untuk sebagai model prediksi
 DO_GSA         = false;
 DO_PLOTS       = true;
 
@@ -95,6 +95,51 @@ if isfield(clinical.common, 'BSA') && ~isnan(clinical.common.BSA)
 end
 
 params0 = apply_scaling(params_ref, patient);
+
+%% =====================================================================
+%  STEP 1b — Warm-start: overlay calibrated pre-surgery parameters
+%  This block is activated when clinical.pre_surgery.CalibParams is
+%  populated (e.g. by run_post_surgery.m).  It replaces the allometric
+%  estimates for ventricular elastances, unstressed volumes, and vascular
+%  R/C with the patient-personalised values identified during the
+%  pre-surgery calibration run, giving the post-surgery fmincon a
+%  physiologically informed starting point.
+%
+%  Parameters NOT overwritten here (left at allometric values):
+%    R.vsd    — will be set to R_VSD_CLOSED (1e6) by params_from_clinical
+%    HR / timing — re-derived from clinical.common.HR in params_from_clinical
+%    IC vector  — re-seeded by params_from_clinical from post-op pressures
+%% =====================================================================
+if isfield(clinical, 'pre_surgery') && ...
+   isfield(clinical.pre_surgery, 'CalibParams') && ...
+   ~isempty(clinical.pre_surgery.CalibParams)
+
+    cp = clinical.pre_surgery.CalibParams;  % calibrated pre-surgery params
+
+    % ---- Ventricular elastances  [mmHg/mL] ----------------------------
+    params0.E.LV.EA  = cp.E.LV.EA;
+    params0.E.LV.EB  = cp.E.LV.EB;
+    params0.E.RV.EA  = cp.E.RV.EA;
+    params0.E.RV.EB  = cp.E.RV.EB;
+
+    % ---- Unstressed volumes  [mL] -------------------------------------
+    params0.V0.LV    = cp.V0.LV;
+    params0.V0.RV    = cp.V0.RV;
+
+    % ---- Vascular resistances  [mmHg·s/mL] ---------------------------
+    params0.R.SAR    = cp.R.SAR;
+    params0.R.SC     = cp.R.SC;
+    params0.R.SVEN   = cp.R.SVEN;
+    params0.R.PAR    = cp.R.PAR;
+    params0.R.PCOX   = cp.R.PCOX;
+    params0.R.PVEN   = cp.R.PVEN;
+
+    % ---- Vascular compliances  [mL/mmHg] -----------------------------
+    params0.C.SAR    = cp.C.SAR;
+    params0.C.PAR    = cp.C.PAR;
+
+    fprintf('[main_run] Warm-start: calibrated pre-surgery params injected.\n');
+end
 
 %% =====================================================================
 %  STEP 2 — Map clinical measurements (HR, SVR, PVR, R_VSD)
@@ -145,6 +190,17 @@ if DO_PLOTS
     if DO_CALIBRATION && ~isempty(metrics_cal)
         plotting_tools(sim_cal, params_cal, 'Calibrated', scenario);
     end
+
+    % Post-surgery: overlay predicted waveforms against clinical measurements
+    if strcmp(scenario, 'post_surgery')
+        fprintf('\n[main_run] Generating post-surgery validation overlay plots...\n');
+        % Use calibrated params if available, otherwise use baseline prediction
+        if DO_CALIBRATION && ~isempty(metrics_cal)
+            plot_post_surgery_validation(sim_cal, params_cal, clinical);
+        else
+            plot_post_surgery_validation(sim_base, params0, clinical);
+        end
+    end
 end
 
 %% =====================================================================
@@ -171,7 +227,7 @@ if DO_GSA
     gsa_results_dir = fullfile(root, 'results', 'gsa');
     if ~exist(gsa_results_dir, 'dir'), mkdir(gsa_results_dir); end
 
-    timestamp  = datestr(now, 'yyyymmdd_HHMMSS');
+    timestamp  = char(datetime('now', 'Format', 'yyyyMMdd_HHmmSS'));
     gsa_fname  = fullfile(gsa_results_dir, ...
                           sprintf('gsa_pce_%s_%s.mat', scenario, timestamp));
 
@@ -213,11 +269,10 @@ results_dir = fullfile(root, 'results', 'tables');
 if ~exist(results_dir, 'dir'), mkdir(results_dir); end
 
 if DO_CALIBRATION
-    save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
-         'params_cal', 'calib_out', 'report');
-    fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
+    % Modern timestamped saving to prevent overwriting (Guardrail §6.1)
+    timestamp = char(datetime('now', 'Format', 'yyyyMMdd_HHmmSS'));
+    fname = sprintf('params_calibrated_%s_%s.mat', scenario, timestamp);
+    
+    save(fullfile(results_dir, fname), 'params_cal', 'calib_out', 'report');
+    fprintf('\n[main_run] Calibrated parameters saved to %s/%s\n', results_dir, fname);
 end
-
-fprintf('\n[main_run] Done. Scenario: %s\n', scenario);
-
-end  % main_run

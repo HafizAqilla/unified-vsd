@@ -92,7 +92,7 @@ for k = 1:numel(calib.metricFields)
         % 100x Barrier logic for primary metrics (> 5% error = large penalty).
         % These are the most clinically important targets. Errors > 5% are
         % physiologically unacceptable and must be penalised heavily.
-        primary_metrics = {'QpQs', 'SAP_max', 'SAP_mean', 'PAP_max', 'PAP_mean'};
+        primary_metrics = {'QpQs', 'SAP_max', 'SAP_min', 'SAP_mean', 'PAP_max', 'PAP_mean'};
         if ismember(mf, primary_metrics) && (err_rel > 0.05)
             w = w * 100;
         end
@@ -145,15 +145,13 @@ switch scenario
         fmap.LVESV     = 'LVESV_mL';
         fmap.RVEDV     = 'RVEDV_mL';
         fmap.RVESV     = 'RVESV_mL';
-        fmap.LVEF      = 'LVEF';
+        
     case 'post_surgery'
-        fmap.SAP_min   = 'SAP_sys_mmHg';
-        fmap.SAP_max   = 'SAP_sys_mmHg';
+        fmap.SAP_min   = 'SAP_dia_mmHg';   % diastolic trough → SAP_dia
+        fmap.SAP_max   = 'SAP_sys_mmHg';   % systolic peak    → SAP_sys
         fmap.SAP_mean  = 'MAP_mmHg';
         fmap.SVR       = 'SVR_WU';
         fmap.PVR       = 'PVR_WU';
-        fmap.LVEF      = 'LVEF';
-        fmap.RVEF      = 'RVEF';
         fmap.QpQs      = 'QpQs';
         fmap.LVEDV     = 'LVEDV_mL';
         fmap.RVEDV     = 'RVEDV_mL';

@@ -38,7 +38,7 @@ t  = sim.t(:);
 XV = sim.V;
 
 %% Locate results/figures directory (create if absent)
-root_dir   = fileparts(fileparts(mfilename('fullpath')));   % project root
+root_dir   = fileparts(fileparts(fileparts(mfilename('fullpath'))));   % project root (src/utils/ -> src/ -> root)
 fig_dir    = fullfile(root_dir, 'results', 'figures');
 if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
 

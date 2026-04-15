@@ -67,8 +67,8 @@ switch scenario
     case 'post_surgery'
         src = clinical.post_surgery;
         metric_defs = {
-            'SAP_min',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (min)'
-            'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (max)'
+            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (trough)'
+            'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (peak)'
             'SAP_mean',  'MAP_mmHg',       'mmHg',   'Mean arterial pressure'
             'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
             'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
