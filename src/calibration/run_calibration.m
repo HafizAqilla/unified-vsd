@@ -2,22 +2,23 @@ function [params_best, calib_out] = run_calibration(params0, clinical, scenario)
 % RUN_CALIBRATION
 % -----------------------------------------------------------------------
 % Calibrates a scenario-specific subset of model parameters to clinical
-% haemodynamic targets using Nelder-Mead (fminsearch).
+% haemodynamic targets using fmincon (interior-point, L-BFGS Hessian).
 %
 % RATIONALE:
-%   The baseline model (from params_from_clinical.m) already maps 28
-%   clinical parameters to model space via Ohm's law and conservation
-%   principles (Phase 0, deterministic). This function performs Phase 1:
-%   a bounded Nelder-Mead polish to refine elastance parameters only.
+%   The baseline model (from params_from_clinical.m) already maps clinical
+%   parameters to model space via Ohm's law (Phase 0, deterministic).
+%   This function performs Phase 1: a bounded gradient-based polish.
 %
-%   Nelder-Mead is optimal for smooth, low-dimensional (2–4 vars)
-%   unconstrained problems near a good starting point. Convergence:
-%   ~100–200 evals = ~5–15 minutes (vs ~20–50 min for particleswarm).
+%   fmincon (interior-point + L-BFGS) is chosen because:
+%     - Hard bounds on all 11 parameters are enforced natively, avoiding
+%       penalty-weight tuning required by Nelder-Mead wrappers.
+%     - L-BFGS approximate Hessian is cheap (no Hessian storage) and
+%       robust to noisy objectives from ODE finite-differencing.
+%     - Forward-difference step 1e-5 is large enough to clear ODE noise
+%       while remaining within the physiologically linear regime.
+%     - Convergence at ~300–500 evals (vs 500+ for Nelder-Mead at d=11).
 %
-%   Solver comparison for this use case:
-%   - fminsearch (Nelder-Mead):  optimal for d≤4, smooth objective
-%   - fmincon:                    requires gradient; fails with ODE noise
-%   - particleswarm:              overkill; 4× longer than Nelder-Mead
+%   REQUIRES: Optimization Toolbox (fmincon).
 %
 % INPUTS:
 %   params0   - baseline (scaled, pre-conditioned by params_from_clinical)
@@ -25,18 +26,22 @@ function [params_best, calib_out] = run_calibration(params0, clinical, scenario)
 %   scenario  - 'pre_surgery' | 'post_surgery'
 %
 % OUTPUTS:
-%   params_best - parameter struct with optimized elastances
-%   calib_out   - struct with convergence summary
+%   params_best - parameter struct with optimized parameters
+%   calib_out   - struct with convergence summary, including:
+%                   .exitflag   fmincon exit condition
+%                   .output     fmincon output struct
+%                   .mask       logical active-parameter mask
+%                   .xbest_all  full parameter vector (active + frozen)
 %
 % REFERENCES:
-%   [1] Torczon, V. (1991). On the Convergence of Pattern Search Algorithms.
-%       SIAM J. Optimization 1(2), 123–145. (Nelder-Mead theory)
+%   [1] Nocedal J & Wright SJ (2006). Numerical Optimization, 2nd ed.
+%       Springer. Ch. 7 (L-BFGS), Ch. 19 (interior-point).
 %   [2] objective_calibration.m — weighted least-squares objective
 %   [3] calibration_param_sets.m — free-parameter lists and bounds
 %
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-03-03
-% VERSION:  2.1
+% VERSION:  3.0  (fmincon interior-point + L-BFGS)
 % -----------------------------------------------------------------------
 
 %% Retrieve scenario-specific calibration configuration
@@ -53,19 +58,19 @@ fprintf('[run_calibration] Starting from pre-conditioned baseline (J0 = %.6f)...
 if exist('fmincon', 'file') ~= 2
     error('run_calibration:missingFmincon', ...
           ['fmincon is not available. Install Optimization Toolbox ' ...
-           'to run Batch 3 calibration.']);
+           'to run calibration.']);
 end
 
 opts = optimoptions('fmincon', ...
-    'Algorithm', 'interior-point', ...
-    'HessianApproximation', 'lbfgs', ...
-    'FiniteDifferenceStepSize', 1e-5, ...
-    'FiniteDifferenceType', 'forward', ...
-    'Display', 'iter-detailed', ...
-    'MaxFunctionEvaluations', 4000, ...
-    'MaxIterations', 300, ...
-    'OptimalityTolerance', 1e-6, ...
-    'StepTolerance', 1e-8);
+    'Algorithm',                'interior-point', ...
+    'HessianApproximation',     'lbfgs', ...
+    'FiniteDifferenceStepSize', 1e-5,  ...
+    'FiniteDifferenceType',     'forward', ...
+    'Display',                  'iter-detailed', ...
+    'MaxFunctionEvaluations',   4000, ...
+    'MaxIterations',            300, ...
+    'OptimalityTolerance',      1e-6, ...
+    'StepTolerance',            1e-8);
 
 [xbest, fbest, exitflag, output] = fmincon( ...
     obj, calib.x0, [], [], [], [], calib.lb, calib.ub, [], opts);
@@ -79,30 +84,36 @@ for i = 1:numel(calib.names)
 end
 
 % Reconstruct full parameter vector for traceability (active + frozen).
-xbest_all = calib.x0_all;
+% xbest_all has the same length as calib.names_all; active entries are
+% replaced with the optimised values, frozen entries stay at x0_all.
+xbest_all          = calib.x0_all;
 xbest_all(calib.mask) = xbest;
 
 %% Collect output summary
-calib_out         = struct();
-calib_out.names   = calib.names;
-calib_out.names_all = calib.names_all;
-calib_out.mask    = calib.mask;
-calib_out.x0      = calib.x0;
-calib_out.xbest   = xbest;
-calib_out.x0_all  = calib.x0_all;
-calib_out.xbest_all = xbest_all;
-calib_out.fbest   = fbest;
-calib_out.lb      = calib.lb;
-calib_out.ub      = calib.ub;
-calib_out.scenario = scenario;
-calib_out.exitflag = exitflag;
-calib_out.output  = output;
+calib_out             = struct();
+calib_out.names       = calib.names;        % active parameter names
+calib_out.names_all   = calib.names_all;    % full candidate list
+calib_out.mask        = calib.mask;         % active-param logical mask
+calib_out.x0         = calib.x0;           % initial guess (active)
+calib_out.xbest      = xbest;              % optimised values (active)
+calib_out.x0_all     = calib.x0_all;       % initial guess (full)
+calib_out.xbest_all  = xbest_all;          % optimised values (full)
+calib_out.fbest      = fbest;              % best objective value
+calib_out.lb         = calib.lb;
+calib_out.ub         = calib.ub;
+calib_out.exitflag   = exitflag;           % fmincon exit condition
+calib_out.output     = output;             % fmincon diagnostic struct
+calib_out.scenario   = scenario;
 calib_out.improvement = obj(calib.x0) - fbest;
 
 fprintf('[run_calibration] Improvement: J(x0)=%.6f → J(x*)=%.6f ΔJ=%.6f\n', ...
         obj(calib.x0), fbest, calib_out.improvement);
 
 end  % run_calibration
+
+% =========================================================================
+%  LOCAL HELPERS
+% =========================================================================
 
 function params = set_param_by_name(params, name, value)
 % SET_PARAM_BY_NAME — assign value to nested struct field via dot notation
