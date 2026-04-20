@@ -110,3 +110,46 @@ temp_*.m
 *.7z
 
 Toolbox/
+toolbox/
+
+# -----------------------------------------------------------------------------
+#  AI agent workspace — Cursor / Claude internal directories
+#  These contain agent transcripts, worktrees, and tool state.
+#  Large, regenerable, and not part of the scientific codebase.
+# -----------------------------------------------------------------------------
+.claude/
+.cursor/
+.assistant/
+
+# -----------------------------------------------------------------------------
+#  Patient-specific config files — never commit without authorization
+#  Per AGENTS.md §12.3 and §9.2
+#  patient_template.m IS committed (it has only NaN fields — no patient data).
+#  Any file matching patient_*.m except patient_template.m is patient data.
+# -----------------------------------------------------------------------------
+config/patient_*.m
+!config/patient_template.m
+
+# -----------------------------------------------------------------------------
+#  MATLAB session logs generated during runs
+# -----------------------------------------------------------------------------
+*.log
+matlab_*.log
+
+# -----------------------------------------------------------------------------
+#  Runtime result directories that are fully regenerable
+# -----------------------------------------------------------------------------
+src/results/
+
+# -----------------------------------------------------------------------------
+#  GSA checkpoint files — large, regenerable
+#  Kept under results/gsa/ which is already covered by results/**/*.mat,
+#  but explicit here for clarity.
+# -----------------------------------------------------------------------------
+results/gsa/*.mat
+
+# -----------------------------------------------------------------------------
+#  PDF figures — these are large generated outputs; keep only source code
+#  (Uncomment the line below if you want to stop tracking PDF figures)
+# -----------------------------------------------------------------------------
+# results/figures/*.pdf
