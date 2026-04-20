@@ -54,7 +54,6 @@ switch scenario
     % here because the mean-gradient conversion factor adds uncertainty.
     % The 4 elastance parameters are genuinely underdetermined.
     calib.names = {
-        'R.SAR'       % Systemic arterial resistance
         'R.SVEN'      % Systemic venous resistance
         'R.PAR'       % Pulmonary arterial resistance
         'R.PVEN'      % Pulmonary venous resistance
@@ -62,48 +61,62 @@ switch scenario
         'E.LV.EA'     % LV active elastance
         'E.LV.EB'     % LV passive elastance
         'E.RV.EA'     % RV active elastance
-        'V0.LV'       % LV unstressed volume
+        'E.RV.EB'     % RV passive elastance
+        'E.LA.EA'     % LA active elastance  (controls LAP; previously uncalibrated)
+        'E.RA.EA'     % RA active elastance  (controls RAP; previously uncalibrated)
         'V0.RV'       % RV unstressed volume
         'R.vsd'       % VSD shunt resistance
+        'R.SC'        % Systemic capillary resistance
+        'R.PCOX'      % Pulmonary capillary resistance (coronary)
+        'C.PVEN'      % Pulmonary venous compliance
+        'R.SAR'       % Systemic arterial resistance
+        'C.SAR'       % Systemic arterial compliance
+        'C.PAR'       % Pulmonary arterial compliance (controls PAP_min diastolic floor)
+        'V0.LV'       % LV unstressed volume (controls LVEDV at given elastance)
         };
     calib.names_all = calib.names;
 
+    % Metric fields
     calib.metricFields = {
         'RAP_mean'
+        'LAP_mean'    % pulmonary venous back-pressure; anchors C.PVEN and LVEDV filling
+        'PAP_min'
+        'PAP_max'
         'PAP_mean'
+        'SAP_min'
+        'SAP_max'
         'SAP_mean'
         'QpQs'
-        'PVR'
         'SVR'
         'LVEDV'
         'LVESV'
         'RVEDV'
         'RVESV'
         'LVEF'
+        'CO_Lmin'
         };
 
-    % Weights — drive optimizer toward the largest post-calibration residuals.
-    % Post-calibration error profile:
-    %   Very bad (>30%):  PAP_mean (-38%), PVR (-57%), LVEDV (-44%), RVEDV (-36%)
-    %   Significant:      RAP_mean (+35%), LVESV (-38%)
-    %   Good (<10%):      SAP_mean (1.6%), QpQs (-1.1%), LVEF (-5.7%)
-    % Primary metrics (QpQs, SAP_mean, LVEF) have smooth-scale amplification
-    % in objective_calibration.m so their base weight can be moderate here.
+    % Weights — prioritise LV mechanics, shunt severity, and arterial pressures.
     calib.weights = struct();
     for k = 1:numel(calib.metricFields)
         calib.weights.(calib.metricFields{k}) = 1.0;
     end
-    calib.weights.LVEDV    = 5.0;   % major residual: -44%; top priority
-    calib.weights.RVEDV    = 4.5;   % major residual: -36%
-    calib.weights.PAP_mean = 3.5;   % major residual: -38%; was 1.5
-    calib.weights.PVR      = 3.0;   % major residual: -57%; was 1.5
-    calib.weights.LVESV    = 3.0;   % significant residual: -38%
-    calib.weights.LVEF     = 3.0;   % primary; smooth scaling handles constraint; was 4.0
-    calib.weights.RAP_mean = 2.0;   % significant residual: +35%; was 1.0
-    calib.weights.QpQs     = 2.0;   % primary; was 1.5
-    calib.weights.SAP_mean = 2.0;   % primary; MAP check
-    calib.weights.SVR      = 1.5;   % borderline: -5.7%; was 1.0
-    calib.weights.RVESV    = 1.5;   % minor residual: -11%; was 2.5
+    calib.weights.SAP_max  = 3.5;   % systolic upper bound
+    calib.weights.SAP_mean = 3.5;   % MAP — catheter-consistent
+    calib.weights.SAP_min  = 2.0;   % diastolic lower bound
+    calib.weights.PAP_max  = 3.5;   % PA systolic; key shunt metric
+    calib.weights.PAP_mean = 3.0;   % PA mean; key shunt metric
+    calib.weights.PAP_min  = 2.0;   % PA diastolic
+    calib.weights.QpQs     = 4.0;   % shunt severity; top priority
+    calib.weights.SVR      = 3.0;   % catheter-consistent (19.37 WU)
+    calib.weights.RAP_mean = 2.0;   % raised: atrial elastances now calibrated
+    calib.weights.LAP_mean = 2.5;   % pulmonary back-pressure; drives C.PVEN/LVEDV/LVEF cascade
+    calib.weights.CO_Lmin  = 6.0;   % highest priority — direct catheter measurement
+    calib.weights.LVEDV    = 4.0;   % raised: volume overestimation +20%; priority increased
+    calib.weights.LVESV    = 3.0;   % raised: links directly to LVEF error
+    calib.weights.RVEDV    = 4.0;   % raised: volume overestimation +20%
+    calib.weights.RVESV    = 2.5;
+    calib.weights.LVEF     = 3.0;   % derived from volumes — secondary to CO
 
     %% ==================================================================
     case 'post_surgery'
@@ -205,6 +218,7 @@ end
 
 function [lb, ub] = bounds_from_names(params, names, scenario)
 % BOUNDS_FROM_NAMES — physiological bounds per parameter type
+% Bounds calibrated for paediatric patients (Keisya, 2026-04-13).
 lb = zeros(numel(names), 1);
 ub = zeros(numel(names), 1);
 
@@ -214,31 +228,43 @@ for i = 1:numel(names)
 
     if startsWith(nm, 'R.')
         if strcmp(nm, 'R.vsd') && strcmp(scenario, 'pre_surgery')
-            lb(i) = max(0.001, 0.05 * x0);
-            ub(i) = min(500,   20.0 * x0);
-        elseif ismember(nm, {'R.SAR', 'R.SVEN'})
-            % Systemic resistances are analytically pre-conditioned; tighten
-            % to prevent large excursions away from the Ohm's-law estimate.
-            lb(i) = 0.4 * x0;
-            ub(i) = 2.5 * x0;
+            % VSD resistance: very wide — Gorlin estimate has high uncertainty
+            lb(i) = max(0.001, 0.02 * x0);
+            ub(i) = min(500,   30.0 * x0);
         else
-            lb(i) = 0.3 * x0;
-            ub(i) = 3.0 * x0;
+            % General resistances: wide range for paediatric correction
+            lb(i) = 0.20 * x0;
+            ub(i) = 5.00 * x0;
         end
     elseif startsWith(nm, 'C.')
-        lb(i) = 0.5 * x0;
-        ub(i) = 2.0 * x0;
+        if strcmp(nm, 'C.SAR')
+            % C.SAR (aortic Windkessel): Zhang allometric scaling gives
+            % C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — too stiff.
+            % Clinical aortic compliance for a 3-year-old: 0.3–1.5 mL/mmHg.
+            % Wide upper bound allows optimizer to reach physiological values.
+            lb(i) = 0.20 * x0;
+            ub(i) = 20.0 * x0;
+        else
+            lb(i) = 0.30 * x0;
+            ub(i) = 4.00 * x0;
+        end
     elseif startsWith(nm, 'E.')
-        lb(i) = 0.3 * x0;
-        ub(i) = 3.0 * x0;
+        lb(i) = 0.20 * x0;
+        ub(i) = 5.00 * x0;
     elseif startsWith(nm, 'V0.')
-        % Widened upper bound: LVEDV and RVEDV are under-predicted by ~40%.
-        % The optimizer needs room to substantially increase unstressed volumes.
-        lb(i) = 0.2 * x0;
-        ub(i) = 4.0 * x0;
+        if strcmp(nm, 'V0.LV')
+            % V0.LV: tightened upper bound from 6.00 to 3.00 to prevent
+            % optimizer inflating LVEDV by pushing V0.LV too high while
+            % still matching CO.  Lower bound kept wide for safety.
+            lb(i) = 0.20 * x0;
+            ub(i) = 3.00 * x0;
+        else
+            lb(i) = 0.20 * x0;
+            ub(i) = 3.00 * x0;   % tightened from 4.00 to prevent V0.RV inflation
+        end
     else
-        lb(i) = 0.5 * x0;
-        ub(i) = 2.0 * x0;
+        lb(i) = 0.30 * x0;
+        ub(i) = 4.00 * x0;
     end
 end
 end

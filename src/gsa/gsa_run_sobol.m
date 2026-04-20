@@ -155,10 +155,19 @@ else
     fprintf('[gsa_run_sobol]   %s: 0%%\n', stage_label);
 end
 
-dq = parallel.pool.DataQueue;
-afterEach(dq, @update_progress);
+% Safe DataQueue creation — requires Parallel Computing Toolbox.
+% Without PCT, parfor degrades to for automatically, but DataQueue
+% throws "Undefined variable 'parallel'" and crashes the whole GSA.
+% This try-catch prevents that; progress falls back to per-sample fprintf.
+dq = [];
+try
+    dq = parallel.pool.DataQueue;
+    afterEach(dq, @update_progress);
+catch
+    % PCT unavailable — parfor will run serially; use inline fprintf below
+end
 
-parfor k = 1:N    % Switched to parfor for massively faster execution!
+parfor k = 1:N    % Runs in parallel if PCT available, serially otherwise
     params = apply_sample_row(params0, names, X_mat(k,:)');
     row_out = zeros(1, F);
     try
@@ -175,7 +184,12 @@ parfor k = 1:N    % Switched to parfor for massively faster execution!
         % not crash the estimator; flag if too many failures occur)
     end
     Y_mat(k, :) = row_out;
-    send(dq, 1);
+    if ~isempty(dq)
+        send(dq, 1);
+    else
+        % No PCT: parfor is actually a for-loop — print per-sample progress
+        fprintf('[gsa_run_sobol]   %s: sample %d/%d done\n', stage_label, k, N);
+    end
 end
 
 if ~isempty(h_wait) && isvalid(h_wait)

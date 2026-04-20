@@ -142,7 +142,13 @@ switch scenario
             A_m2      = pi * (D_mm * params.conv.mm_to_m / 2)^2;  % [m²]  defect orifice area
             Cc        = 0.7;                                       % [-]   discharge coeff. (Gorlin 1951; Baumgartner 2009)
             rho_blood = 1060;                                      % [kg/m³] blood density (Levick 2010, p. 13)
-            DP_ref    = 20;                                        % [mmHg] assumed mean LV-RV gradient
+            if isfield(pre, 'DeltaP_VSD_peak_mmHg') && ~isnan(pre.DeltaP_VSD_peak_mmHg) && pre.DeltaP_VSD_peak_mmHg ~= 0
+                peak_to_mean_factor = 0.5;                         % approximation: mean DeltaP ~= 0.5 x peak for VSD jet
+                % Peak-to-mean factor: Baumgartner et al. (1999), simplified VSD jet assumption
+                DP_ref = pre.DeltaP_VSD_peak_mmHg * peak_to_mean_factor;  % [mmHg]
+            else
+                DP_ref = 20;                                       % [mmHg] default assumed mean LV-RV gradient
+            end
             DP_Pa     = DP_ref * params.conv.mmHg_to_Pa;          % [Pa]
             Q_m3s     = Cc * A_m2 * sqrt(2 * DP_Pa / rho_blood);  % [m³/s]
             Q_mLs     = Q_m3s * params.conv.m3_to_mL;             % [mL/s]

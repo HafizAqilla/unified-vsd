@@ -11,9 +11,33 @@ gsa_out = struct();
 %% Per-metric autosave setup (checkpoint file for crash recovery)
 autosave_dir  = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
 if ~exist(autosave_dir, 'dir'), mkdir(autosave_dir); end
+
+p_weight = round(params0.scaling.patient.weight_kg, 1);
 autosave_file = fullfile(autosave_dir, ...
-    sprintf('gsa_pce_%s_checkpoint.mat', cfg.scenario));
+    sprintf('gsa_pce_%s_%.1fkg_checkpoint.mat', cfg.scenario, p_weight));
 fprintf('[gsa_run_pce] Autosave checkpoint: %s\n', autosave_file);
+if exist(autosave_file, 'file')
+    tmp = load(autosave_file, 'gsa_out');
+    ck = tmp.gsa_out;
+    % Validate checkpoint: if cfg.x0 changed (patient data was corrected),
+    % the surrogate bounds are stale and must be discarded.
+    stale = false;
+    if isfield(ck, 'cfg') && isfield(ck.cfg, 'x0') && ...
+            numel(ck.cfg.x0) == numel(cfg.x0)
+        rel_diff = max(abs(ck.cfg.x0 - cfg.x0) ./ max(abs(cfg.x0), 1e-12));
+        if rel_diff > 1e-4
+            stale = true;
+            fprintf('[gsa_run_pce] Checkpoint x0 mismatch (max rel diff=%.2e) — discarding stale checkpoint, retraining.\n', rel_diff);
+        end
+    else
+        stale = true;
+        fprintf('[gsa_run_pce] Checkpoint incompatible (size/field mismatch) — discarding.\n');
+    end
+    if ~stale
+        fprintf('[Crash Recovery] Loading previous partial results...\n');
+        gsa_out = ck;
+    end
+end
 
 %% =====================================================================
 %  Loop over each output metric
@@ -22,6 +46,10 @@ fprintf('[gsa_run_pce] Autosave checkpoint: %s\n', autosave_file);
 for m = 1:numel(all_metrics)
     mf = all_metrics{m};
     fprintf('\n[gsa_run_pce] --- Metric %d/%d: %s ---\n', m, numel(all_metrics), mf);
+    if isfield(gsa_out, mf) && isfield(gsa_out.(mf), 'surrogate')
+        fprintf('[gsa_run_pce] Loaded %s from checkpoint, skipping training...\n', mf);
+        continue;
+    end
 
     % ------------------------------------------------------------------
     % STEP 1: Build UQLab model wrapper for this metric
@@ -79,6 +107,7 @@ for m = 1:numel(all_metrics)
     gsa_out.(mf).ST      = STi;
     gsa_out.(mf).table   = T;
     gsa_out.(mf).primary = ismember(mf, cfg.primary_metrics);
+    gsa_out.(mf).surrogate = myPCE;
 
     % ------------------------------------------------------------------
     % AUTOSAVE: write checkpoint after every completed metric

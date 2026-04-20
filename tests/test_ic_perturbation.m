@@ -79,8 +79,7 @@ params.Tc_RA   = params.Tc_RA_frac   * T_HB;
 params.t_ar_RA = params.t_ac_RA + params.Tc_RA;
 params.Tr_RA   = params.Tr_RA_frac   * T_HB;
 
-% Allow more cycles when starting from perturbed ICs
-params.sim.nCyclesSteady = 40;   % [cycles]  enough for perturbed start
+% Use warm-up cycle count from default_parameters.m (no hardcoded local override).
 
 %% 2. Tolerance definitions  (Guardrail §10.4)
 %  Volume states   [mL]   — states 1–4 (chambers), 5,7,8,10,13 (vascular)
@@ -120,11 +119,29 @@ catch ME
 end
 
 %% 5. Define perturbation cases
-ic_nominal = params.ic.V(:);                    % 14×1
+%  Volume-conserving perturbation (Guardrail §10.4):
+%    Scale all states ±10%, then adjust V_SVEN to restore the original total
+%    blood volume (sum of all compartment volume states).  This isolates the
+%    dynamical robustness of the limit cycle from a trivial change in total
+%    blood volume — a non-conserving ±10% uniform scale pushes the model to a
+%    DIFFERENT steady state, causing all 14 state peaks to differ by design.
+ic_nominal = params.ic.V(:);                    % [14×1]
+
+vol_state_indices = [sidx.V_RA sidx.V_RV sidx.V_LA sidx.V_LV ...
+                     sidx.V_SAR sidx.V_SC sidx.V_SVEN sidx.V_PAR sidx.V_PVEN];
+BV_nominal = sum(ic_nominal(vol_state_indices));   % [mL]  reference total blood volume
+
+ic_plus  = ic_nominal * 1.10;
+excess_p = sum(ic_plus(vol_state_indices)) - BV_nominal;     % [mL]  volume injected by +10%
+ic_plus(sidx.V_SVEN) = max(ic_plus(sidx.V_SVEN) - excess_p, 1.0);  % restore BV via SVEN
+
+ic_minus = ic_nominal * 0.90;
+excess_m = sum(ic_minus(vol_state_indices)) - BV_nominal;   % [mL]  volume removed by -10% (negative)
+ic_minus(sidx.V_SVEN) = max(ic_minus(sidx.V_SVEN) - excess_m, 1.0);  % restore BV via SVEN
 
 perturbations = {
-    '+10%',  1.10 * ic_nominal
-    '-10%',  0.90 * ic_nominal
+    '+10% (BV-conserved)',  ic_plus
+    '-10% (BV-conserved)',  ic_minus
 };
 
 %% 6. Run perturbed ICs and compare

@@ -128,6 +128,10 @@ metrics.Qp_mean_mLs = Qpul_mLs;               % [mL/s]
 %% Resistances  (Wood units = mmHg / [L/min])
 metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);   % [WU]
 metrics.PVR  = (metrics.PAP_mean - metrics.LAP_mean) / max(Qpul_Lmin, 1e-6);   % [WU]
+% NOTE: Qp/Qs computed as mean(Q_PVEN) / mean(Q_SVEN) — a lumped-model flow-balance proxy.
+% Clinical Fick definition uses oxygen saturation: Qp/Qs = (SaO2-SvO2)/(PvO2-PaO2).
+% The two are equivalent only if oxygen transport is modeled (it is not in this ODE).
+% Treat this metric as a volumetric flow ratio, not a Fick-derived shunt fraction.
 metrics.QpQs = Qpul_Lmin / max(Qsys_Lmin, 1e-6);                               % [-]
 
 %% Ventricular volumes and ejection fractions

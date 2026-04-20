@@ -1,4 +1,5 @@
-function J = objective_calibration(x, params0, clinical, calib, scenario)
+function J = objective_calibration(x, params0, clinical, calib, scenario, pce_surrogate)
+if nargin < 6; pce_surrogate = []; end
 % OBJECTIVE_CALIBRATION
 % -----------------------------------------------------------------------
 % Weighted normalised least-squares objective for fmincon.
@@ -43,44 +44,69 @@ for i = 1:numel(calib.names)
     params = set_param_by_name(params, calib.names{i}, x(i));
 end
 
-%% 2. Simulate to steady state
-% Calibration-specific integration settings:
-%
-%   nCyclesSteady = 40  — same as full validation run.  During optimisation
-%     the solver explores parameter regions far from the baseline (e.g. very
-%     high elastances), which drive slow-settling RLC modes.  25 cycles was
-%     insufficient for those regions, causing spurious "not reached" warnings
-%     and a noisy objective landscape.
-%
-%   ss_tol_P / ss_tol_V — loosened to 0.5 mmHg / 0.5 mL during calibration.
-%     The optimiser needs a stable objective value, not a clinically exact
-%     limit cycle.  Looser tolerances prevent the fallback re-integration
-%     path (which doubles the cost) from triggering repeatedly.
-%     Full 0.1 mmHg / 0.1 mL tolerances are restored in main_run after
-%     calibration completes.
-params.sim.nCyclesSteady = 40;    % matches full-run value; adequate for all explored regions
-params.sim.ss_tol_P      = 0.5;   % [mmHg]  loosened for calibration speed
-params.sim.ss_tol_V      = 0.5;   % [mL]    loosened for calibration speed
-params.sim.rtol          = 1e-8;  % [tightened for L-BFGS finite difference gradient noise]
-params.sim.atol          = 1e-10; % [tightened for L-BFGS finite difference gradient noise]
-try
-    sim = integrate_system(params);
-catch
-    % Distance-scaled failure penalty — replaces hard 1e9 constant.
-    % A fixed 1e9 creates an objective cliff that makes finite-difference
-    % gradient estimates point in arbitrary directions at the failed boundary.
-    % Scaling with distance from x0 ensures the gradient consistently points
-    % back toward the known-feasible baseline region.
-    %   J ≈ 1e4 at x = x0 (failure right at baseline — rare)
-    %   J grows quadratically as x moves away from x0 within [lb, ub]
-    x_range = max(calib.ub(:) - calib.lb(:), 1e-6);
-    dist_sq = sum(((x(:) - calib.x0(:)) ./ x_range).^2);
-    J = 1e4 * (1 + dist_sq);
-    return;
+%% 2 & 3. Simulate or Predict
+if ~isempty(pce_surrogate)
+    x_full = pce_surrogate.cfg.x0;
+    for idx_full = 1:numel(pce_surrogate.cfg.names)
+        idx = find(strcmp(calib.names, pce_surrogate.cfg.names{idx_full}));
+        if ~isempty(idx)
+            x_full(idx_full) = x(idx);
+        end
+    end
+    % Clamp x_full to the PCE surrogate training bounds before evaluation.
+    % UQLab normalises inputs using Internal.Input.Marginals, NOT cfg.lb/ub.
+    % cfg.lb/ub can be stale (e.g. checkpoint from a prior patient run), so
+    % we extract the ground-truth bounds from the first available surrogate.
+    % If extraction fails, fall back to cfg bounds.
+    pce_lb = pce_surrogate.cfg.lb(:);
+    pce_ub = pce_surrogate.cfg.ub(:);
+    surr_fns = fieldnames(pce_surrogate);
+    for kf = 1:numel(surr_fns)
+        fn = surr_fns{kf};
+        if isstruct(pce_surrogate.(fn)) && isfield(pce_surrogate.(fn), 'surrogate')
+            s = pce_surrogate.(fn).surrogate;
+            if isfield(s, 'Internal') && isfield(s.Internal, 'Input') && ...
+                    isfield(s.Internal.Input, 'Marginals')
+                margs = s.Internal.Input.Marginals;
+                if numel(margs) == numel(pce_lb)
+                    pce_lb = arrayfun(@(m) m.Parameters(1), margs(:));
+                    pce_ub = arrayfun(@(m) m.Parameters(2), margs(:));
+                end
+            end
+            break;
+        end
+    end
+    x_full = min(max(x_full(:), pce_lb), pce_ub);
+    metrics = struct();
+    % Evaluate polynomial chaos surrogate avoiding numerical integration
+    for k = 1:numel(calib.metricFields)
+        mf = calib.metricFields{k};
+        if isfield(pce_surrogate, mf) && isfield(pce_surrogate.(mf), 'surrogate')
+            metrics.(mf) = uq_evalModel(pce_surrogate.(mf).surrogate, x_full(:)');
+        end
+    end
+    % Compute derived constraints if not present
+    if ~isfield(metrics, 'CO_Lmin') && isfield(metrics, 'QpQs')
+        % Fallback for guards if not modelled
+        metrics.CO_Lmin = 5.0;
+    end
+else
+    params.sim.nCyclesSteady = 40;
+    params.sim.ss_tol_P      = 0.5;
+    params.sim.ss_tol_V      = 0.5;
+    params.sim.rtol          = 1e-8;
+    params.sim.atol          = 1e-10;
+    try
+        sim = integrate_system(params);
+    catch
+        x_range = max(calib.ub(:) - calib.lb(:), 1e-6);
+        dist_sq = sum(((x(:) - calib.x0(:)) ./ x_range).^2);
+        J = 1e4 * (1 + dist_sq);
+        return;
+    end
+    metrics = compute_clinical_indices(sim, params);
 end
 
-%% 3. Compute metrics
-metrics = compute_clinical_indices(sim, params);
 
 %% 4. Select clinical target sub-section
 switch scenario
@@ -122,7 +148,7 @@ for k = 1:numel(calib.metricFields)
         %   t = 0          → scale = 1x  (error at or below threshold)
         %   t = 1 (10% err)→ scale ≈ 10.5x
         %   t → ∞          → scale → 20x
-        if ismember(mf, {'QpQs', 'SAP_mean', 'LVEF'})
+        if ismember(mf, {'QpQs', 'SAP_mean', 'SAP_max', 'PAP_max', 'PAP_mean', 'SAP_min', 'PAP_min', 'CO_Lmin', 'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'SVR', 'LAP_mean'}) 
             t = max(0, err_rel / 0.05 - 1);   % 0 below 5%, positive above
             w = w * (1 + 19 * t / (1 + t));   % smooth, asymptotes to 20x
         end
@@ -203,10 +229,13 @@ fmap = struct();
 switch scenario
     case 'pre_surgery'
         fmap.RAP_mean  = 'RAP_mean_mmHg';
-        fmap.PAP_min   = 'PAP_sys_mmHg';
-        fmap.PAP_max   = 'PAP_sys_mmHg';
+        fmap.LAP_mean  = 'LAP_mean_mmHg';   % estimated pulmonary back-pressure
+        fmap.PAP_min   = 'PAP_dia_mmHg';    % diastolic PA pressure
+        fmap.PAP_max   = 'PAP_sys_mmHg';    % systolic PA pressure
         fmap.PAP_mean  = 'PAP_mean_mmHg';
-        fmap.SAP_mean  = 'SAP_mean_mmHg';   % MAP — pre.SAP_mean_mmHg in patient profiles
+        fmap.SAP_min   = 'SAP_dia_mmHg';    % diastolic systemic pressure
+        fmap.SAP_max   = 'SAP_sys_mmHg';    % systolic systemic pressure
+        fmap.SAP_mean  = 'SAP_mean_mmHg';
         fmap.QpQs      = 'QpQs';
         fmap.PVR       = 'PVR_WU';
         fmap.SVR       = 'SVR_WU';

@@ -67,34 +67,26 @@ end  % elastance_model
 %  LOCAL HELPERS
 % =========================================================================
 
-function ev = ev_activation(phi, Tvc, Tvr, T_HB)
+function ev = ev_activation(phi, Tvc, Tvr, ~)
 % EV_ACTIVATION — Ventricular normalised activation  e_v ∈ [0,1]  [Eq. 2.3]
-%   phi ∈ [0, T_HB),  phases: contraction / relaxation / diastole
+%   Fully vectorised: phi may be scalar or any array.
+%   Phases: contraction [0, Tvc] / relaxation (Tvc, Tvc+Tvr] / diastole (rest=0)
 ev = zeros(size(phi));
-for i = 1:numel(phi)
-    p = phi(i);
-    if p <= Tvc
-        ev(i) = 0.5 * (1 - cos(pi * p / Tvc));
-    elseif p <= Tvc + Tvr
-        ev(i) = 0.5 * (1 + cos(pi * (p - Tvc) / Tvr));
-    else
-        ev(i) = 0;
-    end
-end
+m1 = phi <= Tvc;
+m2 = (phi > Tvc) & (phi <= Tvc + Tvr);
+ev(m1) = 0.5 * (1 - cos(pi * phi(m1) / Tvc));
+ev(m2) = 0.5 * (1 + cos(pi * (phi(m2) - Tvc) / Tvr));
+% diastolic phase: ev = 0 (already initialised by zeros)
 end  % ev_activation
 
-function ea = ea_activation(phi, t_ac, Tc, t_ar, Tr, T_HB)
+function ea = ea_activation(phi, t_ac, Tc, t_ar, Tr, ~)
 % EA_ACTIVATION — Atrial normalised activation  e_a ∈ [0,1]  [Eq. 2.4]
-%   phi ∈ [0, T_HB),  t_ac = contraction start, t_ar = relaxation start
+%   Fully vectorised: phi may be scalar or any array.
+%   t_ac = contraction start, t_ar = relaxation start (= t_ac + Tc)
 ea = zeros(size(phi));
-for i = 1:numel(phi)
-    p = phi(i);
-    if p >= t_ac && p < t_ar
-        ea(i) = 0.5 * (1 - cos(pi * (p - t_ac) / Tc));
-    elseif p >= t_ar && p < t_ar + Tr
-        ea(i) = 0.5 * (1 + cos(pi * (p - t_ar) / Tr));
-    else
-        ea(i) = 0;
-    end
-end
+m1 = (phi >= t_ac) & (phi < t_ar);
+m2 = (phi >= t_ar) & (phi < t_ar + Tr);
+ea(m1) = 0.5 * (1 - cos(pi * (phi(m1) - t_ac) / Tc));
+ea(m2) = 0.5 * (1 + cos(pi * (phi(m2) - t_ar) / Tr));
+% resting phase: ea = 0 (already initialised by zeros)
 end  % ea_activation

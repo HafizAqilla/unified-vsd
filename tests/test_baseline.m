@@ -117,9 +117,12 @@ for k = 1:size(assertions, 1)
     end
 end
 
-%% 7. Blood volume conservation — per-cycle check  (Guardrail \u00a78.6 / \u00a710.3)
-%   Integrate ΣdV/dt over the last complete cardiac cycle.
-%   For a closed conservative system, net change must be < bv_tol mL.
+%% 7. Blood volume conservation — volume-drift check  (Guardrail \u00a78.6 / \u00a710.3)
+% Mass conservation check: total blood volume at end of simulation must equal
+% total blood volume at initial conditions within numerical tolerance.
+% This is a volume-drift check (sum of all compartment volumes at last time point
+% vs sum at t=0), not a formal closed-loop integral of the RHS residual.
+% A stricter check would integrate sum(dXdt(volume_indices)) over one cardiac cycle.
 fprintf('\n--- Conservation check (Guardrail Section 8.6) ---\n');
 
 sidx    = params.idx;   % state index struct (Guardrail \u00a77.1)
@@ -192,12 +195,15 @@ for ki = 1:numel(t_cyc)
 end
 
 % Reconstruct systemic arterial pressure and aortic valve flow on the same cycle.
-P_SAR_c = (V_SAR_c - params.V0.SAR) ./ params.C.SAR;           % [mmHg]
-dP_AV_c = P_LV_c - P_SAR_c;                                     % [mmHg]
-w_AV_c  = 0.5 + 0.5 * tanh(dP_AV_c ./ params.epsilon_valve);   % [-]
-R_AV_c  = w_AV_c .* params.Rvalve.open + ...                    % [mmHg·s/mL]
-          (1 - w_AV_c) .* params.Rvalve.closed;
-Q_AV_c  = dP_AV_c ./ R_AV_c;                                    % [mL/s]
+% Use conductance blending (matching system_rhs.m inlined valve, not resistance blending):
+%   Q = dP * (gate/R_open + (1-gate)/R_closed)   ← conductance blend (model-consistent)
+%   NOT: Q = dP / (gate*R_open + (1-gate)*R_closed) ← resistance blend (wrong, gives low Q at ES)
+P_SAR_c  = (V_SAR_c - params.V0.SAR) ./ params.C.SAR;           % [mmHg]
+dP_AV_c  = P_LV_c - P_SAR_c;                                     % [mmHg]
+g_AV_c   = 0.5 + 0.5 * tanh(dP_AV_c ./ params.epsilon_valve);  % [-]  conductance gate
+inv_Ro_c = 1 / params.Rvalve.open;                               % [mL/(mmHg·s)]
+inv_Rc_c = 1 / params.Rvalve.closed;                             % [mL/(mmHg·s)]
+Q_AV_c   = dP_AV_c .* (g_AV_c * inv_Ro_c + (1 - g_AV_c) * inv_Rc_c);  % [mL/s]
 
 % (a) Stroke work  SW = ∮ P dV  (positive = counter-clockwise = systole ejects blood)
 %     Negate trapz sign because for a CCW loop ∮P dV > 0 when integrating with
