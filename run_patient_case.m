@@ -1,4 +1,4 @@
-% RUN_PATIENT_CASE
+% RUN_PATIENT_CASE REYNA
 % Simulation and calibration setup for specific 3-year-old VSD patient.
 
 clear; clc;
@@ -25,12 +25,7 @@ clinical.pre_surgery.SAP_dia_mmHg  = 83;      % mmHg (SAP Min)
 clinical.pre_surgery.SAP_mean_mmHg = 95;      % mmHg (MAP)
 clinical.pre_surgery.RAP_mean_mmHg = 5;       % mmHg
 clinical.pre_surgery.RAP_max_mmHg  = 8;       % mmHg
-clinical.pre_surgery.RAP_min_mmHg  = 6.67;     % mmHg  — excluded: 6.67 > RAP_mean (5.0) is
-                                                %   physically impossible (min > mean).
-                                                %   Likely a back-calculated artefact, not a
-                                                %   direct clinical measurement. Omitting so
-                                                %   the optimizer is not given a contradictory
-                                                %   target that prevents RAP_mean convergence.
+clinical.pre_surgery.RAP_min_mmHg  = 6.67;    % mmHg
 clinical.pre_surgery.QpQs          = 1.194;   % Pulmonary/Systemic Flow Ratio
 clinical.pre_surgery.LVEDV_mL      = 32;      % mL
 clinical.pre_surgery.LVESV_mL      = 23.6;    % mL

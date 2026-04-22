@@ -56,11 +56,10 @@ switch scenario
         'C.SVEN'      % Systemic venous compliance (must be included)
         'E.LV.EA'     % LV active elastance
         'E.LV.EB'     % LV passive elastance
-        'E.RV.EA'     % RV active elastance
+        'E.RV.EA'     % RV active elastance (second )
         'E.RV.EB'     % RV passive elastance
         'V0.RV'       % RV unstressed volume
-        'V0.LV'       % LV unstressed volume — large LVESV mismatch observed
-        'V0.LA'       % LA unstressed volume — controls LA filling → LV preload → LVEDV/LVESV
+        'V0.LV'       % LV unstressed volume (added: LVESV mismatch large)
         'R.vsd'       % VSD shunt resistance (must be included)
         'R.SC'        % Systemic arteriolar resistance   — primary SVR contributor
         'R.PCOX'      % Pulmonary arteriolar resistance
@@ -98,24 +97,21 @@ switch scenario
         calib.weights.(calib.metricFields{k}) = 1.0;   % default all to 1.0
     end
     % --- Primary haemodynamic anchors (pressures + flow ratio) ----------
-    % SAP_min/SAP_max together constrain both contractility (peak) and
-    % vascular compliance (trough).  Both must be fitted simultaneously;
-    % previous run showed ±10–12% error on both — boost equally.
-    calib.weights.SAP_max  = 5.0;   % systolic BP — primary VSD target (+10.6% error)
-    calib.weights.SAP_min  = 5.0;   % diastolic BP — pulse-pressure pair (-12.3% error)
-    calib.weights.SAP_mean = 3.0;   % MAP — key haemodynamic anchor (+5.4% error)
-    calib.weights.PAP_max  = 4.0;   % PA systolic — primary indicator of PH (-10.5% error)
+    calib.weights.SAP_max  = 4.0;   % systolic BP — primary VSD target
+    calib.weights.SAP_mean = 3.0;   % MAP — key haemodynamic anchor
+    calib.weights.PAP_max  = 3.5;   % PA systolic — primary indicator of PH
     calib.weights.PAP_mean = 3.0;   % mean PAP — pulmonary hypertension marker
-    calib.weights.PAP_min  = 3.0;   % PA diastolic — compliance constraint
-    calib.weights.QpQs     = 6.0;   % shunt ratio — #1 VSD severity metric (-9.7% error)
-    calib.weights.RAP_mean = 3.0;   % venous pressure — no longer corrupted by NaN RAP_min
+    calib.weights.QpQs     = 5.0;   % shunt ratio — #1 VSD severity metric
+    calib.weights.SAP_min  = 1.5;   % diastolic — constrains compliance
+    calib.weights.PAP_min  = 4.0;   % PA diastolic — poor fit, boost weight
+    calib.weights.RAP_mean = 2.0;   % venous pressure — secondary check
     calib.weights.RAP_max  = 2.0;   % venous peak pressure
-    calib.weights.RAP_min  = 0.0;   % excluded: NaN clinical target — weight must be 0
+    calib.weights.RAP_min  = 3.5;   % venous trough — large error, boost weight
     % --- Volume metrics (large errors observed, boost significantly) -----
-    calib.weights.RVESV    = 7.0;   % RV ESV — residual +21% error
-    calib.weights.RVEDV    = 4.0;   % RV EDV — near target (-2%)
-    calib.weights.LVESV    = 7.0;   % LV ESV — -35% error, V0.LA added to address this
-    calib.weights.LVEDV    = 3.0;   % LV EDV — near target (-1.8%)
+    calib.weights.RVESV    = 8.0;   % RV ESV — 72% error, must improve
+    calib.weights.RVEDV    = 5.0;   % RV EDV — 32% error, boost weight
+    calib.weights.LVESV    = 6.0;   % LV ESV — 44% error, boost weight
+    calib.weights.LVEDV    = 2.0;   % LV EDV — near target, moderate weight
 
 
 
@@ -243,15 +239,14 @@ for i = 1:numel(names)
         end
     elseif startsWith(nm, 'C.')
         if strcmp(nm, 'C.SAR')
-            % C.SAR (aortic Windkessel compliance): allometric scaling gives
-            % C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — far too stiff.
+            % C.SAR (aortic Windkessel compliance): Zhang allometric scaling
+            % gives C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — far too stiff.
             % Clinical aortic compliance for a 3-year-old is typically
-            % 0.3–1.5 mL/mmHg.  Previous run still showed ±12% SAP error,
-            % meaning the optimizer did not reach the physiological range.
-            % Upper bound widened to 40× to guarantee the full clinical
-            % range is accessible from the allometric starting point.
-            lb(i) = 0.10 * x0;    % allow slightly smaller if needed
-            ub(i) = 40.0 * x0;   % widened: must cover 0.038 → 1.5 mL/mmHg
+            % 0.3–1.5 mL/mmHg. Wide bounds allow the optimizer to reach
+            % physiological values without being constrained by the allometric
+            % starting point.
+            lb(i) = 0.20 * x0;    % allow slightly smaller if needed
+            ub(i) = 20.0 * x0;   % must be much wider — key pulse-pressure param
         else
             % All other compliances: wider (0.3×–4×)
             lb(i) = 0.30 * x0;

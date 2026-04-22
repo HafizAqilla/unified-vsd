@@ -92,16 +92,15 @@ for k = 1:numel(calib.metricFields)
         % 100x Barrier logic for primary metrics (> 5% error = large penalty).
         % These are the most clinically important targets. Errors > 5% are
         % physiologically unacceptable and must be penalised heavily.
-        % RAP_min is excluded from this list (NaN clinical target, weight = 0).
-        primary_metrics = {'QpQs', 'SAP_max', 'SAP_min', 'SAP_mean', 'PAP_max', 'PAP_mean', 'RAP_mean'};
+        primary_metrics = {'QpQs', 'SAP_max', 'SAP_min', 'SAP_mean', 'PAP_max', 'PAP_mean'};
         if ismember(mf, primary_metrics) && (err_rel > 0.05)
             w = w * 100;
         end
         
         % 50x Barrier logic for volume metrics (> 10% error = large penalty).
-        % V0.LA has been added as a free parameter to improve LVEDV/LVESV fit.
-        % Threshold kept at 10% (echocardiographic volumes have ~5-10% inherent
-        % measurement uncertainty in paediatric patients).
+        % Looser threshold used because volume estimates have higher clinical
+        % uncertainty, but large mismatches (RVESV 72%, LVESV 44%) must be
+        % corrected to produce a physiologically valid model.
         volume_metrics = {'RVESV', 'RVEDV', 'LVESV', 'LVEDV'};
         if ismember(mf, volume_metrics) && (err_rel > 0.10)
             w = w * 50;
