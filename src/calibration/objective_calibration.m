@@ -92,9 +92,19 @@ for k = 1:numel(calib.metricFields)
         % 100x Barrier logic for primary metrics (> 5% error = large penalty).
         % These are the most clinically important targets. Errors > 5% are
         % physiologically unacceptable and must be penalised heavily.
-        primary_metrics = {'QpQs', 'SAP_max', 'SAP_min', 'SAP_mean', 'PAP_max', 'PAP_mean'};
+        % RAP_min is excluded from this list (NaN clinical target, weight = 0).
+        primary_metrics = {'QpQs', 'SAP_max', 'SAP_min', 'SAP_mean', 'PAP_max', 'PAP_mean', 'RAP_mean'};
         if ismember(mf, primary_metrics) && (err_rel > 0.05)
             w = w * 100;
+        end
+        
+        % 50x Barrier logic for volume metrics (> 10% error = large penalty).
+        % V0.LA has been added as a free parameter to improve LVEDV/LVESV fit.
+        % Threshold kept at 10% (echocardiographic volumes have ~5-10% inherent
+        % measurement uncertainty in paediatric patients).
+        volume_metrics = {'RVESV', 'RVEDV', 'LVESV', 'LVEDV'};
+        if ismember(mf, volume_metrics) && (err_rel > 0.10)
+            w = w * 50;
         end
         
         J = J + w * err_rel^2;
@@ -132,6 +142,8 @@ fmap = struct();
 switch scenario
     case 'pre_surgery'
         fmap.RAP_mean  = 'RAP_mean_mmHg';
+        fmap.RAP_max   = 'RAP_max_mmHg';
+        fmap.RAP_min   = 'RAP_min_mmHg';
         fmap.PAP_min   = 'PAP_dia_mmHg';
         fmap.PAP_max   = 'PAP_sys_mmHg';
         fmap.PAP_mean  = 'PAP_mean_mmHg';
@@ -156,6 +168,8 @@ switch scenario
         fmap.LVEDV     = 'LVEDV_mL';
         fmap.RVEDV     = 'RVEDV_mL';
         fmap.RAP_mean  = 'RAP_mean_mmHg';
+        fmap.RAP_max   = 'RAP_max_mmHg';
+        fmap.RAP_min   = 'RAP_min_mmHg';
         fmap.PAP_mean  = 'PAP_mean_mmHg';
 end
 end

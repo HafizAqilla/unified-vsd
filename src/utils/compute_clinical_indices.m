@@ -11,6 +11,8 @@ function metrics = compute_clinical_indices(sim, params)
 %   metrics - struct of computed indices (all in clinical reporting units)
 %
 % FIELDS RETURNED:
+%   RAP_max    [mmHg]   right atrial maximal pressure  (max P_RA over last cycle)
+%   RAP_min    [mmHg]   right atrial minimal pressure  (min P_RA over last cycle)
 %   RAP_mean   [mmHg]   right atrial mean pressure
 %   LAP_mean   [mmHg]   left atrial mean pressure
 %   PAP_min    [mmHg]   PA pressure minimum
@@ -79,7 +81,9 @@ mean_t = @(y) trapz(tc, y) / max(tc(end) - tc(1), 1e-9);
 metrics = struct();
 
 %% Atrial pressures
-metrics.RAP_mean = mean_t(Pc.RA);   % [mmHg]
+metrics.RAP_max  = max(Pc.RA);      % [mmHg]  Right Atrial Maximal Pressure
+metrics.RAP_min  = min(Pc.RA);      % [mmHg]  Right Atrial Minimal Pressure
+metrics.RAP_mean = mean_t(Pc.RA);   % [mmHg]  Right Atrial Mean Pressure
 metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
 
 %% Pulmonary artery  (P_PAR)

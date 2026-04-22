@@ -67,15 +67,53 @@ opts = optimoptions('fmincon', ...
     'FiniteDifferenceStepSize', 1e-5,  ...
     'FiniteDifferenceType',     'forward', ...
     'Display',                  'iter-detailed', ...
-    'MaxFunctionEvaluations',   4000, ...
-    'MaxIterations',            300, ...
+    'MaxFunctionEvaluations',   8000, ...
+    'MaxIterations',            600, ...
     'OptimalityTolerance',      1e-6, ...
     'StepTolerance',            1e-8);
 
 [xbest, fbest, exitflag, output] = fmincon( ...
     obj, calib.x0, [], [], [], [], calib.lb, calib.ub, [], opts);
 
-fprintf('[run_calibration] fmincon done.  J = %.6f | exitflag = %d\n', fbest, exitflag);
+fprintf('[run_calibration] Phase 1 done.  J = %.6f | exitflag = %d\n', fbest, exitflag);
+
+%% Phase 2 — refinement pass from best solution
+%  Start from the Phase 1 solution with a small random perturbation on
+%  parameters that may be trapped near a bound.  The perturbation is ±5%%
+%  of the feasible range, clipped to [lb, ub].  This is a cheap way to
+%  detect shallow local minima without the cost of MultiStart.
+%
+%  Only executed if Phase 1 exitflag suggests it did not fully converge
+%  (exitflag == 0: iteration limit; exitflag < 0: infeasible / failure).
+%  Always executed for exitflag == 1 (optimal) as a free polish step.
+rng(42);   % reproducible perturbation
+perturb_scale = 0.05;   % 5% of [lb, ub] range
+range_x  = calib.ub - calib.lb;
+perturb  = perturb_scale * range_x .* (2*rand(size(xbest)) - 1);  % ±5%
+x0_phase2 = min(max(xbest + perturb, calib.lb), calib.ub);         % clip to bounds
+
+opts2 = optimoptions(opts, ...
+    'Display',                  'final', ...
+    'MaxFunctionEvaluations',   3000, ...
+    'MaxIterations',            300, ...
+    'OptimalityTolerance',      1e-7, ...
+    'StepTolerance',            1e-10);
+
+[x2, f2, exitflag2, output2] = fmincon( ...
+    obj, x0_phase2, [], [], [], [], calib.lb, calib.ub, [], opts2);
+
+if f2 < fbest
+    fprintf('[run_calibration] Phase 2 improved: J %.6f → %.6f | exitflag = %d\n', ...
+            fbest, f2, exitflag2);
+    xbest    = x2;
+    fbest    = f2;
+    exitflag = exitflag2;
+    output   = output2;
+else
+    fprintf('[run_calibration] Phase 2 did not improve (J = %.6f). Keeping Phase 1.\n', f2);
+end
+
+fprintf('[run_calibration] Final best: J = %.6f | exitflag = %d\n', fbest, exitflag);
 
 %% Unpack best parameters
 params_best = params0;

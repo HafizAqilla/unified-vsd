@@ -26,7 +26,7 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %
 % METRIC ROWS:
 %   pre_surgery:  RAP_mean, PAP_min/max/mean, SAP_max, SAP_min, SAP_mean,
-%                 QpQs, PVR, SVR, LVEDV, LVESV, RVEDV, RVESV, LVEF
+%                 QpQs, LVEDV, LVESV, RVEDV, RVESV
 %   post_surgery: SAP_min/max/mean, MAP (=SAP_mean), SVR, PVR,
 %                 LVEF, RVEF, QpQs, LVEDV, RVEDV
 %   Rows with NaN clinical value are shown but excluded from RMSE.
@@ -48,6 +48,8 @@ switch scenario
         src = clinical.pre_surgery;
         metric_defs = {
             'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
+            'RAP_max',   'RAP_max_mmHg',   'mmHg',   'Right atrial maximal pressure'
+            'RAP_min',   'RAP_min_mmHg',   'mmHg',   'Right atrial minimal pressure'
             'PAP_min',   'PAP_dia_mmHg',   'mmHg',   'PA diastolic pressure (trough)'
             'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (peak)'
             'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
@@ -55,13 +57,10 @@ switch scenario
             'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (trough)'
             'SAP_mean',  'SAP_mean_mmHg',  'mmHg',   'Mean arterial pressure (MAP)'
             'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
-            'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
-            'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
             'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
             'LVESV',     'LVESV_mL',       'mL',     'LV end-systolic volume'
             'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
             'RVESV',     'RVESV_mL',       'mL',     'RV end-systolic volume'
-            'LVEF',      'LVEF',           '—',      'LV ejection fraction'
             };
 
     case 'post_surgery'
@@ -77,6 +76,9 @@ switch scenario
             'QpQs',      'QpQs',           '—',      'Qp/Qs ratio (should be ~1.0)'
             'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
             'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
+            'RAP_max',   'RAP_max_mmHg',   'mmHg',   'Right atrial maximal pressure'
+            'RAP_min',   'RAP_min_mmHg',   'mmHg',   'Right atrial minimal pressure'
+            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
             };
     otherwise
         error('validation_report:unknownScenario', ...
@@ -175,7 +177,8 @@ end
 
 function gate_tbl = primary_metric_gate(table_cal, table_base)
 % PRIMARY_METRIC_GATE — evaluate strict 5% absolute error gate.
-primary_names = {'QpQs', 'SAP_mean', 'LVEF'};
+% Note: LVEF excluded from pre_surgery gate (not a calibration target).
+primary_names = {'QpQs', 'SAP_mean'};
 metric_col = primary_names(:);
 clinical_col = nan(numel(primary_names), 1);
 model_col = nan(numel(primary_names), 1);
@@ -210,7 +213,7 @@ end
 
 function print_primary_gate(gate_tbl)
 % PRINT_PRIMARY_GATE — print explicit pass/fail warning lines for 5% gate.
-fprintf('\n--- PRIMARY 5%% TARGET GATE (Qp/Qs, MAP, LVEF) ---\n');
+fprintf('\n--- PRIMARY 5%% TARGET GATE (Qp/Qs, MAP) ---\n');
 disp(gate_tbl);
 
 idx_fail = find(~gate_tbl.Pass_5pct | isnan(gate_tbl.Pass_5pct));

@@ -56,19 +56,24 @@ switch scenario
         'C.SVEN'      % Systemic venous compliance (must be included)
         'E.LV.EA'     % LV active elastance
         'E.LV.EB'     % LV passive elastance
-        'E.RV.EA'     % RV active elastance (second )
+        'E.RV.EA'     % RV active elastance
         'E.RV.EB'     % RV passive elastance
         'V0.RV'       % RV unstressed volume
+        'V0.LV'       % LV unstressed volume — large LVESV mismatch observed
+        'V0.LA'       % LA unstressed volume — controls LA filling → LV preload → LVEDV/LVESV
         'R.vsd'       % VSD shunt resistance (must be included)
         'R.SC'        % Systemic arteriolar resistance   — primary SVR contributor
         'R.PCOX'      % Pulmonary arteriolar resistance
         'C.PVEN'      % Pulmonary venous compliance
+        'C.PAR'       % Pulmonary arterial compliance    — controls PAP_min
         'R.SAR'       % Aortic resistance               — controls MAP
         'C.SAR'       % Aortic (Windkessel) compliance  — controls pulse pressure
         };
 
     calib.metricFields = {
         'RAP_mean'
+        'RAP_max'
+        'RAP_min'
         'PAP_min'
         'PAP_max'
         'PAP_mean'
@@ -92,14 +97,26 @@ switch scenario
     for k = 1:numel(calib.metricFields)
         calib.weights.(calib.metricFields{k}) = 1.0;   % default all to 1.0
     end
-    calib.weights.SAP_max  = 4.0;   % systolic BP — primary VSD target
-    calib.weights.SAP_mean = 3.0;   % MAP — key haemodynamic anchor
-    calib.weights.PAP_max  = 3.5;   % PA systolic — primary indicator of PH
+    % --- Primary haemodynamic anchors (pressures + flow ratio) ----------
+    % SAP_min/SAP_max together constrain both contractility (peak) and
+    % vascular compliance (trough).  Both must be fitted simultaneously;
+    % previous run showed ±10–12% error on both — boost equally.
+    calib.weights.SAP_max  = 5.0;   % systolic BP — primary VSD target (+10.6% error)
+    calib.weights.SAP_min  = 5.0;   % diastolic BP — pulse-pressure pair (-12.3% error)
+    calib.weights.SAP_mean = 3.0;   % MAP — key haemodynamic anchor (+5.4% error)
+    calib.weights.PAP_max  = 4.0;   % PA systolic — primary indicator of PH (-10.5% error)
     calib.weights.PAP_mean = 3.0;   % mean PAP — pulmonary hypertension marker
-    calib.weights.QpQs     = 4.0;   % shunt ratio — #1 VSD severity metric
-    calib.weights.SAP_min  = 1.5;   % diastolic — constrains compliance
-    calib.weights.PAP_min  = 1.5;   % PA diastolic — constrains C.PAR
-    calib.weights.RAP_mean = 1.0;   % venous pressure — secondary check
+    calib.weights.PAP_min  = 3.0;   % PA diastolic — compliance constraint
+    calib.weights.QpQs     = 6.0;   % shunt ratio — #1 VSD severity metric (-9.7% error)
+    calib.weights.RAP_mean = 3.0;   % venous pressure — no longer corrupted by NaN RAP_min
+    calib.weights.RAP_max  = 2.0;   % venous peak pressure
+    calib.weights.RAP_min  = 0.0;   % excluded: NaN clinical target — weight must be 0
+    % --- Volume metrics (large errors observed, boost significantly) -----
+    calib.weights.RVESV    = 7.0;   % RV ESV — residual +21% error
+    calib.weights.RVEDV    = 4.0;   % RV EDV — near target (-2%)
+    calib.weights.LVESV    = 7.0;   % LV ESV — -35% error, V0.LA added to address this
+    calib.weights.LVEDV    = 3.0;   % LV EDV — near target (-1.8%)
+
 
 
     %% ==================================================================
@@ -132,6 +149,8 @@ switch scenario
         'SAP_min'
         'SAP_mean'
         'RAP_mean'
+        'RAP_max'
+        'RAP_min'
         'QpQs'
         'LVEDV'
         'LVESV'
@@ -206,7 +225,11 @@ for i = 1:numel(names)
     x0  = get_param_by_name(params, names{i});
     nm  = names{i};
 
-    if startsWith(nm, 'R.')
+    if startsWith(nm, 'V0.')
+        % Unstressed volumes: moderate range to preserve blood conservation
+        lb(i) = 0.30 * x0;
+        ub(i) = 3.00 * x0;
+    elseif startsWith(nm, 'R.')
         if strcmp(nm, 'R.vsd') && strcmp(scenario, 'pre_surgery')
             % VSD resistance: very wide range — the Gorlin estimate has high
             % uncertainty; the true R.vsd is the primary free variable.
@@ -220,14 +243,15 @@ for i = 1:numel(names)
         end
     elseif startsWith(nm, 'C.')
         if strcmp(nm, 'C.SAR')
-            % C.SAR (aortic Windkessel compliance): Zhang allometric scaling
-            % gives C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — far too stiff.
+            % C.SAR (aortic Windkessel compliance): allometric scaling gives
+            % C.SAR ≈ 0.038 mL/mmHg for a 13.4 kg child — far too stiff.
             % Clinical aortic compliance for a 3-year-old is typically
-            % 0.3–1.5 mL/mmHg. Wide bounds allow the optimizer to reach
-            % physiological values without being constrained by the allometric
-            % starting point.
-            lb(i) = 0.20 * x0;    % allow slightly smaller if needed
-            ub(i) = 20.0 * x0;   % must be much wider — key pulse-pressure param
+            % 0.3–1.5 mL/mmHg.  Previous run still showed ±12% SAP error,
+            % meaning the optimizer did not reach the physiological range.
+            % Upper bound widened to 40× to guarantee the full clinical
+            % range is accessible from the allometric starting point.
+            lb(i) = 0.10 * x0;    % allow slightly smaller if needed
+            ub(i) = 40.0 * x0;   % widened: must cover 0.038 → 1.5 mL/mmHg
         else
             % All other compliances: wider (0.3×–4×)
             lb(i) = 0.30 * x0;

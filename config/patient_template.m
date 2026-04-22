@@ -65,6 +65,8 @@ pre.SVR_WU            = NaN;   % [WU]     systemic vascular resistance
 
 % ---- Atrial pressures -------------------------------------------------
 pre.RAP_mean_mmHg     = NaN;   % [mmHg]   right atrial mean pressure (cath)
+pre.RAP_max_mmHg      = NaN;   % [mmHg]   right atrial maximal pressure
+pre.RAP_min_mmHg      = NaN;   % [mmHg]   right atrial minimal pressure
 pre.LAP_mean_mmHg     = NaN;   % [mmHg]   left atrial mean (or PCWP)
 
 % ---- Ventricular volumes and function (echo / MRI) -------------------
@@ -103,6 +105,8 @@ post.SVR_WU           = NaN;   % [WU]
 
 % ---- Atrial pressures ------------------------------------------------
 post.RAP_mean_mmHg    = NaN;
+post.RAP_max_mmHg     = NaN;
+post.RAP_min_mmHg     = NaN;
 post.LAP_mean_mmHg    = NaN;
 
 % ---- Ventricular volumes and function (normalised post-surgery) ------
