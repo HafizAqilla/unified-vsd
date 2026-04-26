@@ -86,26 +86,12 @@ root        = fileparts(mfilename('fullpath'));
 addpath(genpath(root));
 
 tables_dir  = fullfile(root, 'results', 'tables');
-mat_files   = dir(fullfile(tables_dir, 'params_calibrated_pre_surgery_*.mat'));
+latest_mat  = fullfile(tables_dir, 'params_calibrated_pre_surgery_20260426_170809.mat');
 
-if isempty(mat_files)
-    % Fall back to the un-timestamped legacy filename if present
-    legacy_file = fullfile(tables_dir, 'params_calibrated_pre_surgery.mat');
-    if isfile(legacy_file)
-        mat_files = dir(legacy_file);
-        fprintf('[run_post_surgery] WARNING: No timestamped calibration file found.\n');
-        fprintf('  Falling back to: %s\n', legacy_file);
-    else
-        error(['run_post_surgery:noCalibFile\n' ...
-               'No calibrated pre-surgery .mat file found in:\n  %s\n\n' ...
-               'Please run run_patient_case.m (pre_surgery) first,\n' ...
-               'or set DO_CALIBRATION = true in main_run.m.\n'], tables_dir);
-    end
+if ~isfile(latest_mat)
+    error(['run_post_surgery:noCalibFile\n' ...
+           'The specified calibration file was not found:\n  %s\n\n'], latest_mat);
 end
-
-% Sort by name — the timestamp suffix ensures lexicographic = chronological
-[~, sort_idx] = sort({mat_files.name});
-latest_mat    = fullfile(tables_dir, mat_files(sort_idx(end)).name);
 
 fprintf('[run_post_surgery] Loading calibrated parameters from:\n');
 fprintf('  %s\n\n', latest_mat);
@@ -183,6 +169,9 @@ post.SVR_WU            = NaN;    % [WU]    set if SVR measured
 
 % ---- Atrial pressures ------------------------------------------------
 post.RAP_mean_mmHg     = 5;    % [mmHg]
+post.RAP_max_mmHg      = 7.67;    % [mmHg]
+post.RAP_min_mmHg      = 5;    % [mmHg]
+
 post.LAP_mean_mmHg     = NaN;    % [mmHg]
 
 % ---- Ventricular volumes (expected remodelling) ----------------------
@@ -192,11 +181,13 @@ post.LVEDV_mL          = 32;    % [mL]  set from post-op echo if available
 post.LVESV_mL          = 23.6;    % [mL]
 post.RVEDV_mL          = 30.5;    % [mL]
 post.RVESV_mL          = 12;    % [mL]
-post.LVEF              = NaN;    % [-]   fraction; expected conserved
+post.LVEF              = 0.618;  % [-]   fraction (61.8%)
 post.RVEF              = NaN;    % [-]   fraction
 
+post.LVSV_mL           = 26.4;   % [mL]  left ventricular stroke volume
+
 % ---- Cardiac output --------------------------------------------------
-post.CO_Lmin           = NaN;    % [L/min]  set from Fick/TD if measured
+post.CO_Lmin           = 3.0;    % [L/min]  set from Fick/TD if measured
 
 clinical.post_surgery = post;
 

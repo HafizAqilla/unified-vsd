@@ -125,12 +125,12 @@ params.Tc_RV_frac   = 0.25;    % RV contraction duration / T_HB  — Colebank202
 params.Tr_RV_frac   = 0.30;    % RV relaxation  duration / T_HB  — Colebank2025
 
 % Atrial timing  (T_ar = t_ac + Tc; set in apply_scaling Section D)
-params.t_ac_LA_frac = 0.80;    % LA contraction start   / T_HB  — Bozkurt2019
+params.t_ac_LA_frac = 0.85;    % LA contraction start   / T_HB  — Bozkurt2019
 params.Tc_LA_frac   = 0.10;    % LA contraction duration/ T_HB  — Colebank2025
-params.Tr_LA_frac   = 0.20;    % LA relaxation  duration/ T_HB  — Colebank2025
-params.t_ac_RA_frac = 0.80;    % RA contraction start   / T_HB  — Bozkurt2019
+params.Tr_LA_frac   = 0.10;    % LA relaxation  duration/ T_HB  — Colebank2025
+params.t_ac_RA_frac = 0.85;    % RA contraction start   / T_HB  — Bozkurt2019
 params.Tc_RA_frac   = 0.10;    % RA contraction duration/ T_HB  — Colebank2025
-params.Tr_RA_frac   = 0.20;    % RA relaxation  duration/ T_HB  — Colebank2025
+params.Tr_RA_frac   = 0.10;    % RA relaxation  duration/ T_HB  — Colebank2025
 
 % Additional Bozkurt2019 timing constants (stored for documentation)
 params.timing.D    = 0.04;     % [s]  AV conduction delay     — Bozkurt2019
@@ -244,26 +244,31 @@ params.V0.PCNO = 0;                      % [mL]  disabled branch
 params.V0.PVEN = 0;       % [mL]  see note above — Colebank2025 VPV0 = 55 mL
 
 %% =====================================================================
-%  VALVE RESISTANCES  —  Bozkurt2019 Table 2
+%  VALVE RESISTANCES  —  Valenti (2023) non-ideal diode model
 %
-%  The current valve_model.m (v2.0 hard-switch) uses a SINGLE R_open
-%  applied to all four cardiac valves.  Per-valve values are stored here
-%  for reference and future per-valve extension.
+%  valve_model.m implements the Valenti two-resistance diode:
+%    R_i(p1, p2) = { R_min,  p1 > p2   (valve open  / forward flow)
+%                  { R_max,  p1 ≤ p2   (valve closed / back-pressure)
 %
-%  Per-valve values (Bozkurt2019 Table 2):
+%  R_min (open)  = 6.2872e-3 mmHg·s/mL  — Valenti (2023) Table 3.3
+%  R_max (closed)= 9.4168e+4 mmHg·s/mL  — Valenti (2023) Table 3.3
+%
+%  A single R_min is applied to all four cardiac valves (aortic, mitral,
+%  pulmonary, tricuspid). Per-valve breakdown from Bozkurt2019 is retained
+%  below for documentation and future per-valve extension.
+%
+%  Per-valve reference values (Bozkurt2019 Table 2):
 %    Ra_val = 0.002 mmHg·s/mL  (aortic)
 %    Rm_val = 0.002 mmHg·s/mL  (mitral)
 %    Rp_val = 0.001 mmHg·s/mL  (pulmonary)
 %    Rt_val = 0.001 mmHg·s/mL  (tricuspid)
-%
-%  Rvalve.open = mean of the four = 0.0015 mmHg·s/mL
 %% =====================================================================
-params.Rvalve.Ra_val  = 0.002;       % [mmHg·s/mL]  aortic valve   — Bozkurt2019
-params.Rvalve.Rm_val  = 0.002;       % [mmHg·s/mL]  mitral valve   — Bozkurt2019
-params.Rvalve.Rp_val  = 0.001;       % [mmHg·s/mL]  pulmonary valve — Bozkurt2019
-params.Rvalve.Rt_val  = 0.001;       % [mmHg·s/mL]  tricuspid valve — Bozkurt2019
-params.Rvalve.open    = mean([0.002 0.002 0.001 0.001]);  % = 0.0015 [mmHg·s/mL]
-params.Rvalve.closed  = 9.4168e+4;   % [mmHg·s/mL]  numerical guard — Valenti Table 3.3
+params.Rvalve.Ra_val  = 0.002;       % [mmHg·s/mL]  aortic valve      — Bozkurt2019 Table 2
+params.Rvalve.Rm_val  = 0.002;       % [mmHg·s/mL]  mitral valve      — Bozkurt2019 Table 2
+params.Rvalve.Rp_val  = 0.001;       % [mmHg·s/mL]  pulmonary valve   — Bozkurt2019 Table 2
+params.Rvalve.Rt_val  = 0.001;       % [mmHg·s/mL]  tricuspid valve   — Bozkurt2019 Table 2
+params.Rvalve.open    = 6.2872e-3;   % [mmHg·s/mL]  R_min — Valenti (2023) Table 3.3
+params.Rvalve.closed  = 9.4168e+4;   % [mmHg·s/mL]  R_max — Valenti (2023) Table 3.3
 
 %% =====================================================================
 %  VSD SHUNT  (adult reference: effectively closed / absent)

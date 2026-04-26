@@ -40,6 +40,8 @@ function metrics = compute_clinical_indices(sim, params)
 %   LVSV       [mL]     LV stroke volume
 %   RVSV       [mL]     RV stroke volume
 %   Q_shunt_mean_mLs  [mL/s]   mean VSD shunt flow
+%   Q_AV_mean  [mL/s]  mean aortic valve flow (forward = LV→Ao)
+%   Q_PVv_mean [mL/s]  mean pulmonary valve flow (forward = RV→PA)
 %
 % REFERENCES:
 %   [1] system_rhs.m — state layout and ODE formulation.
@@ -138,6 +140,11 @@ metrics.RVSV  = metrics.RVEDV - metrics.RVESV;   % [mL]
 
 %% VSD shunt
 metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);   % [mL/s]  positive = L→R
+
+%% Valve flows  (time-averaged over last cardiac cycle)
+%   Positive = forward physiological direction (Guardrail §3.4 sign convention)
+metrics.Q_AV_mean  = mean_t(Qc.AV);    % [mL/s]  aortic valve flow  (LV→Ao)
+metrics.Q_PVv_mean = mean_t(Qc.PVv);   % [mL/s]  pulmonary valve flow (RV→PA)
 
 end  % compute_clinical_indices
 

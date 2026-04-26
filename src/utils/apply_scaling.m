@@ -36,7 +36,7 @@ function params = apply_scaling(params_ref, patient)
 %     R_systemic      ~ w^(-0.475)   systemic vascular resistance
 %     R_pulmonary     ~ w^(-0.70)    pulmonary vascular resistance
 %     C               ~ w^(+1.00)    vascular compliance (all)
-%     R_valve_open    ~ w^(-0.90)    derived: d~w^0.45 → A~w^0.90 → R~w^-0.90
+%     R_valve_open    ~ w^(-0.5)    
 %
 %   NOT SCALED (with justification):
 %     R.vsd        — pathological; assigned per-patient by params_from_clinical.m
@@ -117,10 +117,7 @@ beta_V0      =  0.800;   % Unstressed volumes                      — Zhang 201
 beta_R_sys   = -0.475;   % Systemic vascular resistance            — Zhang 2019
 beta_R_pul   = -0.700;   % Pulmonary vascular resistance           — Zhang 2019
 beta_C       =  1.000;   % Vascular compliance (all)               — Zhang 2019
-% Valve open resistance: Zhang beta_diam=0.45 for orifice diameter
-%   Area A ∝ d^2 → beta_area = 0.90
-%   R_orifice ∝ 1/A         → beta_R_valve = -0.90  (derived, not direct Zhang)
-beta_R_valve = -0.900;   % Valve open resistance (derived from Zhang) — see header
+beta_R_valve = -0.500;   % Valve open resistance scaling
 
 %% =====================================================================
 %  LAYER A — ZHANG PHYSIOLOGICAL PARAMETER SCALING

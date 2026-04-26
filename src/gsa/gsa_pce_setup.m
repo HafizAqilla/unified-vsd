@@ -54,27 +54,43 @@ cfg.params0  = params0;   % stored so gsa_run_pce wrapper can access it
 %% =====================================================================
 cfg.names = {
     % Resistances
+    'R.PAR'
+    'R.PCOX'
+    'R.PCNO'
+    'R.PVEN'
     'R.SAR'
     'R.SC'
     'R.SVEN'
-    'R.PAR'
-    'R.PCOX'
-    'R.PVEN'
+    % Valve Resistances
+    'Rvalve.open'
+    'Rvalve.closed'
     % Compliances
-    'C.SAR'
-    'C.SVEN'
     'C.PAR'
+    'C.PCOX'
+    'C.PCNO'
     'C.PVEN'
+    'C.SAR'
+    'C.SC'
+    'C.SVEN'
     % Ventricular elastances
-    'E.LV.EA'
-    'E.LV.EB'
     'E.RV.EA'
     'E.RV.EB'
+    'E.LA.EA'
+    'E.LA.EB'
+    'E.LV.EA'
+    'E.LV.EB'
+    'E.RA.EA'
+    'E.RA.EB'
     % Unstressed volumes
-    'V0.LV'
     'V0.RV'
     'V0.LA'
+    'V0.LV'
     'V0.RA'
+    % Inertance
+    'L.PVEN'
+    'L.PAR'
+    'L.SAR'
+    'L.SVEN'
 };
 
 if strcmp(scenario, 'pre_surgery')
@@ -102,6 +118,12 @@ for i = 1:d
             lb(i) = 0.4 * x0(i);
             ub(i) = 2.5 * x0(i);
         end
+    elseif startsWith(nm, 'Rvalve.')
+        if strcmp(nm, 'Rvalve.closed')
+            lb(i) = 0.8 * x0(i);  ub(i) = 1.2 * x0(i); % Keep closed resistance high (narrow bounds)
+        else
+            lb(i) = 0.5 * x0(i);  ub(i) = 2.0 * x0(i); % Open resistance variation
+        end
     elseif startsWith(nm, 'C.')
         lb(i) = 0.5 * x0(i);  ub(i) = 2.0 * x0(i);
     elseif startsWith(nm, 'E.')
@@ -119,19 +141,27 @@ cfg.x0 = x0;  cfg.lb = lb;  cfg.ub = ub;
 %% =====================================================================
 switch scenario
     case 'pre_surgery'
-        cfg.primary_metrics   = {'QpQs', 'PAP_mean', 'PVR'};
-        cfg.secondary_metrics = {'RAP_mean', 'LVEDV', 'RVEDV', 'LVEF', ...
-                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
+        cfg.primary_metrics   = {'QpQs', 'PAP_mean', 'PVR', ...
+                                 'SAP_mean', 'LVEDV', 'RVEDV'};
+        cfg.secondary_metrics = {'RAP_mean', 'LVEF', 'RVEF', ...
                                  'PAP_min', 'PAP_max', ...
+                                 'SAP_min', 'SAP_max', ...
+                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
+                                 'LVP_min', 'LVP_max', 'LVP_mean', ...
                                  'PVP_mean', ...
-                                 'LVP_min', 'LVP_max', 'LVP_mean'};
+                                 'LVESV', 'RVESV', ...
+                                 'Q_AV_mean', 'Q_PVv_mean'};
     case 'post_surgery'
-        cfg.primary_metrics   = {'LVEF', 'SAP_mean', 'SVR'};
-        cfg.secondary_metrics = {'RVEF', 'QpQs', 'PAP_mean', 'PVR', ...
-                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
+        cfg.primary_metrics   = {'LVEF', 'SAP_mean', 'SVR', ...
+                                 'PAP_mean', 'LVEDV', 'RVEDV'};
+        cfg.secondary_metrics = {'RVEF', 'QpQs', 'PVR', ...
                                  'PAP_min', 'PAP_max', ...
+                                 'SAP_min', 'SAP_max', ...
+                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
+                                 'LVP_min', 'LVP_max', 'LVP_mean', ...
                                  'PVP_mean', ...
-                                 'LVP_min', 'LVP_max', 'LVP_mean'};
+                                 'LVESV', 'RVESV', ...
+                                 'Q_AV_mean', 'Q_PVv_mean'};
     otherwise
         error('gsa_pce_setup:unknownScenario', ...
               'scenario must be ''pre_surgery'' or ''post_surgery''.');
@@ -141,12 +171,13 @@ cfg.all_metrics = unique([
     cfg.primary_metrics, cfg.secondary_metrics, ...
     {'RAP_mean', 'LAP_mean', ...
      'PAP_min',  'PAP_max',  'PAP_mean', ...
+     'SAP_min',  'SAP_max',  'SAP_mean', ...
      'PVP_mean', ...
      'RVP_min',  'RVP_max',  'RVP_mean', ...
      'LVP_min',  'LVP_max',  'LVP_mean', ...
-     'SAP_min',  'SAP_max',  'SAP_mean', ...
      'SVR', 'PVR', 'QpQs', ...
-     'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF'}
+     'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF', ...
+     'Q_AV_mean', 'Q_PVv_mean'}
 ], 'stable');
 
 %% =====================================================================
