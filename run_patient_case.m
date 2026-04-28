@@ -48,17 +48,44 @@ addpath(strjoin(root_paths(~is_shadow), pathsep));
 % Enable GSA so the pipeline runs both pre- and post-calibration Sobol.
 setenv('UNIFIED_VSD_DO_GSA', '1');
 
-% Choose which patient to run by calling their profile function here:
-clinical = patient_reyna();
+% Patient roster — add or remove entries here to control which patients run.
+patient_fns = {
+    % @patient_reyna
+    @patient_profile_Razka
+};
+patient_labels = {
+    
+    % 'reyna'
+    'razka'
+};
 
 %% =====================================================================
-%  RUN PIPELINE
+%  RUN PIPELINE — iterates over all patients in roster above
 %% =====================================================================
-fprintf('\n===== run_patient_case: starting pre-surgery pipeline =====\n');
-fprintf('  Patient: %.1f kg | age %.1f mo | %.0f cm | sex=%d\n', ...
-    clinical.common.weight_kg, clinical.common.age_years * 12, ...
-    clinical.common.height_cm, clinical.common.sex);
+for p = 1:numel(patient_fns)
+    label   = patient_labels{p};
+    clinical = patient_fns{p}();
 
-main_run('pre_surgery', clinical);
+    fprintf('\n===== run_patient_case: patient=%s =====\n', label);
+    fprintf('  Patient: %.1f kg | age %.1f mo | %.0f cm | sex=%d\n', ...
+        clinical.common.weight_kg, clinical.common.age_years * 12, ...
+        clinical.common.height_cm, clinical.common.sex);
 
-fprintf('\n===== run_patient_case: done =====\n');
+    results_dir = fullfile(root, 'results');
+    if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+    diary(fullfile(results_dir, sprintf('console_%s_pre_surgery.txt', label)));
+    main_run('pre_surgery', clinical);
+    diary off
+
+    % Rename calibrated params so next patient does not overwrite.
+    src = fullfile(root, 'results', 'tables', 'params_calibrated_pre_surgery.mat');
+    dst = fullfile(root, 'results', 'tables', sprintf('params_calibrated_pre_surgery_%s.mat', label));
+    if isfile(src)
+        movefile(src, dst);
+        fprintf('[run_patient_case] Saved calibrated params to: %s\n', dst);
+    end
+
+    fprintf('\n===== run_patient_case: done patient=%s =====\n', label);
+end
+
+fprintf('\n===== run_patient_case: all patients complete =====\n');

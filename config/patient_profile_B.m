@@ -45,7 +45,7 @@ clinical.common.age_years  = 2.0 / 12;   % [years]  2.0 months
 clinical.common.weight_kg  = 4.5;        % [kg]     4.54 ± 2.36 kg
 % Height estimated from BSA: h = 3600 × BSA² / w = 3600 × 0.0625 / 4.5 = 50 cm
 clinical.common.height_cm  = 50;         % [cm]     estimated from Mosteller given BSA & weight
-clinical.common.sex        = 'M';        % assumed; not specified in source
+clinical.common.sex        = 1;          % 0 = female, 1 = male — assumed; not specified in source
 clinical.common.BSA        = 0.25;       % [m²]     0.25 ± 0.03 m² (stated, overrides Mosteller)
 clinical.common.HR         = 150;        % [bpm]    150 ± 3 bpm in large VSD infants (sympathetic activation)
 

@@ -70,6 +70,9 @@ cfg.names = {
     'E.LV.EB'
     'E.RV.EA'
     'E.RV.EB'
+    % Atrial elastances (active calibration params — must appear in GSA for mask)
+    'E.LA.EA'
+    'E.RA.EA'
     % Unstressed volumes
     'V0.LV'
     'V0.RV'
@@ -172,13 +175,20 @@ cfg.Input = uq_createInput(InputOpts);
 PCEOpts.Type                   = 'Metamodel';
 PCEOpts.MetaType               = 'PCE';
 PCEOpts.Method                 = 'LARS';
-PCEOpts.Degree                 = 1:4;           % reduced from 1:10 → 15x faster
+PCEOpts.Degree                 = 1:3;           % reduced from 1:4 → faster LARS sweep
 PCEOpts.TruncOptions.qNorm     = 0.75;          % single value (was 0.5:0.1:1.0)
-PCEOpts.ExpDesign.NSamples     = 200;           % reduced from 400
+PCEOpts.ExpDesign.NSamples     = 100;           % reduced from 200 → 2x ODE speedup
 PCEOpts.ExpDesign.Sampling     = 'Halton';
 PCEOpts.Input                  = cfg.Input;
 
 cfg.PCEOpts = PCEOpts;
+
+% Reduced-fidelity ODE overrides for GSA sampling (same as gsa_sobol_setup).
+% Without this, each of the 100 ODE runs uses the default 80 warm-up cycles.
+% 10 cycles at relaxed tolerances is sufficient for Sobol index screening.
+cfg.gsa_sim_overrides.nCyclesSteady = 10;   % [cycles]  default 80 → 10
+cfg.gsa_sim_overrides.ss_tol_P      = 1.0;  % [mmHg]    relaxed from 0.1
+cfg.gsa_sim_overrides.ss_tol_V      = 1.0;  % [mL]      relaxed from 0.1
 
 fprintf('[gsa_pce_setup] d=%d params | N_train=%d | scenario=%s\n', ...
         d, PCEOpts.ExpDesign.NSamples, scenario);

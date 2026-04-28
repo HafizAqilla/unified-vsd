@@ -101,22 +101,29 @@ switch scenario
     for k = 1:numel(calib.metricFields)
         calib.weights.(calib.metricFields{k}) = 1.0;
     end
-    calib.weights.SAP_max  = 3.5;   % systolic upper bound
-    calib.weights.SAP_mean = 3.5;   % MAP — catheter-consistent
-    calib.weights.SAP_min  = 2.0;   % diastolic lower bound
-    calib.weights.PAP_max  = 3.5;   % PA systolic; key shunt metric
-    calib.weights.PAP_mean = 3.0;   % PA mean; key shunt metric
-    calib.weights.PAP_min  = 2.0;   % PA diastolic
-    calib.weights.QpQs     = 4.0;   % shunt severity; top priority
-    calib.weights.SVR      = 3.0;   % catheter-consistent (19.37 WU)
-    calib.weights.RAP_mean = 2.0;   % raised: atrial elastances now calibrated
-    calib.weights.LAP_mean = 2.5;   % pulmonary back-pressure; drives C.PVEN/LVEDV/LVEF cascade
-    calib.weights.CO_Lmin  = 6.0;   % highest priority — direct catheter measurement
-    calib.weights.LVEDV    = 4.0;   % raised: volume overestimation +20%; priority increased
-    calib.weights.LVESV    = 3.0;   % raised: links directly to LVEF error
-    calib.weights.RVEDV    = 4.0;   % raised: volume overestimation +20%
-    calib.weights.RVESV    = 2.5;
-    calib.weights.LVEF     = 3.0;   % derived from volumes — secondary to CO
+    % --- PRIMARY targets: catheter-measurable, high confidence ---
+    calib.weights.CO_Lmin  = 6.0;   % highest — direct Fick measurement
+    calib.weights.QpQs     = 5.0;   % shunt severity — top clinical priority
+    calib.weights.SAP_mean = 4.5;   % MAP — most reliable pressure target
+    calib.weights.PAP_mean = 4.0;   % PA mean — catheter
+    calib.weights.PAP_max  = 3.5;   % PA systolic
+    calib.weights.PAP_min  = 2.5;   % PA diastolic
+    % --- SECONDARY targets: derived or moderate confidence ---
+    calib.weights.SVR      = 3.5;   % methodological offset ~15%; push harder
+    calib.weights.RAP_mean = 5.0;   % absolute error = 0.76 mmHg — should be fixable; push hard
+    calib.weights.LAP_mean = 3.5;   % estimated (no PCWP); E.LA.EA + C.PVEN available
+    calib.weights.SAP_max  = 1.5;   % systolic peak; moderate (formula vs waveform offset)
+    calib.weights.SAP_min  = 0.5;   % diastolic floor; low (systematic formula offset)
+    calib.weights.LVEF     = 3.5;   % raised: primary echo functional metric
+    % --- Volume targets: low confidence (Teichholz ±20% in VSD-loaded LV) ---
+    % LVEDV/LVESV from M-mode Teichholz are inconsistent with catheter CO at HR=119.
+    % LVSV forced by CO/HR = 3423/119 = 28.76 mL. For LVEDV < 15% error (<47.1 mL),
+    % LVEF would be 28.76/47.1 = 61% (+15.5% error) — cannot satisfy both simultaneously.
+    % These are soft constraints only; accept 15-22% errors as Teichholz measurement artifact.
+    calib.weights.LVEDV    = 2.0;   % soft constraint — Teichholz underestimates VSD-loaded LV
+    calib.weights.LVESV    = 1.5;
+    calib.weights.RVEDV    = 2.0;
+    calib.weights.RVESV    = 1.5;
 
     %% ==================================================================
     case 'post_surgery'

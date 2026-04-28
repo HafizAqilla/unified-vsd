@@ -40,7 +40,7 @@ clinical = patient_template();   % initialise all fields to NaN
 clinical.common.age_years  = 1.6 / 12;   % [years]  1.6 months
 clinical.common.weight_kg  = 3.7;        % [kg]     3.70 ± 0.70 kg
 clinical.common.height_cm  = 54;         % [cm]     50th percentile for 1.6-month male
-clinical.common.sex        = 'M';        % Male (most common demographic)
+clinical.common.sex        = 1;          % 0 = female, 1 = male — AGENTS.md §3.10
 clinical.common.BSA        = 0.22;       % [m²]     0.22 ± 0.02 m² (stated, overrides Mosteller)
 clinical.common.HR         = 150;        % [bpm]    Sympathetic compensation; 150 ± 3 bpm in large VSD infants
 

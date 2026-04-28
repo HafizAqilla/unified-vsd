@@ -23,7 +23,7 @@ function main_run(scenario, clinical)
 %   4. Initial GSA (PCE surrogate) →  gsa_pce_setup + gsa_run_pce
 %   5. Build optimisation mask   →  create_optimization_mask
 %   6. Calibration (masked)      →  run_calibration
-%   7. Final GSA (direct Sobol)     →  gsa_sobol_setup + gsa_run_sobol
+%   7. Final GSA (PCE, post-calib)  →  gsa_pce_setup + gsa_run_pce
 %   8. Validation report            →  validation_report
 %   9. Plots                        →  plotting_tools
 %   10. Save artefacts              →  results/*.mat outputs
@@ -64,9 +64,22 @@ addpath(strjoin(root_paths(~is_shadow), pathsep));
 % Plotting only: the core pipeline is always executed sequentially.
 DO_PLOTS       = true;
 DO_OVERLAY     = true;
-DO_GSA         = false;   % Skip GSA by default; focus on calibration
-DO_FAST_CALIBRATION = true; % Fast test run — set false for final publication run
-GSA_SOBOL_N    = 16;  % Fast end-to-end runtime for iterative runs; [] uses default/ENV
+DO_GSA         = false;   % Run pre- and post-calibration GSA for paper
+DO_FAST_CALIBRATION = false; % Full run: Stage 1 + Stage 2 restarts
+
+% MASK_FILE: optional path to a previously saved params_calibrated_*.mat
+% that contains an optMask computed from a prior patient's PCE GSA.
+% Use this to skip Step 4 (initial PCE GSA) when running a second patient
+% of the same scenario and similar physiology — the Sobol mask is assumed
+% stable across the cohort and is reused directly.
+%
+% Set MASK_FILE = '' (empty) to run a full PCE GSA for the new patient.
+% Set MASK_FILE = 'results/tables/params_calibrated_pre_surgery.mat' to
+% reuse the mask from the most recent saved calibration run.
+%
+% WARNING: Only reuse a mask from patients of the SAME scenario and roughly
+% the same defect physiology. Do NOT reuse a post_surgery mask for pre_surgery.
+MASK_FILE = '';   % '' = full GSA; path string = reuse saved mask (irrelevant when DO_GSA=false)
 
 % Optional runtime override from environment variable:
 %   UNIFIED_VSD_DO_PLOTS=0|false|off -> disable plotting
@@ -146,20 +159,33 @@ fprintf('[main_run] Baseline complete.\n');
 %  STEP 4 — Initial PCE GSA
 %% =====================================================================
 fprintf('\n=== [Step 4/10] Initial PCE GSA (%.1fs elapsed) ===\n', toc(run_timer));
-gsa_init_cfg = [];
-gsa_init_out = [];
-gsa_final_cfg = [];
-gsa_final_out = [];
+gsa_init_cfg   = [];
+gsa_init_out   = [];
+gsa_final_cfg  = [];
+gsa_final_out  = [];
+use_saved_mask = false;   % default; overridden inside DO_GSA block if MASK_FILE is set
 
 calib_seed = calibration_param_sets(scenario, params0);
 calib_names_all = calib_seed.names_all;
 n_calib_param  = numel(calib_names_all);
 
 if DO_GSA
-    fprintf('\n[main_run] Running initial PCE GSA (pre-calibration)...\n');
-    gsa_init_cfg = gsa_pce_setup(params0, scenario);
-    gsa_init_out = gsa_run_pce(gsa_init_cfg, params0);
-    gsa_pce_out = gsa_init_out;
+    use_saved_mask = ~isempty(MASK_FILE) && isfile(MASK_FILE);
+    if use_saved_mask
+        fprintf('\n[main_run] MASK_FILE set — loading saved optMask from:\n          %s\n', MASK_FILE);
+        saved = load(MASK_FILE, 'optMask', 'sobol_ST_threshold');
+        optMask_saved = saved.optMask;
+        fprintf('[main_run] Skipping initial PCE GSA (Step 4). Will use saved mask (%d/%d active).\n', ...
+                nnz(optMask_saved), numel(optMask_saved));
+        gsa_init_cfg = [];
+        gsa_init_out = [];
+        gsa_pce_out  = [];
+    else
+        fprintf('\n[main_run] Running initial PCE GSA (pre-calibration)...\n');
+        gsa_init_cfg = gsa_pce_setup(params0, scenario);
+        gsa_init_out = gsa_run_pce(gsa_init_cfg, params0);
+        gsa_pce_out  = gsa_init_out;
+    end
 end
 
 %% =====================================================================
@@ -167,8 +193,16 @@ end
 %% =====================================================================
 fprintf('\n=== [Step 5/10] Building optimisation mask (%.1fs elapsed) ===\n', toc(run_timer));
 
-if DO_GSA
-    % Threshold for active parameter screening from Sobol ST.
+if DO_GSA && use_saved_mask
+    % Fast path: reuse mask from a previous patient's PCE run.
+    sobol_ST_threshold = saved.sobol_ST_threshold;
+    optMask = optMask_saved;
+    mask_metrics = {'REUSED_FROM_SAVED_MASK'};
+    fprintf('[main_run] Active parameters (reused mask): %d/%d (threshold=%.2f)\n', ...
+            nnz(optMask), n_calib_param, sobol_ST_threshold);
+
+elseif DO_GSA
+    % Full PCE GSA path: build mask from Sobol ST.
     sobol_ST_threshold = 0.10;   % [dimensionless]
 
     % Build mask from primary AND secondary metrics (conservative union):
@@ -201,8 +235,10 @@ if DO_GSA
     optMask = create_optimization_mask(ST_calib, sobol_ST_threshold);
     fprintf('[main_run] Active parameters after Sobol mask: %d/%d (threshold=%.2f, metrics=%s)\n', ...
             nnz(optMask), n_calib_param, sobol_ST_threshold, strjoin(mask_metrics, '+'));
+
 else
     sobol_ST_threshold = NaN;
+    use_saved_mask     = false;
     optMask = true(n_calib_param, 1);
     mask_metrics = {'ALL_ACTIVE_NO_GSA'};
     fprintf('[main_run] GSA disabled. Using full calibration set: %d/%d active parameters.\n', ...
@@ -237,11 +273,15 @@ disp(param_tbl);
 %  STEP 7 — Final GSA (Sobol) with calibrated parameters
 %% =====================================================================
 if DO_GSA
-    fprintf('\n=== [Step 7/10] Final Sobol GSA (%.1fs elapsed) ===\n', toc(run_timer));
-    gsa_final_cfg = gsa_sobol_setup(params_cal, scenario, GSA_SOBOL_N);
-    gsa_final_out = gsa_run_sobol(gsa_final_cfg, params_cal);
+    % PCE-based post-calibration GSA (same method as Step 4, applied to
+    % calibrated parameters).  Sobol indices are extracted analytically
+    % from the trained PCE — no additional Monte Carlo sampling required.
+    % Runtime: ~200 ODE runs (same as pre-calibration), not N*(d+2)=5376.
+    fprintf('\n=== [Step 7/10] Final PCE GSA on calibrated params (%.1fs elapsed) ===\n', toc(run_timer));
+    gsa_final_cfg = gsa_pce_setup(params_cal, scenario);
+    gsa_final_out = gsa_run_pce(gsa_final_cfg, params_cal);
 else
-    fprintf('\n[main_run] Final Sobol GSA skipped (DO_GSA=false).\n');
+    fprintf('\n[main_run] Final PCE GSA skipped (DO_GSA=false).\n');
 end
 
 %% =====================================================================
@@ -282,7 +322,7 @@ if DO_GSA
     if ~exist(gsa_results_dir, 'dir'), mkdir(gsa_results_dir); end
 
     gsa_fname  = fullfile(gsa_results_dir, ...
-                          sprintf('gsa_sobol_pipeline_%s_%s.mat', scenario, timestamp));
+                          sprintf('gsa_pce_pipeline_%s_%s.mat', scenario, timestamp));
 
     gsa_save.scenario        = scenario;
     gsa_save.timestamp       = timestamp;

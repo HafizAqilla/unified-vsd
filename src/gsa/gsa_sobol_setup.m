@@ -88,6 +88,9 @@ cfg.names = {
     'E.LV.EB'
     'E.RV.EA'
     'E.RV.EB'
+    % Atrial elastances (controls LAP/RAP; must match PCE setup and calibration)
+    'E.LA.EA'
+    'E.RA.EA'
     % Unstressed volumes
     'V0.LV'
     'V0.RV'
