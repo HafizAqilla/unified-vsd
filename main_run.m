@@ -64,8 +64,10 @@ addpath(strjoin(root_paths(~is_shadow), pathsep));
 % Plotting only: the core pipeline is always executed sequentially.
 DO_PLOTS       = true;
 DO_OVERLAY     = true;
-DO_GSA         = false;   % Run pre- and post-calibration GSA for paper
+DO_GSA         = true;    % Run pre- and post-calibration GSA for paper
 DO_FAST_CALIBRATION = false; % Full run: Stage 1 + Stage 2 restarts
+DO_PARALLEL_FMINCON = true;  % Use parallel finite-difference in fmincon
+USE_PCE_IN_CALIBRATION = false; % recovery default: direct ODE calibration (PCE optional)
 
 % MASK_FILE: optional path to a previously saved params_calibrated_*.mat
 % that contains an optMask computed from a prior patient's PCE GSA.
@@ -105,6 +107,49 @@ if ~isempty(do_gsa_env)
     DO_GSA = any(strcmpi(strtrim(do_gsa_env), {'1', 'true', 'yes', 'on'}));
 end
 
+do_fmincon_par_env = getenv('UNIFIED_VSD_FMINCON_PARALLEL');
+if ~isempty(do_fmincon_par_env)
+    DO_PARALLEL_FMINCON = any(strcmpi(strtrim(do_fmincon_par_env), {'1', 'true', 'yes', 'on'}));
+end
+
+use_pce_calib_env = getenv('UNIFIED_VSD_USE_PCE_IN_CALIBRATION');
+if ~isempty(use_pce_calib_env)
+    USE_PCE_IN_CALIBRATION = any(strcmpi(strtrim(use_pce_calib_env), {'1', 'true', 'yes', 'on'}));
+end
+
+% Optional parpool control:
+%   UNIFIED_VSD_USE_PARPOOL=1 to auto-start parpool if none exists.
+%   UNIFIED_VSD_PARPOOL_WORKERS=<N> to request N workers (optional).
+use_parpool = false;
+parpool_env = getenv('UNIFIED_VSD_USE_PARPOOL');
+if ~isempty(parpool_env)
+    use_parpool = any(strcmpi(strtrim(parpool_env), {'1', 'true', 'yes', 'on'}));
+end
+
+if use_parpool
+    pool = gcp('nocreate');
+    if isempty(pool)
+        workers_env = getenv('UNIFIED_VSD_PARPOOL_WORKERS');
+        if ~isempty(workers_env)
+            n_workers = str2double(workers_env);
+            if ~isnan(n_workers) && isfinite(n_workers) && n_workers > 0
+                parpool('local', round(n_workers));
+            else
+                parpool('local');
+            end
+        else
+            parpool('local');
+        end
+    end
+end
+
+% Keep run_calibration.m parallel setting aligned with this run.
+if DO_PARALLEL_FMINCON
+    setenv('UNIFIED_VSD_FMINCON_PARALLEL', '1');
+else
+    setenv('UNIFIED_VSD_FMINCON_PARALLEL', '0');
+end
+
 %% ---- validate inputs ---------------------------------------------------
 if nargin < 1 || isempty(scenario)
     scenario = 'pre_surgery';
@@ -132,9 +177,14 @@ run_timer = tic;   % wall-clock timer for the full pipeline
 fprintf('\n=== [Step 1/10] Allometric scaling ===\n');
 params_ref  = default_parameters();
 patient.age_years  = clinical.common.age_years;
+patient.age_days   = clinical.common.age_years * 365.25;
 patient.weight_kg  = clinical.common.weight_kg;
 patient.height_cm  = clinical.common.height_cm;
 patient.sex        = clinical.common.sex;
+patient.maturation_mode = 'normal';
+if isfield(clinical.common, 'maturation_mode') && ~isempty(clinical.common.maturation_mode)
+    patient.maturation_mode = clinical.common.maturation_mode;
+end
 if isfield(clinical.common, 'BSA') && ~isnan(clinical.common.BSA)
     patient.BSA    = clinical.common.BSA;
 end
@@ -153,6 +203,7 @@ params0 = params_from_clinical(params0, clinical, scenario);
 fprintf('\n=== [Step 3/10] Baseline simulation (%.1fs elapsed) ===\n', toc(run_timer));
 sim_base     = integrate_system(params0);
 metrics_base = compute_clinical_indices(sim_base, params0);
+validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario);
 fprintf('[main_run] Baseline complete.\n');
 
 %% =====================================================================
@@ -248,18 +299,23 @@ end
 active_names = calib_names_all(optMask);
 fprintf('[main_run] Active set: %s\n', strjoin(active_names, ', '));
 
+[primary_metrics, primary_selection_table] = select_primary_metrics(clinical, gsa_init_out, scenario);
+fprintf('[main_run] GSA-guided primary metrics: %s\n', strjoin(primary_metrics, ', '));
+disp(primary_selection_table(primary_selection_table.Selected, :));
+
 %% =====================================================================
 %  STEP 6 — Calibration (masked)
 %% =====================================================================
 fprintf('\n=== [Step 6/10] Masked calibration — fmincon (%.1fs elapsed) ===\n', toc(run_timer));
-if exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out);
+if USE_PCE_IN_CALIBRATION && exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
+    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out, primary_metrics);
 else
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, []);
+    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, [], primary_metrics);
 end
 
 sim_cal     = integrate_system(params_cal);
 metrics_cal = compute_clinical_indices(sim_cal, params_cal);
+validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario);
 fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
 
 % Calibration parameter summary table (active subset only)
@@ -295,7 +351,8 @@ report = validation_report( ...
     clinical, metrics_base, metrics_cal, scenario, ...
     'ResultsDir', results_dir, ...
     'GsaInitOut', gsa_init_out, ...
-    'GsaFinalOut', gsa_final_out);
+    'GsaFinalOut', gsa_final_out, ...
+    'PrimaryMetrics', primary_metrics);
 
 %% =====================================================================
 %  STEP 9 — Plots
@@ -331,8 +388,12 @@ if DO_GSA
     gsa_save.params_cal      = params_cal;
     gsa_save.metrics_base    = metrics_base;
     gsa_save.metrics_cal     = metrics_cal;
+    gsa_save.validity_base   = validity_base;
+    gsa_save.validity_cal    = validity_cal;
     gsa_save.sobol_threshold = sobol_ST_threshold;
     gsa_save.optMask         = optMask;
+    gsa_save.primary_metrics = primary_metrics;
+    gsa_save.primary_selection_table = primary_selection_table;
     gsa_save.calib_names_all = calib_names_all;
     gsa_save.gsa_init_cfg    = gsa_init_cfg;
     gsa_save.gsa_init_out    = gsa_init_out;
@@ -375,6 +436,13 @@ calib_diag.rmse_cal      = report.rmse_cal;
 calib_diag.table_delta   = report.table_delta;
 calib_diag.sorted_errors = report.sorted_errors;
 calib_diag.primary_gate  = report.primary_gate;
+calib_diag.primary_metrics = primary_metrics;
+calib_diag.primary_selection_table = primary_selection_table;
+calib_diag.validity_base = validity_base;
+calib_diag.validity_cal = validity_cal;
+if isfield(calib_out, 'objective_breakdown')
+    calib_diag.objective_breakdown = calib_out.objective_breakdown;
+end
 
 % Mask configuration used
 calib_diag.sobol_threshold = sobol_ST_threshold;
@@ -404,11 +472,57 @@ end
 %  STEP 11 — Save calibrated parameter result package
 %% =====================================================================
 save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
-     'params_cal', 'calib_out', 'report', 'optMask', 'sobol_ST_threshold');
+     'params_cal', 'calib_out', 'report', 'optMask', 'sobol_ST_threshold', ...
+     'primary_metrics', 'primary_selection_table', 'validity_base', 'validity_cal');
 fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
+
+if strcmp(scenario, 'pre_surgery')
+    % Export a dedicated handoff package so the calibrated pre-op state can
+    % be reused later as a seed for post-op experiments.
+    pre_to_post_seed = struct();
+    pre_to_post_seed.source_scenario = scenario;
+    pre_to_post_seed.timestamp = timestamp;
+    pre_to_post_seed.clinical = clinical;
+    pre_to_post_seed.params_baseline = params0;
+    pre_to_post_seed.params_calibrated = params_cal;
+    pre_to_post_seed.metrics_baseline = metrics_base;
+    pre_to_post_seed.metrics_calibrated = metrics_cal;
+    pre_to_post_seed.validity_baseline = validity_base;
+    pre_to_post_seed.validity_calibrated = validity_cal;
+    pre_to_post_seed.report = report;
+    pre_to_post_seed.calib_out = calib_out;
+    pre_to_post_seed.optMask = optMask;
+    pre_to_post_seed.sobol_ST_threshold = sobol_ST_threshold;
+    pre_to_post_seed.primary_metrics = primary_metrics;
+    pre_to_post_seed.primary_selection_table = primary_selection_table;
+
+    % Explicit matrix/vector payload for downstream scripts.
+    pre_to_post_seed.parameter_names_all = calib_out.names_all(:);
+    pre_to_post_seed.parameter_names_active = calib_out.names(:);
+    pre_to_post_seed.parameter_vector_initial_all = calib_out.x0_all(:);
+    pre_to_post_seed.parameter_vector_calibrated_all = calib_out.xbest_all(:);
+    pre_to_post_seed.parameter_vector_initial_active = calib_out.x0(:);
+    pre_to_post_seed.parameter_vector_calibrated_active = calib_out.xbest(:);
+    pre_to_post_seed.parameter_change_pct_active = ...
+        (calib_out.xbest(:) - calib_out.x0(:)) ./ max(abs(calib_out.x0(:)), 1e-9) * 100;
+
+    % Convenience copy: same calibrated pre-op parameters, ready to be
+    % loaded and modified for a post-op closure experiment.
+    post_seed_params = params_cal;
+    if isfield(post_seed_params, 'R') && isfield(post_seed_params.R, 'vsd')
+        post_seed_params.R.vsd = 1e6;
+    end
+    pre_to_post_seed.params_post_seed_closed_vsd = post_seed_params;
+
+    seed_fname_timestamped = fullfile(results_dir, ...
+        sprintf('pre_to_post_seed_%s.mat', timestamp));
+    seed_fname_latest = fullfile(results_dir, 'pre_to_post_seed_latest.mat');
+    save(seed_fname_timestamped, 'pre_to_post_seed');
+    save(seed_fname_latest, 'pre_to_post_seed');
+    fprintf('[main_run] Pre-to-post seed package saved to:\n          %s\n          %s\n', ...
+        seed_fname_timestamped, seed_fname_latest);
+end
 
 fprintf('\n[main_run] Done. Scenario: %s  |  Total time: %.1f s\n', scenario, toc(run_timer));
 
 end  % main_run
-
-
