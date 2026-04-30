@@ -203,7 +203,7 @@ params0 = params_from_clinical(params0, clinical, scenario);
 fprintf('\n=== [Step 3/10] Baseline simulation (%.1fs elapsed) ===\n', toc(run_timer));
 sim_base     = integrate_system(params0);
 metrics_base = compute_clinical_indices(sim_base, params0);
-validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario);
+validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario, clinical);
 fprintf('[main_run] Baseline complete.\n');
 
 %% =====================================================================
@@ -315,7 +315,7 @@ end
 
 sim_cal     = integrate_system(params_cal);
 metrics_cal = compute_clinical_indices(sim_cal, params_cal);
-validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario);
+validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario, clinical);
 fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
 
 % Calibration parameter summary table (active subset only)
