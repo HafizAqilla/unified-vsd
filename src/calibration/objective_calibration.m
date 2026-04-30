@@ -1,261 +1,175 @@
 function J = objective_calibration(x, params0, clinical, calib, scenario, pce_surrogate)
-if nargin < 6; pce_surrogate = []; end
 % OBJECTIVE_CALIBRATION
 % -----------------------------------------------------------------------
-% Weighted normalised least-squares objective for fmincon.
+% Tiered calibration objective:
+%   J = J_primary + lambda_secondary * J_secondary + J_reg + J_invalid
 %
-%   J = Σ_k  w_k(err_k) · ((y_k(x) − y_k^{clin}) / y_k^{clin})²
-%     + J_CO_guard                    (soft CO range penalty)
-%     + J_vol_balance                 (volume under-prediction guard)
-%     + λ · Σ_i  ((x_i − x0_i) / x0_i)²
-%
-% Primary metric penalty (QpQs, SAP_mean, LVEF):
-%   w_k is amplified smoothly as error grows above 5%:
-%     scale = 1 + 19 * t / (1 + t),  t = max(0, err/0.05 − 1)
-%   This replaces a hard 100x cliff.  The smooth curve keeps a finite
-%   gradient everywhere so L-BFGS can still improve volume/PAP metrics
-%   without hitting an objective wall.
-%     t=0 (≤5%) → 1x,  t=1 (10%) → ~10.5x,  t→∞ → 20x
-%
-% CO guard (§6b):
-%   Adds 10·((violation)/limit)² when CO < 1.5 or > 10.0 L/min.
-%
-% Volume balance guard (§6c):
-%   Adds 2·mean(rel_under²) when LVEDV or RVEDV is under-predicted.
-%
-% INPUTS:
-%   x         - parameter vector (free variables, ordered per calib.names)
-%   params0   - baseline parameter struct (NOT modified in-place)
-%   clinical  - unified clinical struct
-%   calib     - configuration struct from calibration_param_sets.m
-%   scenario  - 'pre_surgery' | 'post_surgery'
-%
-% OUTPUTS:
-%   J         - scalar objective value  (dimensionless)
+% Primary metrics are normalised to the 5% target.
+% Secondary metrics are normalised to the 10% target.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-04-08
-% VERSION:  2.0
+% DATE:     2026-04-28
+% VERSION:  3.0
 % -----------------------------------------------------------------------
 
-%% 1. Update parameter struct with trial x
+if nargin < 6
+    pce_surrogate = [];
+end
+
 params = params0;
 for i = 1:numel(calib.names)
     params = set_param_by_name(params, calib.names{i}, x(i));
 end
 
-%% 2 & 3. Simulate or Predict
-if ~isempty(pce_surrogate)
+[metrics, sim, validity_penalty] = evaluate_metrics(params, x, clinical, calib, scenario, pce_surrogate);
+if isempty(metrics)
+    J = validity_penalty;
+    return;
+end
+
+targets = get_calibration_targets(scenario, clinical);
+target_names = {targets.Metric};
+
+J_primary = 0;
+J_secondary = 0;
+J_clinical_guard = 0;
+for k = 1:numel(calib.metricFields)
+    mf = calib.metricFields{k};
+    idx = find(strcmp(target_names, mf), 1, 'first');
+    if isempty(idx)
+        continue;
+    end
+    y_clin = targets(idx).ClinicalValue;
+    if isnan(y_clin) || ~isfield(metrics, mf) || ~isfinite(metrics.(mf))
+        continue;
+    end
+
+    err_rel = abs(metrics.(mf) - y_clin) / max(abs(y_clin), 1e-6);
+    weight = calib.weights.(mf);
+    if ismember(mf, calib.primaryMetrics)
+        J_primary = J_primary + weight * (err_rel / calib.primaryTarget)^2;
+    else
+        J_secondary = J_secondary + weight * (err_rel / calib.secondaryTarget)^2;
+    end
+
+    J_clinical_guard = J_clinical_guard + clinical_guard_penalty(mf, err_rel, metrics.(mf), y_clin);
+end
+
+J_reg = 0;
+if isfield(calib, 'regLambda') && calib.regLambda > 0
+    J_reg = calib.regLambda * sum(((x(:) - calib.x0(:)) ./ max(abs(calib.x0(:)), 1e-6)).^2);
+end
+
+J = J_primary + calib.secondaryLambda * J_secondary + J_clinical_guard + J_reg + validity_penalty;
+
+if ~isempty(sim) && ~sim.ss_reached
+    J = J + calib.invalidPenaltyScale;
+end
+
+function penalty = clinical_guard_penalty(metric_name, err_rel, y_model, y_clin)
+penalty = 0;
+
+pressure_metrics = {'RAP_mean','LAP_mean','PAP_min','PAP_max','PAP_mean', ...
+                    'SAP_min','SAP_max','SAP_mean'};
+volume_metrics = {'LVEDV','LVESV','RVEDV','RVESV'};
+flow_metrics = {'CO_Lmin','SVR','PVR'};
+
+pressure_rel_thresh = 0.12;
+pressure_scale = 35;
+mean_pressure_rel_thresh = 0.08;
+mean_pressure_scale = 55;
+
+volume_rel_thresh = 0.15;
+volume_scale = 30;
+volume_upper_ratio = 1.25;
+volume_upper_scale = 60;
+
+flow_rel_thresh = 0.20;
+flow_scale = 15;
+
+if ismember(metric_name, pressure_metrics)
+    penalty = penalty + soft_excess_penalty(err_rel, pressure_rel_thresh, pressure_scale);
+end
+if ismember(metric_name, {'RAP_mean','LAP_mean','PAP_mean'})
+    penalty = penalty + soft_excess_penalty(err_rel, mean_pressure_rel_thresh, mean_pressure_scale);
+end
+if ismember(metric_name, volume_metrics)
+    penalty = penalty + soft_excess_penalty(err_rel, volume_rel_thresh, volume_scale);
+    if y_model > volume_upper_ratio * y_clin
+        ratio_excess = (y_model / max(y_clin, 1e-6)) - volume_upper_ratio;
+        penalty = penalty + volume_upper_scale * ratio_excess^2;
+    end
+end
+if ismember(metric_name, flow_metrics)
+    penalty = penalty + soft_excess_penalty(err_rel, flow_rel_thresh, flow_scale);
+end
+end
+
+function penalty = soft_excess_penalty(err_rel, threshold, scale)
+excess = max(0, err_rel - threshold);
+penalty = scale * (excess / threshold)^2;
+end
+
+end
+
+function [metrics, sim, penalty] = evaluate_metrics(params, x, clinical, calib, scenario, pce_surrogate)
+metrics = struct();
+sim = [];
+penalty = 0;
+
+use_surrogate = ~isempty(pce_surrogate) && can_use_surrogate(calib.metricFields, pce_surrogate);
+if use_surrogate
     x_full = pce_surrogate.cfg.x0;
     for idx_full = 1:numel(pce_surrogate.cfg.names)
-        idx = find(strcmp(calib.names, pce_surrogate.cfg.names{idx_full}));
+        idx = find(strcmp(calib.names, pce_surrogate.cfg.names{idx_full}), 1, 'first');
         if ~isempty(idx)
             x_full(idx_full) = x(idx);
         end
     end
-    % Clamp x_full to the PCE surrogate training bounds before evaluation.
-    % UQLab normalises inputs using Internal.Input.Marginals, NOT cfg.lb/ub.
-    % cfg.lb/ub can be stale (e.g. checkpoint from a prior patient run), so
-    % we extract the ground-truth bounds from the first available surrogate.
-    % If extraction fails, fall back to cfg bounds.
-    pce_lb = pce_surrogate.cfg.lb(:);
-    pce_ub = pce_surrogate.cfg.ub(:);
-    surr_fns = fieldnames(pce_surrogate);
-    for kf = 1:numel(surr_fns)
-        fn = surr_fns{kf};
-        if isstruct(pce_surrogate.(fn)) && isfield(pce_surrogate.(fn), 'surrogate')
-            s = pce_surrogate.(fn).surrogate;
-            if isfield(s, 'Internal') && isfield(s.Internal, 'Input') && ...
-                    isfield(s.Internal.Input, 'Marginals')
-                margs = s.Internal.Input.Marginals;
-                if numel(margs) == numel(pce_lb)
-                    pce_lb = arrayfun(@(m) m.Parameters(1), margs(:));
-                    pce_ub = arrayfun(@(m) m.Parameters(2), margs(:));
-                end
-            end
-            break;
-        end
-    end
-    x_full = min(max(x_full(:), pce_lb), pce_ub);
-    metrics = struct();
-    % Evaluate polynomial chaos surrogate avoiding numerical integration
+    x_full = min(max(x_full(:), pce_surrogate.cfg.lb(:)), pce_surrogate.cfg.ub(:));
     for k = 1:numel(calib.metricFields)
         mf = calib.metricFields{k};
-        if isfield(pce_surrogate, mf) && isfield(pce_surrogate.(mf), 'surrogate')
-            metrics.(mf) = uq_evalModel(pce_surrogate.(mf).surrogate, x_full(:)');
-        end
+        metrics.(mf) = uq_evalModel(pce_surrogate.(mf).surrogate, x_full(:)');
     end
-    % Compute derived constraints if not present
-    if ~isfield(metrics, 'CO_Lmin') && isfield(metrics, 'QpQs')
-        % Fallback for guards if not modelled
-        metrics.CO_Lmin = 5.0;
-    end
-else
-    params.sim.nCyclesSteady = 40;
-    params.sim.ss_tol_P      = 0.5;
-    params.sim.ss_tol_V      = 0.5;
-    params.sim.rtol          = 1e-8;
-    params.sim.atol          = 1e-10;
-    try
-        sim = integrate_system(params);
-    catch
-        x_range = max(calib.ub(:) - calib.lb(:), 1e-6);
-        dist_sq = sum(((x(:) - calib.x0(:)) ./ x_range).^2);
-        J = 1e4 * (1 + dist_sq);
+    return;
+end
+
+params.sim.nCyclesSteady = min(max(params.sim.nCyclesSteady, 30), 60);
+params.sim.ss_tol_P = max(params.sim.ss_tol_P, 0.5);
+params.sim.ss_tol_V = max(params.sim.ss_tol_V, 0.5);
+
+try
+    sim = integrate_system(params);
+    metrics = compute_clinical_indices(sim, params);
+    validity = evaluate_simulation_validity(sim, params, metrics, scenario, clinical);
+    penalty = validity.penalty;
+catch
+    metrics = [];
+    sim = [];
+    penalty = calib.invalidPenaltyScale * 10;
+end
+end
+
+function tf = can_use_surrogate(metric_fields, pce_surrogate)
+tf = true;
+for k = 1:numel(metric_fields)
+    mf = metric_fields{k};
+    if ~isfield(pce_surrogate, mf) || ~isfield(pce_surrogate.(mf), 'surrogate')
+        tf = false;
         return;
     end
-    metrics = compute_clinical_indices(sim, params);
 end
-
-
-%% 4. Select clinical target sub-section
-switch scenario
-    case 'pre_surgery',  src = clinical.pre_surgery;
-    case 'post_surgery', src = clinical.post_surgery;
 end
-
-%% 5. Build clinical lookup table (field mapping same as validation_report.m)
-% Map model metric name → clinical struct field name
-field_map = build_field_map(scenario);
-
-%% 6. Weighted squared errors
-J = 0;
-for k = 1:numel(calib.metricFields)
-    mf  = calib.metricFields{k};
-    w   = calib.weights.(mf);
-
-    % Retrieve clinical value via field map
-    if isfield(field_map, mf) && isfield(src, field_map.(mf))
-        y_clin = src.(field_map.(mf));
-    elseif isfield(src, mf)
-        y_clin = src.(mf);
-    else
-        continue;
-    end
-
-    if isnan(y_clin), continue; end
-
-    if isfield(metrics, mf)
-        y_model = metrics.(mf);
-        denom   = max(abs(y_clin), 1e-6);
-        err_rel = abs(y_model - y_clin) / denom;
-        
-        % Smooth amplification for primary metrics.
-        % Replaces the hard 100x cliff: that jump created a steep objective wall
-        % that caused L-BFGS to ignore volume/PAP directions.
-        % New rule: scale rises continuously from 1x (at <=5% error) toward
-        % ~20x asymptotically, keeping a finite gradient everywhere.
-        %   t = 0          → scale = 1x  (error at or below threshold)
-        %   t = 1 (10% err)→ scale ≈ 10.5x
-        %   t → ∞          → scale → 20x
-        if ismember(mf, {'QpQs', 'SAP_mean', 'SAP_max', 'PAP_max', 'PAP_mean', 'SAP_min', 'PAP_min', 'CO_Lmin', 'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'SVR', 'LAP_mean'}) 
-            t = max(0, err_rel / 0.05 - 1);   % 0 below 5%, positive above
-            w = w * (1 + 19 * t / (1 + t));   % smooth, asymptotes to 20x
-        end
-
-        J = J + w * err_rel^2;
-    end
-end
-
-%% 6b. CO physiological guard
-% Soft penalty when cardiac output leaves a viable physiological range.
-% Does not require a patient-specific CO target — it guards against
-% parameter excursions that produce non-physiological haemodynamics.
-%   Paediatric VSD range: 1.5 – 10.0 L/min (covers high-shunt states).
-if isfield(metrics, 'CO_Lmin')
-    co_val = metrics.CO_Lmin;
-    co_lo  = 1.5;   % [L/min]
-    co_hi  = 10.0;  % [L/min]
-    if co_val < co_lo
-        J = J + 10 * ((co_lo - co_val) / co_lo)^2;
-    elseif co_val > co_hi
-        J = J + 10 * ((co_val - co_hi) / co_hi)^2;
-    end
-end
-
-%% 6c. Ventricular volume balance guard
-% Extra penalty when both LVEDV and RVEDV are simultaneously under-predicted.
-% The weighted metric loop already includes these terms; this guard adds a
-% small asymmetric push to prevent the optimizer treating large volume under-
-% predictions as equally cheap as over-predictions of the same magnitude.
-vol_pairs = {{'LVEDV','LVEDV_mL'}, {'RVEDV','RVEDV_mL'}};
-vol_under  = 0;
-n_vol_valid = 0;
-for kv = 1:numel(vol_pairs)
-    vf   = vol_pairs{kv}{1};
-    cf   = vol_pairs{kv}{2};
-    if isfield(metrics, vf) && isfield(src, cf)
-        y_c = src.(cf);
-        y_m = metrics.(vf);
-        if ~isnan(y_c) && ~isnan(y_m) && y_m < y_c
-            rel_under = (y_c - y_m) / max(abs(y_c), 1e-6);
-            vol_under  = vol_under + rel_under^2;
-            n_vol_valid = n_vol_valid + 1;
-        end
-    end
-end
-if n_vol_valid > 0
-    J = J + 2.0 * vol_under / n_vol_valid;
-end
-
-%% 7. Regularisation: pull parameters toward initial guess
-if isfield(calib, 'regLambda') && calib.regLambda > 0
-    x0  = calib.x0(:);
-    J   = J + calib.regLambda * sum(((x(:) - x0) ./ max(abs(x0), 1e-6)).^2);
-end
-
-end  % objective_calibration
-
-% =========================================================================
-%  LOCAL HELPERS
-% =========================================================================
 
 function params = set_param_by_name(params, name, value)
-% SET_PARAM_BY_NAME — assign value to nested struct field (dot notation)
 parts = strsplit(name, '.');
 switch numel(parts)
-    case 2, params.(parts{1}).(parts{2}) = value;
-    case 3, params.(parts{1}).(parts{2}).(parts{3}) = value;
+    case 2
+        params.(parts{1}).(parts{2}) = value;
+    case 3
+        params.(parts{1}).(parts{2}).(parts{3}) = value;
     otherwise
         error('set_param_by_name:unsupportedDepth', ...
-              'Only 2- or 3-level notation supported. Got: %s', name);
-end
-end
-
-function fmap = build_field_map(scenario)
-% BUILD_FIELD_MAP — maps model metric name → clinical sub-struct field name
-%   This must stay in sync with validation_report.m metric_defs.
-fmap = struct();
-switch scenario
-    case 'pre_surgery'
-        fmap.RAP_mean  = 'RAP_mean_mmHg';
-        fmap.LAP_mean  = 'LAP_mean_mmHg';   % estimated pulmonary back-pressure
-        fmap.PAP_min   = 'PAP_dia_mmHg';    % diastolic PA pressure
-        fmap.PAP_max   = 'PAP_sys_mmHg';    % systolic PA pressure
-        fmap.PAP_mean  = 'PAP_mean_mmHg';
-        fmap.SAP_min   = 'SAP_dia_mmHg';    % diastolic systemic pressure
-        fmap.SAP_max   = 'SAP_sys_mmHg';    % systolic systemic pressure
-        fmap.SAP_mean  = 'SAP_mean_mmHg';
-        fmap.QpQs      = 'QpQs';
-        fmap.PVR       = 'PVR_WU';
-        fmap.SVR       = 'SVR_WU';
-        fmap.LVEDV     = 'LVEDV_mL';
-        fmap.LVESV     = 'LVESV_mL';
-        fmap.RVEDV     = 'RVEDV_mL';
-        fmap.RVESV     = 'RVESV_mL';
-        fmap.LVEF      = 'LVEF';
-    case 'post_surgery'
-        fmap.SAP_min   = 'SAP_sys_mmHg';
-        fmap.SAP_max   = 'SAP_sys_mmHg';
-        fmap.SAP_mean  = 'MAP_mmHg';
-        fmap.SVR       = 'SVR_WU';
-        fmap.PVR       = 'PVR_WU';
-        fmap.LVEF      = 'LVEF';
-        fmap.RVEF      = 'RVEF';
-        fmap.QpQs      = 'QpQs';
-        fmap.LVEDV     = 'LVEDV_mL';
-        fmap.RVEDV     = 'RVEDV_mL';
-        fmap.RAP_mean  = 'RAP_mean_mmHg';
-        fmap.PAP_mean  = 'PAP_mean_mmHg';
+            'Only 2- or 3-level notation supported. Got: %s', name);
 end
 end

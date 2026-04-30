@@ -1,293 +1,273 @@
-function [params_best, calib_out] = run_calibration(params0, clinical, scenario, optMask, fastMode, pce_surrogate)
+function [params_best, calib_out] = run_calibration(params0, clinical, scenario, optMask, fastMode, pce_surrogate, primaryMetrics)
 % RUN_CALIBRATION
 % -----------------------------------------------------------------------
-% Calibrates a scenario-specific subset of model parameters to clinical
-% haemodynamic targets using a 2-stage bounded optimisation strategy.
-%
-% STRATEGY:
-%   Stage 1 — Single start from the analytical baseline (x0).
-%     Uses a soft L2 regularisation term (regLambda = 0.005) to prevent
-%     the optimizer from drifting far from the physics-based starting point
-%     during the initial search.  Interior-point + L-BFGS.
-%
-%   Stage 2 — Diverse multi-start restarts (n_restart points).
-%     Regularisation is disabled so the optimizer can explore freely.
-%     Starting points cover lower-quartile, upper-quartile, and one uniform
-%     random sample of [lb, ub].  The best solution across all starts
-%     (evaluated on the unregularised objective) is kept.
-%
-%   Selection — lowest unregularised J among all Stage 1 + Stage 2 runs,
-%     restricted to runs with exitflag >= -1 (convergence or iteration limit).
-%
-% RATIONALE:
-%   Single-start local optimization is vulnerable to poor basins when the
-%   parameter landscape has multiple local minima (confirmed by run-to-run
-%   variability in prior calibration results).  Two-stage strategy retains
-%   the benefits of the analytical starting point while adding escape
-%   capability via diverse restarts.
-%
-% INPUTS:
-%   params0   - baseline (scaled, pre-conditioned by params_from_clinical)
-%   clinical  - unified clinical struct
-%   scenario  - 'pre_surgery' | 'post_surgery'
-%   optMask   - optional logical mask of active parameters [nParam x 1]
-%
-% OUTPUTS:
-%   params_best - parameter struct with optimized parameters
-%   calib_out   - struct with convergence summary
-%
-% REFERENCES:
-%   [1] Byrd, Lu, Nocedal (1995). A Limited Memory Algorithm for Bound
-%       Constrained Optimization. SIAM J. Scientific Computing 16(5).
-%   [2] objective_calibration.m — weighted least-squares + guard terms
-%   [3] calibration_param_sets.m — free-parameter lists and bounds
+% Staged pediatric calibration:
+%   Stage A - vascular/shunt fit
+%   Stage B - chamber volume/function fit
+%   Stage C - joint polish on <=5 sensitive parameters
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-04-08
-% VERSION:  4.0
+% DATE:     2026-04-28
+% VERSION:  5.0
 % -----------------------------------------------------------------------
 
-if nargin < 4
-    optMask = [];
-end
-if nargin < 5
-    fastMode = false;
-end
-
-% -----------------------------------------------------------------------        Retrieve scenario-specific calibration configuration
-calib = calibration_param_sets(scenario, params0, optMask);
-d     = numel(calib.names);
-
-% Capping fmincon to the PCE surrogate boundaries.
-% Extract bounds from the surrogate's Internal.Input (ground truth) rather
-% than cfg.lb/ub, which can be stale if a checkpoint from a prior patient
-% run was loaded.  Fall back to cfg if extraction fails.
-if nargin >= 6 && ~isempty(pce_surrogate)
-    % Resolve the true PCE training bounds per parameter name
-    surr_lb = pce_surrogate.cfg.lb(:);
-    surr_ub = pce_surrogate.cfg.ub(:);
-    surr_fns = fieldnames(pce_surrogate);
-    for kf = 1:numel(surr_fns)
-        fn = surr_fns{kf};
-        if isstruct(pce_surrogate.(fn)) && isfield(pce_surrogate.(fn), 'surrogate')
-            s = pce_surrogate.(fn).surrogate;
-            if isfield(s, 'Internal') && isfield(s.Internal, 'Input') && ...
-                    isfield(s.Internal.Input, 'Marginals') && ...
-                    numel(s.Internal.Input.Marginals) == numel(surr_lb)
-                margs = s.Internal.Input.Marginals;
-                surr_lb = arrayfun(@(m) m.Parameters(1), margs(:));
-                surr_ub = arrayfun(@(m) m.Parameters(2), margs(:));
-            end
-            break;
-        end
-    end
-    for i = 1:numel(calib.names)
-        idx = find(strcmp(pce_surrogate.cfg.names, calib.names{i}));
-        if ~isempty(idx)
-            calib.lb(i) = max(calib.lb(i), surr_lb(idx));
-            calib.ub(i) = min(calib.ub(i), surr_ub(idx));
-        end
-    end
-    % Clamp x0 to the (possibly tightened) bounds so J0 is safe to evaluate
-    calib.x0 = min(max(calib.x0, calib.lb), calib.ub);
-end
+if nargin < 4, optMask = []; end
+if nargin < 5, fastMode = false; end
+if nargin < 6, pce_surrogate = []; end
+if nargin < 7, primaryMetrics = {}; end
 
 if exist('fmincon', 'file') ~= 2
     error('run_calibration:missingFmincon', ...
-          ['fmincon is not available. Install Optimization Toolbox ' ...
-           'to run calibration.']);
+        'fmincon is not available. Install Optimization Toolbox to run calibration.');
 end
 
-% -----------------------------------------------------------------------
-%  Objective handles
-%    obj1 — Stage 1: soft regularisation (lambda = 0.005) stabilises the
-%           search near the physics-based starting point.
-%    obj2 — Stage 2 + evaluation: no regularisation; used for fair
-%           comparison across all starts and for final reporting.
-% -----------------------------------------------------------------------
-calib1           = calib;
-calib1.regLambda = 0.005;   % soft pull toward x0 in Stage 1
-obj1 = @(x) objective_calibration(x, params0, clinical, calib1, scenario, pce_surrogate);
+% Optional parallel finite-difference mode for fmincon.
+% Enable with: setenv('UNIFIED_VSD_FMINCON_PARALLEL','1')
+do_parallel = false;
+par_env = getenv('UNIFIED_VSD_FMINCON_PARALLEL');
+if ~isempty(par_env)
+    do_parallel = any(strcmpi(strtrim(par_env), {'1','true','yes','on'}));
+end
 
-calib2           = calib;
-calib2.regLambda = 0;       % exploration in Stage 2; unregularised evaluation
-obj2 = @(x) objective_calibration(x, params0, clinical, calib2, scenario, pce_surrogate);
+calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics);
+J0 = objective_calibration(calib.x0, params0, clinical, make_stage_calib(calib, params0, calib.names, calib.metricFields), scenario, pce_surrogate);
 
-% Unregularised objective at baseline — used for improvement reporting.
-J0 = obj2(calib.x0);
-fprintf('[run_calibration] J0 (unregularised, baseline) = %.6f\n', J0);
+params_stage = params0;
+stage_history_cell = cell(1, 3);
 
-% -----------------------------------------------------------------------
-%  Stage 1 — interior-point L-BFGS from analytical baseline
-% -----------------------------------------------------------------------
-fprintf('[run_calibration] Stage 1: fmincon interior-point + L-BFGS (%d active params)...\n', d);
-fprintf('[run_calibration]   (max %d evals / %d iters — this may take a few minutes)\n', 4000, 300);
-t_s1 = tic;
+[params_stage, stage_history_cell{1}] = optimize_stage(params_stage, clinical, scenario, calib, ...
+    calib.stageA.names, calib.stageA.metricFields, do_parallel, pce_surrogate, fastMode, 'A');
+[params_stage, stage_history_cell{2}] = optimize_stage(params_stage, clinical, scenario, calib, ...
+    calib.stageB.names, calib.stageB.metricFields, do_parallel, pce_surrogate, fastMode, 'B');
 
-opts_s1 = optimoptions('fmincon', ...
-    'Algorithm',                'interior-point', ...
-    'HessianApproximation',     'lbfgs',          ...
-    'FiniteDifferenceStepSize', 1e-5,             ...
-    'FiniteDifferenceType',     'forward',        ...
-    'Display',                  'iter',           ...
-    'MaxFunctionEvaluations',   6000,             ...  % raised from 4000
-    'MaxIterations',            500,              ...  % raised from 300
-    'OptimalityTolerance',      1e-6,             ...
-    'StepTolerance',            1e-6,             ...  % loosened from 1e-8 — prevents premature exitflag=2
-    'UseParallel',              false);           % serial only: avoids worker path/cache mismatch
+stageC_names = select_stage_c_names(calib, pce_surrogate, scenario);
+[params_best, stage_history_cell{3}] = optimize_stage(params_stage, clinical, scenario, calib, ...
+    stageC_names, calib.metricFields, do_parallel, pce_surrogate, fastMode, 'C');
+last_stage = stage_history_cell{3};
 
-[x_s1, ~, exitflag_s1, output_s1] = fmincon( ...
-    obj1, calib.x0, [], [], [], [], calib.lb, calib.ub, [], opts_s1);
+final_calib = make_stage_calib(calib, params_best, stageC_names, calib.metricFields);
+final_x = pack_x(params_best, final_calib.names);
+fbest = objective_calibration(final_x, params_best, clinical, final_calib, scenario, pce_surrogate);
 
-% Re-evaluate Stage 1 result on the unregularised objective for fair comparison.
-f_s1 = obj2(x_s1);
-fprintf('[run_calibration] Stage 1 done in %.1fs.  J (unreg) = %.6f | exitflag = %d\n', ...
-        toc(t_s1), f_s1, exitflag_s1);
+calib_out = struct();
+calib_out.names = final_calib.names;
+calib_out.names_all = calib.names_all;
+calib_out.mask = calib.mask;
+calib_out.x0 = pack_x(params0, final_calib.names);
+calib_out.xbest = final_x;
+calib_out.x0_all = calib.x0_all;
+calib_out.xbest_all = pack_x(params_best, calib.names_all);
+calib_out.J0 = J0;
+calib_out.fbest = fbest;
+calib_out.lb = final_calib.lb;
+calib_out.ub = final_calib.ub;
+calib_out.scenario = scenario;
+calib_out.primaryMetrics = calib.primaryMetrics;
+calib_out.improvement = J0 - fbest;
+calib_out.best_stage = 3;
+calib_out.best_restart = 0;
+calib_out.stage_history = stage_history_cell;
+calib_out.exitflag = last_stage.exitflag;
+calib_out.output = last_stage.output;
+calib_out.objective_breakdown = build_objective_breakdown(params_best, clinical, scenario, calib);
+calib_out.use_parallel = do_parallel;
 
-% Initialise best-so-far with Stage 1 result.
-xbest  = x_s1;
-fbest  = f_s1;
-best_stage = 1;
-best_restart = 0;
+end
 
-% -----------------------------------------------------------------------
-if ~fastMode
-%  Stage 2 — diverse multi-start restarts (no regularisation)
-%
-%  Starting points mirror the scale factors from check_initial_guess_extremes.m:
-%    scales = [0.30, 0.50, 1.80, 2.50]  applied to x0 (1.00 = Stage 1 already done)
-%    plus one random uniform in [lb, ub]
-%
-%  Why scaled-x0 instead of raw lb/ub corners:
-%    lb/ub corners set ALL 15 parameters to their extremes simultaneously.
-%    That is almost certainly non-physiological (e.g. R.vsd at 2% AND
-%    E.LV.EA at 20% AND C.SAR at 20% all at once → ODE failure or garbage J).
-%    Scaled x0 preserves the relative balance between parameters while
-%    moving the search to low/high regions of the feasible space.
-%
-%  Each start is pre-checked: if J >= J_skip the start is skipped entirely
-%  (mirrors the J >= 1e8 guard in check_initial_guess_extremes.m).
-% -----------------------------------------------------------------------
-rng(2026, 'combRecursive');   % fixed seed for reproducibility
+function [params_out, stage_out] = optimize_stage(params_in, clinical, scenario, calib, stage_names, stage_metrics, do_parallel, pce_surrogate, fastMode, stage_label)
+stage_calib = make_stage_calib(calib, params_in, stage_names, stage_metrics);
+params_out = params_in;
+stage_out = struct('label', stage_label, 'names', {stage_calib.names}, ...
+    'x0', stage_calib.x0, 'xbest', stage_calib.x0, 'fval', NaN, ...
+    'exitflag', NaN, 'output', struct(), 'skipped', false);
 
-% Scale factors from check_initial_guess_extremes.m (1.00 skipped = Stage 1)
-clip = @(x) min(max(x, calib.lb), calib.ub);
-x_random = clip(calib.lb + rand(d,1).*(calib.ub - calib.lb));
-starts = [clip(calib.x0 * 0.30), ...
-          clip(calib.x0 * 0.50), ...
-          clip(calib.x0 * 1.80), ...
-          clip(calib.x0 * 2.50), ...
-          x_random];
-start_labels = {'0.30*x0', '0.50*x0', '1.80*x0', '2.50*x0', 'random'};
-n_restart = size(starts, 2);
+if isempty(stage_calib.names)
+    stage_out.skipped = true;
+    return;
+end
 
-J_skip = 1e6;   % pre-check threshold — skip starts that are clearly infeasible
+obj = @(x) objective_calibration(x, params_in, clinical, stage_calib, scenario, pce_surrogate);
+f0 = obj(stage_calib.x0);
+opts = optimoptions('fmincon', ...
+    'Algorithm', 'interior-point', ...
+    'HessianApproximation', 'lbfgs', ...
+    'FiniteDifferenceStepSize', 1e-5, ...
+    'FiniteDifferenceType', 'forward', ...
+    'Display', 'off', ...
+    'MaxFunctionEvaluations', ternary(fastMode, 1200, 3000), ...
+    'MaxIterations', ternary(fastMode, 100, 250), ...
+    'OptimalityTolerance', 1e-5, ...
+    'StepTolerance', 1e-6, ...
+    'UseParallel', do_parallel);
 
-opts_s2 = optimoptions('fmincon', ...
-    'Algorithm',                'interior-point', ...
-    'HessianApproximation',     'lbfgs',          ...
-    'FiniteDifferenceStepSize', 1e-5,             ...
-    'FiniteDifferenceType',     'forward',        ...
-    'Display',                  'off',            ...
-    'MaxFunctionEvaluations',   2000,             ...
-    'MaxIterations',            150,              ...
-    'OptimalityTolerance',      1e-5,             ...
-    'StepTolerance',            1e-7,             ...
-    'UseParallel',              false);
+try
+    [xbest, fval, exitflag, output] = fmincon( ...
+        obj, stage_calib.x0, [], [], [], [], stage_calib.lb, stage_calib.ub, [], opts);
+catch ME
+    if do_parallel
+        fprintf('[run_calibration] Stage %s parallel attempt failed: %s\n', ...
+            stage_label, ME.message);
+        fprintf('[run_calibration] Stage %s retrying in serial mode.\n', stage_label);
+        opts = optimoptions(opts, 'UseParallel', false);
+        try
+            [xbest, fval, exitflag, output] = fmincon( ...
+                obj, stage_calib.x0, [], [], [], [], stage_calib.lb, stage_calib.ub, [], opts);
+        catch retryME
+            stage_out.skipped = true;
+            stage_out.output = struct( ...
+                'message', retryME.message, ...
+                'parallel_error', ME.message, ...
+                'retried_serial', true);
+            fprintf('[run_calibration] Stage %s skipped after serial retry: %s\n', ...
+                stage_label, retryME.message);
+            return;
+        end
+    else
+        stage_out.skipped = true;
+        stage_out.output = struct('message', ME.message);
+        fprintf('[run_calibration] Stage %s skipped: %s\n', stage_label, ME.message);
+        return;
+    end
+end
 
-fprintf('[run_calibration] Stage 2: %d diverse restarts — scales [0.30, 0.50, 1.80, 2.50, random]\n', n_restart);
-fprintf('[run_calibration]   (max %d evals per restart, skip if J0 >= %.0e)\n', 2000, J_skip);
-restart_J    = nan(n_restart, 1);
-restart_flag = nan(n_restart, 1);
-restart_x    = nan(d, n_restart);
+if ~isfinite(fval) || fval > f0
+    stage_out.skipped = true;
+    stage_out.fval = f0;
+    stage_out.output = output;
+    fprintf('[run_calibration] Stage %s rejected: objective %.6g did not improve over %.6g.\n', ...
+        stage_label, fval, f0);
+    return;
+end
 
-for r = 1:n_restart
-    fprintf('[run_calibration]   Restart %d/%d [%s] pre-check...\n', r, n_restart, start_labels{r});
+for i = 1:numel(stage_calib.names)
+    params_out = set_param_by_name(params_out, stage_calib.names{i}, xbest(i));
+end
 
-    % Pre-check: skip starts that are clearly infeasible
-    J0_r = obj2(starts(:,r));
-    if J0_r >= J_skip
-        fprintf('  SKIPPED (J0=%.2e >= %.0e)\n', J0_r, J_skip);
-        restart_J(r)    = J0_r;
-        restart_flag(r) = -998;
+stage_out.xbest = xbest;
+stage_out.fval = fval;
+stage_out.exitflag = exitflag;
+stage_out.output = output;
+end
+
+function stage_calib = make_stage_calib(calib, params_ref, requested_names, stage_metrics)
+stage_mask = calib.mask & ismember(calib.names_all, requested_names(:)');
+stage_names = calib.names_all(stage_mask);
+
+stage_calib = calib;
+stage_calib.names = stage_names;
+stage_calib.metricFields = stage_metrics(:)';
+stage_calib.x0 = pack_x(params_ref, stage_names);
+stage_calib.lb = calib.lb_all(stage_mask);
+stage_calib.ub = calib.ub_all(stage_mask);
+end
+
+function names = select_stage_c_names(calib, gsa_out, scenario)
+active_names = calib.names_all(calib.mask);
+if isempty(gsa_out) || ~isstruct(gsa_out)
+    names = fallback_stage_c_names(active_names, scenario);
+    return;
+end
+
+scores = zeros(numel(active_names), 1);
+for i = 1:numel(active_names)
+    scores(i) = aggregate_parameter_score(active_names{i}, gsa_out, calib.primaryMetrics);
+end
+[~, order] = sort(scores, 'descend');
+keep = min(5, numel(order));
+names = active_names(order(1:keep));
+if keep == 0
+    names = fallback_stage_c_names(active_names, scenario);
+end
+end
+
+function score = aggregate_parameter_score(param_name, gsa_out, primary_metrics)
+score = 0;
+for k = 1:numel(primary_metrics)
+    mf = primary_metrics{k};
+    if ~isfield(gsa_out, mf) || ~isfield(gsa_out.(mf), 'table')
         continue;
     end
+    tbl = gsa_out.(mf).table;
+    if ~ismember('Parameter', tbl.Properties.VariableNames) || ~ismember('ST', tbl.Properties.VariableNames)
+        continue;
+    end
+    idx = find(strcmp(tbl.Parameter, param_name), 1, 'first');
+    if ~isempty(idx)
+        score = score + tbl.ST(idx);
+    end
+end
+end
 
-    try
-        [x_r, ~, flag_r] = fmincon( ...
-            obj2, starts(:,r), [], [], [], [], calib.lb, calib.ub, [], opts_s2);
-        f_r = obj2(x_r);   % evaluate on clean objective (no regularisation)
-        restart_J(r)    = f_r;
-        restart_flag(r) = flag_r;
-        restart_x(:,r)  = x_r;
-        fprintf('  [Finish Restart %d] J = %.6f | exitflag = %d\n', r, f_r, flag_r);
-    catch ME
-        fprintf('  FAILED (%s)\n', ME.message);
+function names = fallback_stage_c_names(active_names, scenario)
+switch scenario
+    case 'pre_surgery'
+        preferred = {'R.vsd','R.PAR','R.SAR','E.LV.EA','V0.LV'};
+    otherwise
+        preferred = {'R.SAR','R.PAR','C.SAR','E.LV.EA','V0.LV'};
+end
+names = preferred(ismember(preferred, active_names));
+if isempty(names)
+    names = active_names(1:min(5, numel(active_names)));
+end
+end
+
+function breakdown = build_objective_breakdown(params, clinical, scenario, calib)
+try
+    metrics = compute_clinical_indices(integrate_system(params), params);
+catch
+    breakdown = table(cell(0,1), cell(0,1), zeros(0,1), zeros(0,1), ...
+        'VariableNames', {'Metric','Tier','RelativeError','WeightedContribution'});
+    return;
+end
+targets = get_calibration_targets(scenario, clinical);
+target_names = {targets.Metric};
+
+rows = cell(numel(calib.metricFields), 1);
+weighted = nan(numel(calib.metricFields), 1);
+unweighted = nan(numel(calib.metricFields), 1);
+tiers = cell(numel(calib.metricFields), 1);
+for k = 1:numel(calib.metricFields)
+    mf = calib.metricFields{k};
+    rows{k} = mf;
+    idx = find(strcmp(target_names, mf), 1, 'first');
+    if isempty(idx) || ~isfield(metrics, mf)
+        continue;
+    end
+    y_clin = targets(idx).ClinicalValue;
+    if isnan(y_clin)
+        continue;
+    end
+    err_rel = abs(metrics.(mf) - y_clin) / max(abs(y_clin), 1e-6);
+    unweighted(k) = err_rel;
+    if ismember(mf, calib.primaryMetrics)
+        weighted(k) = calib.weights.(mf) * (err_rel / calib.primaryTarget)^2;
+        tiers{k} = 'primary';
+    else
+        weighted(k) = calib.secondaryLambda * calib.weights.(mf) * (err_rel / calib.secondaryTarget)^2;
+        tiers{k} = 'secondary';
     end
 end
 
-% Post-process restart results to find the global best
-for r = 1:n_restart
-    if restart_flag(r) >= -1 && restart_J(r) < fbest
-        fbest       = restart_J(r);
-        xbest       = restart_x(:,r);
-        best_stage  = 2;
-        best_restart = r;
-    end
+breakdown = table(rows, tiers, unweighted, weighted, ...
+    'VariableNames', {'Metric','Tier','RelativeError','WeightedContribution'});
 end
 
-end % end if ~fastMode
-
-fprintf('[run_calibration] Best solution: Stage %d', best_stage);
-if best_stage == 2
-    fprintf(', Restart %d', best_restart);
+function x = pack_x(params, names)
+x = zeros(numel(names), 1);
+for i = 1:numel(names)
+    x(i) = get_param_by_name(params, names{i});
 end
-fprintf(' | J = %.6f\n', fbest);
-fprintf('[run_calibration] Improvement vs baseline: J0=%.6f → J*=%.6f  ΔJ=%.6f\n', ...
-        J0, fbest, J0 - fbest);
-
-% -----------------------------------------------------------------------        Unpack best parameters
-params_best = params0;
-for i = 1:numel(calib.names)
-    params_best = set_param_by_name(params_best, calib.names{i}, xbest(i));
 end
 
-% Reconstruct full parameter vector for traceability (active + frozen).
-xbest_all = calib.x0_all;
-xbest_all(calib.mask) = xbest;
-
-% -----------------------------------------------------------------------        Collect output summary
-calib_out             = struct();
-calib_out.names       = calib.names;
-calib_out.names_all   = calib.names_all;
-calib_out.mask        = calib.mask;
-calib_out.x0          = calib.x0;
-calib_out.xbest       = xbest;
-calib_out.x0_all      = calib.x0_all;
-calib_out.xbest_all   = xbest_all;
-calib_out.J0          = J0;
-calib_out.fbest       = fbest;
-calib_out.lb          = calib.lb;
-calib_out.ub          = calib.ub;
-calib_out.scenario    = scenario;
-calib_out.exitflag    = exitflag_s1;   % Stage 1 exit (main convergence indicator)
-calib_out.output      = output_s1;
-calib_out.improvement = J0 - fbest;
-calib_out.best_stage  = best_stage;
-calib_out.best_restart = best_restart;
-if ~fastMode
-    calib_out.restart_J   = restart_J;
-    calib_out.restart_flag = restart_flag;
+function v = get_param_by_name(params, name)
+parts = strsplit(name, '.');
+v = params;
+for k = 1:numel(parts)
+    v = v.(parts{k});
 end
-if ~fastMode
-    calib_out.restart_J   = restart_J;
-    calib_out.restart_flag = restart_flag;
 end
-
-end  % run_calibration
 
 function params = set_param_by_name(params, name, value)
-% SET_PARAM_BY_NAME — assign value to nested struct field via dot notation
 parts = strsplit(name, '.');
 switch numel(parts)
     case 2
@@ -296,8 +276,14 @@ switch numel(parts)
         params.(parts{1}).(parts{2}).(parts{3}) = value;
     otherwise
         error('set_param_by_name:unsupportedDepth', ...
-              'Only 2- or 3-level dot notation supported. Got: %s', name);
+            'Only 2- or 3-level dot notation supported. Got: %s', name);
 end
 end
 
-
+function out = ternary(cond, a, b)
+if cond
+    out = a;
+else
+    out = b;
+end
+end
