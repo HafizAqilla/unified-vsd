@@ -18,9 +18,8 @@
 
 clear; clc;
 root = fileparts(fileparts(mfilename('fullpath')));
-project_paths = strsplit(genpath(root), pathsep);
-is_shadow = contains(project_paths, [filesep '.claude' filesep], 'IgnoreCase', true);
-addpath(strjoin(project_paths(~is_shadow), pathsep));
+restoredefaultpath();
+addpath(build_clean_project_path(root));
 
 scenario = 'pre_surgery';
 results_file = fullfile(root, 'results', 'tables', sprintf('params_calibrated_%s.mat', scenario));
@@ -147,4 +146,14 @@ side(dist_to_ub <= 0.02) = "upper";
 tbl = table(string(calib_out.names(mask)), calib_out.xbest(mask), ...
     calib_out.lb(mask), calib_out.ub(mask), side(mask), ...
     'VariableNames', {'Parameter', 'Value', 'LowerBound', 'UpperBound', 'NearestSide'});
+end
+
+function project_path = build_clean_project_path(project_root)
+project_paths = strsplit(genpath(project_root), pathsep);
+project_paths = project_paths(~cellfun('isempty', project_paths));
+is_shadow = contains(project_paths, [filesep '.claude' filesep], 'IgnoreCase', true) | ...
+            contains(project_paths, [filesep '.clone' filesep], 'IgnoreCase', true) | ...
+            contains(project_paths, [filesep '.git' filesep], 'IgnoreCase', true);
+is_existing = cellfun(@isfolder, project_paths);
+project_path = strjoin(project_paths(~is_shadow & is_existing), pathsep);
 end

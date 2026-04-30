@@ -56,9 +56,8 @@ function main_run(scenario, clinical)
 
 %% ---- housekeeping ------------------------------------------------------
 root = fileparts(mfilename('fullpath'));
-root_paths = strsplit(genpath(root), pathsep);
-is_shadow = contains(root_paths, [filesep '.claude' filesep]);
-addpath(strjoin(root_paths(~is_shadow), pathsep));
+restoredefaultpath();
+addpath(build_clean_project_path(root));
 
 %% ---- user toggles (edit here) -----------------------------------------
 % Plotting only: the core pipeline is always executed sequentially.
@@ -66,7 +65,7 @@ DO_PLOTS       = true;
 DO_OVERLAY     = true;
 DO_GSA         = true;    % Run pre- and post-calibration GSA for paper
 DO_FAST_CALIBRATION = false; % Full run: Stage 1 + Stage 2 restarts
-DO_PARALLEL_FMINCON = true;  % Use parallel finite-difference in fmincon
+DO_PARALLEL_FMINCON = false; % Serial by default; parallel remains opt-in via env
 USE_PCE_IN_CALIBRATION = false; % recovery default: direct ODE calibration (PCE optional)
 
 % MASK_FILE: optional path to a previously saved params_calibrated_*.mat
@@ -526,3 +525,13 @@ end
 fprintf('\n[main_run] Done. Scenario: %s  |  Total time: %.1f s\n', scenario, toc(run_timer));
 
 end  % main_run
+
+function project_path = build_clean_project_path(root)
+root_paths = strsplit(genpath(root), pathsep);
+root_paths = root_paths(~cellfun('isempty', root_paths));
+is_shadow = contains(root_paths, [filesep '.claude' filesep], 'IgnoreCase', true) | ...
+            contains(root_paths, [filesep '.clone' filesep], 'IgnoreCase', true) | ...
+            contains(root_paths, [filesep '.git' filesep], 'IgnoreCase', true);
+is_existing = cellfun(@isfolder, root_paths);
+project_path = strjoin(root_paths(~is_shadow & is_existing), pathsep);
+end

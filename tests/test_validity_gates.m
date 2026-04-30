@@ -4,9 +4,8 @@
 clear; clc;
 root = fileparts(mfilename('fullpath'));
 project_root = fullfile(root, '..');
-project_paths = strsplit(genpath(project_root), pathsep);
-is_shadow = contains(project_paths, [filesep '.claude' filesep]);
-addpath(strjoin(project_paths(~is_shadow), pathsep));
+restoredefaultpath();
+addpath(build_clean_project_path(project_root));
 
 params = default_parameters();
 params = recompute_test_timing(params);
@@ -59,4 +58,14 @@ params.t_ac_RA = params.t_ac_RA_frac * T_HB;
 params.Tc_RA   = params.Tc_RA_frac   * T_HB;
 params.t_ar_RA = params.t_ac_RA + params.Tc_RA;
 params.Tr_RA   = params.Tr_RA_frac   * T_HB;
+end
+
+function project_path = build_clean_project_path(project_root)
+project_paths = strsplit(genpath(project_root), pathsep);
+project_paths = project_paths(~cellfun('isempty', project_paths));
+is_shadow = contains(project_paths, [filesep '.claude' filesep], 'IgnoreCase', true) | ...
+            contains(project_paths, [filesep '.clone' filesep], 'IgnoreCase', true) | ...
+            contains(project_paths, [filesep '.git' filesep], 'IgnoreCase', true);
+is_existing = cellfun(@isfolder, project_paths);
+project_path = strjoin(project_paths(~is_shadow & is_existing), pathsep);
 end
