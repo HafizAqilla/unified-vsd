@@ -75,10 +75,14 @@ for m = 1:numel(all_metrics)
         'VariableNames', {'Parameter', 'Sobol_S1', 'Sobol_ST'});
     T = sortrows(T, 'Sobol_ST', 'descend');
 
-    gsa_out.(mf).S1      = S1i;
-    gsa_out.(mf).ST      = STi;
-    gsa_out.(mf).table   = T;
-    gsa_out.(mf).primary = ismember(mf, cfg.primary_metrics);
+    gsa_out.(mf).S1        = S1i;
+    gsa_out.(mf).ST        = STi;
+    gsa_out.(mf).table     = T;
+    gsa_out.(mf).primary   = ismember(mf, cfg.primary_metrics);
+    gsa_out.(mf).surrogate = myPCE;   % Required: objective_calibration.m checks
+                                       % isfield(pce_surrogate.(mf),'surrogate')
+                                       % before evaluating the PCE model. Without
+                                       % this field every metric is skipped and J=0.
 
     % ------------------------------------------------------------------
     % AUTOSAVE: write checkpoint after every completed metric

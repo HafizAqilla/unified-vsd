@@ -54,43 +54,30 @@ cfg.params0  = params0;   % stored so gsa_run_pce wrapper can access it
 %% =====================================================================
 cfg.names = {
     % Resistances
-    'R.PAR'
-    'R.PCOX'
-    'R.PCNO'
-    'R.PVEN'
     'R.SAR'
     'R.SC'
     'R.SVEN'
-    % Valve Resistances
-    'Rvalve.open'
-    'Rvalve.closed'
+    'R.PAR'
+    'R.PCOX'
+    'R.PVEN'
     % Compliances
-    'C.PAR'
-    'C.PCOX'
-    'C.PCNO'
-    'C.PVEN'
     'C.SAR'
-    'C.SC'
     'C.SVEN'
+    'C.PAR'
+    'C.PVEN'
     % Ventricular elastances
-    'E.RV.EA'
-    'E.RV.EB'
-    'E.LA.EA'
-    'E.LA.EB'
     'E.LV.EA'
     'E.LV.EB'
+    'E.RV.EA'
+    'E.RV.EB'
+    % Atrial elastances (active calibration params — must appear in GSA for mask)
+    'E.LA.EA'
     'E.RA.EA'
-    'E.RA.EB'
     % Unstressed volumes
+    'V0.LV'
     'V0.RV'
     'V0.LA'
-    'V0.LV'
     'V0.RA'
-    % Inertance
-    'L.PVEN'
-    'L.PAR'
-    'L.SAR'
-    'L.SVEN'
 };
 
 if strcmp(scenario, 'pre_surgery')
@@ -118,12 +105,6 @@ for i = 1:d
             lb(i) = 0.4 * x0(i);
             ub(i) = 2.5 * x0(i);
         end
-    elseif startsWith(nm, 'Rvalve.')
-        if strcmp(nm, 'Rvalve.closed')
-            lb(i) = 0.8 * x0(i);  ub(i) = 1.2 * x0(i); % Keep closed resistance high (narrow bounds)
-        else
-            lb(i) = 0.5 * x0(i);  ub(i) = 2.0 * x0(i); % Open resistance variation
-        end
     elseif startsWith(nm, 'C.')
         lb(i) = 0.5 * x0(i);  ub(i) = 2.0 * x0(i);
     elseif startsWith(nm, 'E.')
@@ -141,27 +122,23 @@ cfg.x0 = x0;  cfg.lb = lb;  cfg.ub = ub;
 %% =====================================================================
 switch scenario
     case 'pre_surgery'
-        cfg.primary_metrics   = {'QpQs', 'PAP_mean', 'PVR', ...
-                                 'SAP_mean', 'LVEDV', 'RVEDV'};
-        cfg.secondary_metrics = {'RAP_mean', 'LVEF', 'RVEF', ...
+        % Primary metrics drive the GSA mask — parameters with high ST
+        % for ANY primary metric survive the Sobol threshold cut.
+        % LVEF and SAP_mean added so E.LV.EA and C.SAR are never masked out.
+        cfg.primary_metrics   = {'QpQs', 'PAP_mean', 'LVEF', 'SAP_mean', 'CO_Lmin'};
+        cfg.secondary_metrics = {'RAP_mean', 'LVEDV', 'LVESV', 'RVEDV', 'RVESV', ...
+                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
                                  'PAP_min', 'PAP_max', ...
                                  'SAP_min', 'SAP_max', ...
-                                 'RVP_min', 'RVP_max', 'RVP_mean', ...
-                                 'LVP_min', 'LVP_max', 'LVP_mean', ...
-                                 'PVP_mean', ...
-                                 'LVESV', 'RVESV', ...
-                                 'Q_AV_mean', 'Q_PVv_mean'};
+                                 'PVP_mean', 'SVR', ...
+                                 'LVP_min', 'LVP_max', 'LVP_mean'};
     case 'post_surgery'
-        cfg.primary_metrics   = {'LVEF', 'SAP_mean', 'SVR', ...
-                                 'PAP_mean', 'LVEDV', 'RVEDV'};
-        cfg.secondary_metrics = {'RVEF', 'QpQs', 'PVR', ...
-                                 'PAP_min', 'PAP_max', ...
-                                 'SAP_min', 'SAP_max', ...
+        cfg.primary_metrics   = {'LVEF', 'SAP_mean', 'SVR'};
+        cfg.secondary_metrics = {'RVEF', 'QpQs', 'PAP_mean', 'PVR', ...
                                  'RVP_min', 'RVP_max', 'RVP_mean', ...
-                                 'LVP_min', 'LVP_max', 'LVP_mean', ...
+                                 'PAP_min', 'PAP_max', ...
                                  'PVP_mean', ...
-                                 'LVESV', 'RVESV', ...
-                                 'Q_AV_mean', 'Q_PVv_mean'};
+                                 'LVP_min', 'LVP_max', 'LVP_mean'};
     otherwise
         error('gsa_pce_setup:unknownScenario', ...
               'scenario must be ''pre_surgery'' or ''post_surgery''.');
@@ -171,13 +148,12 @@ cfg.all_metrics = unique([
     cfg.primary_metrics, cfg.secondary_metrics, ...
     {'RAP_mean', 'LAP_mean', ...
      'PAP_min',  'PAP_max',  'PAP_mean', ...
-     'SAP_min',  'SAP_max',  'SAP_mean', ...
      'PVP_mean', ...
      'RVP_min',  'RVP_max',  'RVP_mean', ...
      'LVP_min',  'LVP_max',  'LVP_mean', ...
+     'SAP_min',  'SAP_max',  'SAP_mean', ...
      'SVR', 'PVR', 'QpQs', ...
-     'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF', ...
-     'Q_AV_mean', 'Q_PVv_mean'}
+     'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF'}
 ], 'stable');
 
 %% =====================================================================
@@ -199,13 +175,20 @@ cfg.Input = uq_createInput(InputOpts);
 PCEOpts.Type                   = 'Metamodel';
 PCEOpts.MetaType               = 'PCE';
 PCEOpts.Method                 = 'LARS';
-PCEOpts.Degree                 = 1:4;           % reduced from 1:10 → 15x faster
+PCEOpts.Degree                 = 1:3;           % reduced from 1:4 → faster LARS sweep
 PCEOpts.TruncOptions.qNorm     = 0.75;          % single value (was 0.5:0.1:1.0)
-PCEOpts.ExpDesign.NSamples     = 200;           % reduced from 400
+PCEOpts.ExpDesign.NSamples     = 100;           % reduced from 200 → 2x ODE speedup
 PCEOpts.ExpDesign.Sampling     = 'Halton';
 PCEOpts.Input                  = cfg.Input;
 
 cfg.PCEOpts = PCEOpts;
+
+% Reduced-fidelity ODE overrides for GSA sampling (same as gsa_sobol_setup).
+% Without this, each of the 100 ODE runs uses the default 80 warm-up cycles.
+% 10 cycles at relaxed tolerances is sufficient for Sobol index screening.
+cfg.gsa_sim_overrides.nCyclesSteady = 10;   % [cycles]  default 80 → 10
+cfg.gsa_sim_overrides.ss_tol_P      = 1.0;  % [mmHg]    relaxed from 0.1
+cfg.gsa_sim_overrides.ss_tol_V      = 1.0;  % [mL]      relaxed from 0.1
 
 fprintf('[gsa_pce_setup] d=%d params | N_train=%d | scenario=%s\n', ...
         d, PCEOpts.ExpDesign.NSamples, scenario);

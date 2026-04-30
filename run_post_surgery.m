@@ -86,7 +86,7 @@ root        = fileparts(mfilename('fullpath'));
 addpath(genpath(root));
 
 tables_dir  = fullfile(root, 'results', 'tables');
-latest_mat  = fullfile(tables_dir, 'params_calibrated_pre_surgery_20260426_170809.mat');
+latest_mat  = fullfile(tables_dir, 'params_calibrated_pre_surgery_hafiz.mat');
 
 if ~isfile(latest_mat)
     error(['run_post_surgery:noCalibFile\n' ...
@@ -171,7 +171,6 @@ post.SVR_WU            = NaN;    % [WU]    set if SVR measured
 post.RAP_mean_mmHg     = 5;    % [mmHg]
 post.RAP_max_mmHg      = 7.67;    % [mmHg]
 post.RAP_min_mmHg      = 5;    % [mmHg]
-
 post.LAP_mean_mmHg     = NaN;    % [mmHg]
 
 % ---- Ventricular volumes (expected remodelling) ----------------------

@@ -1,4 +1,4 @@
-% RUN_PATIENT_CASE REYNA
+% RUN_PATIENT_CASE 1
 % Simulation and calibration setup for specific 3-year-old VSD patient.
 
 clear; clc;
@@ -17,16 +17,18 @@ clinical.pre_surgery.VSD_diameter_mm   = 5.0;   % mm
 clinical.pre_surgery.VSD_gradient_mmHg = 94;    % mmHg (Peak systolic VSD gradient)
 
 % 4. Haemodynamic targets (Pre-surgery)
+clinical.pre_surgery.SAP_sys_mmHg  = 91;     % mmHg (SAP Aorta Max)
+clinical.pre_surgery.SAP_dia_mmHg  = 57;      % mmHg (SAP Aorta Min)
+clinical.pre_surgery.SAP_mean_mmHg = 74;      % mmHg (MAP Aorta)
+clinical.pre_surgery.RAP_max_mmHg  = 7;       % mmHg
+clinical.pre_surgery.RAP_min_mmHg  = 6;    % mmHg
+clinical.pre_surgery.RAP_mean_mmHg = 5;       % mmHg
 clinical.pre_surgery.PAP_sys_mmHg  = 20;      % mmHg (PAP Max)
 clinical.pre_surgery.PAP_dia_mmHg  = 10;      % mmHg (PAP Min)
 clinical.pre_surgery.PAP_mean_mmHg = 15;      % mmHg (PAP Mean)
-clinical.pre_surgery.SAP_sys_mmHg  = 91;     % mmHg (SAP Max)
-clinical.pre_surgery.SAP_dia_mmHg  = 57;      % mmHg (SAP Min)
-clinical.pre_surgery.SAP_mean_mmHg = 74;      % mmHg (MAP)
-clinical.pre_surgery.RAP_mean_mmHg = 5;       % mmHg
-clinical.pre_surgery.RAP_max_mmHg  = 8;       % mmHg
-clinical.pre_surgery.RAP_min_mmHg  = 6.67;    % mmHg
+
 clinical.pre_surgery.QpQs          = 1.194;   % Pulmonary/Systemic Flow Ratio
+
 clinical.pre_surgery.LVEDV_mL      = 32;      % mL
 clinical.pre_surgery.LVESV_mL      = 23.6;    % mL
 clinical.pre_surgery.RVEDV_mL      = 30.5;    % mL
@@ -34,5 +36,5 @@ clinical.pre_surgery.RVESV_mL      = 12;      % mL
 
 % 5. Run the full pipeline
 scenario = 'pre_surgery';
-fprintf('Starting calibration for patient...\n');
+fprintf('Starting calibration for patient 1...\n');
 main_run(scenario, clinical);

@@ -13,7 +13,7 @@ function metrics = compute_clinical_indices(sim, params)
 % FIELDS RETURNED:
 %   RAP_max    [mmHg]   right atrial maximal pressure  (max P_RA over last cycle)
 %   RAP_min    [mmHg]   right atrial minimal pressure  (min P_RA over last cycle)
-%   RAP_mean   [mmHg]   right atrial mean pressure
+%   RAP_mean   [mmHg]   right atrial mean pressure  = (RAP_max + RAP_min) / 2
 %   LAP_mean   [mmHg]   left atrial mean pressure
 %   PAP_min    [mmHg]   PA pressure minimum
 %   PAP_max    [mmHg]   PA pressure maximum
@@ -85,7 +85,7 @@ metrics = struct();
 %% Atrial pressures
 metrics.RAP_max  = max(Pc.RA);      % [mmHg]  Right Atrial Maximal Pressure
 metrics.RAP_min  = min(Pc.RA);      % [mmHg]  Right Atrial Minimal Pressure
-metrics.RAP_mean = mean_t(Pc.RA);   % [mmHg]  Right Atrial Mean Pressure
+metrics.RAP_mean = (metrics.RAP_max + metrics.RAP_min) / 2;   % [mmHg]  Right Atrial Mean Pressure = (max + min) / 2
 metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
 
 %% Pulmonary artery  (P_PAR)
@@ -116,6 +116,7 @@ Qsys_mLs  = mean_t(Qc.SVEN);                   % [mL/s]  systemic venous return
 Qpul_mLs  = mean_t(Qc.PVEN);                   % [mL/s]  pulmonary venous return
 Qsys_Lmin = Qsys_mLs  * mLs_to_Lmin;          % [L/min]
 Qpul_Lmin = Qpul_mLs  * mLs_to_Lmin;          % [L/min]
+metrics.CO_Lmin = Qsys_Lmin;                  % [L/min] Systemic cardiac output
 
 %% Resistances  (Wood units = mmHg / [L/min])
 metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);   % [WU]
