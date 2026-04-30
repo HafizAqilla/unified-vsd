@@ -149,11 +149,11 @@ cfg.ub = ub;
 %% =====================================================================
 switch scenario
     case 'pre_surgery'
-        cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR'};
-        cfg.secondary_metrics = {'RAP_mean', 'LVEDV', 'RVEDV', 'LVEF'};
+        cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR', 'SAP_mean', 'CO_Lmin'};
+        cfg.secondary_metrics = {'RAP_mean', 'LVEDV', 'RVEDV', 'LVEF', 'SVR', 'RVEF'};
     case 'post_surgery'
-        cfg.primary_metrics = {'LVEF', 'SAP_mean', 'SVR'};
-        cfg.secondary_metrics = {'RVEF', 'QpQs', 'PAP_mean', 'PVR'};
+        cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR', 'SAP_mean', 'CO_Lmin'};
+        cfg.secondary_metrics = {'LVEF', 'RVEF', 'SVR', 'LVEDV', 'RVEDV'};
     otherwise
         error('gsa_sobol_setup:unknownScenario', ...
               'scenario must be ''pre_surgery'' or ''post_surgery''.');
@@ -163,7 +163,7 @@ end
 cfg.all_metrics = unique([
     cfg.primary_metrics, cfg.secondary_metrics, ...
     {'RAP_mean', 'PAP_mean', 'SAP_mean', 'SVR', 'PVR', 'QpQs', ...
-     'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF'}
+     'CO_Lmin', 'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF'}
 ], 'stable');
 
 %% =====================================================================

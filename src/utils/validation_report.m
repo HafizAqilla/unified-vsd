@@ -22,7 +22,7 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 %       .table_cal        MATLAB table: metric, clinical, calibrated, error%
 %       .rmse_baseline    scalar overall RMSE (dimensionless, normalised)
 %       .rmse_cal         scalar overall RMSE after calibration
-%       .primary_gate     table for QpQs / SAP_mean / LVEF pass/fail at 5%
+%       .primary_gate     table for selected primary metrics at 5% error
 %       .table_delta      per-metric delta: BaseErr_pct, CalErr_pct, Delta_pct
 %       .sorted_errors    calibrated errors sorted by |Error_pct| descending
 %
@@ -44,63 +44,8 @@ function report = validation_report(clinical, metrics_baseline, metrics_cal, sce
 
 opts = parse_options(varargin{:});
 
-%% Select scenario-specific metric list
-switch scenario
-    case 'pre_surgery'
-        src = clinical.pre_surgery;
-        metric_defs = {
-            'RAP_min',   'RAP_dia_mmHg',   'mmHg',   'Right atrial diastolic-like minimum'
-            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
-            'RAP_max',   'RAP_sys_mmHg',   'mmHg',   'Right atrial systolic-like maximum'
-            'LAP_min',   'LAP_dia_mmHg',   'mmHg',   'Left atrial diastolic-like minimum'
-            'LAP_mean',  'LAP_mean_mmHg',  'mmHg',   'Left atrial mean pressure'
-            'LAP_max',   'LAP_sys_mmHg',   'mmHg',   'Left atrial systolic-like maximum'
-            'PAP_min',   'PAP_dia_mmHg',   'mmHg',   'PA diastolic pressure'
-            'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (max)'
-            'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
-            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (min)'
-            'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (max)'
-            'SAP_mean',  'SAP_mean_mmHg',  'mmHg',   'Mean arterial pressure (MAP)'
-            'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
-            'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
-            'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
-            'CO_Lmin',   'CO_Lmin',        'L/min',  'Cardiac output'
-            'VSD_frac_pct', 'VSD_frac_pct', '%',     'VSD shunt fraction of Qp'
-            'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
-            'LVESV',     'LVESV_mL',       'mL',     'LV end-systolic volume'
-            'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
-            'RVESV',     'RVESV_mL',       'mL',     'RV end-systolic volume'
-            'LVEF',      'LVEF',           '—',      'LV ejection fraction'
-            };
-
-    case 'post_surgery'
-        src = clinical.post_surgery;
-        metric_defs = {
-            'RAP_min',   'RAP_dia_mmHg',   'mmHg',   'Right atrial diastolic-like minimum'
-            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
-            'RAP_max',   'RAP_sys_mmHg',   'mmHg',   'Right atrial systolic-like maximum'
-            'LAP_min',   'LAP_dia_mmHg',   'mmHg',   'Left atrial diastolic-like minimum'
-            'LAP_mean',  'LAP_mean_mmHg',  'mmHg',   'Left atrial mean pressure'
-            'LAP_max',   'LAP_sys_mmHg',   'mmHg',   'Left atrial systolic-like maximum'
-            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (min)'
-            'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (max)'
-            'SAP_mean',  'MAP_mmHg',       'mmHg',   'Mean arterial pressure'
-            'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
-            'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
-            'LVEF',      'LVEF',           '—',      'LV ejection fraction'
-            'RVEF',      'RVEF',           '—',      'RV ejection fraction'
-            'QpQs',      'QpQs',           '—',      'Qp/Qs ratio (should be ~1.0)'
-            'CO_Lmin',   'CO_Lmin',        'L/min',  'Cardiac output'
-            'VSD_frac_pct', 'VSD_frac_pct', '%',     'VSD shunt fraction of Qp'
-            'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
-            'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
-            };
-    otherwise
-        error('validation_report:unknownScenario', ...
-              'scenario must be ''pre_surgery'' or ''post_surgery''.');
-end
-
-n_rows = size(metric_defs, 1);
+targets = get_calibration_targets(scenario, clinical);
+n_rows = numel(targets);
 
 %% Build output arrays
 metric_names = cell(n_rows, 1);
@@ -111,15 +56,12 @@ base_col     = nan(n_rows, 1);
 cal_col      = nan(n_rows, 1);
 
 for i = 1:n_rows
-    model_field  = metric_defs{i, 1};   % field in metrics struct
-    clin_field   = metric_defs{i, 2};   % field in clinical.pre/post_surgery
+    model_field  = targets(i).Metric;   % field in metrics struct
     metric_names{i} = model_field;
-    units_col{i}    = metric_defs{i, 3};
-    descr_col{i}    = metric_defs{i, 4};
+    units_col{i}    = targets(i).Unit;
+    descr_col{i}    = targets(i).Description;
+    clin_col(i)     = targets(i).ClinicalValue;
 
-    if isfield(src, clin_field) && ~isnan(src.(clin_field))
-        clin_col(i) = src.(clin_field);
-    end
     if isfield(metrics_baseline, model_field)
         base_col(i) = metrics_baseline.(model_field);
     end
@@ -175,7 +117,12 @@ report.sorted_errors = table( ...
     'VariableNames', {'Metric','Unit','Clinical','Error_pct','AbsError_pct'});
 
 %% Primary metric gate check (Batch 5: strict 5% target)
-report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline);
+primary_metrics = opts.PrimaryMetrics;
+if isempty(primary_metrics)
+    [primary_metrics, ~] = select_primary_metrics(clinical, opts.GsaInitOut, scenario);
+end
+report.primary_metrics = primary_metrics(:)';
+report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline, report.primary_metrics);
 
 %% Print to console
 fprintf('\n==========================================================\n');
@@ -216,13 +163,18 @@ parser.FunctionName = mfilename;
 addParameter(parser, 'ResultsDir', '', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'GsaInitOut', [], @(x) isempty(x) || isstruct(x));
 addParameter(parser, 'GsaFinalOut', [], @(x) isempty(x) || isstruct(x));
+addParameter(parser, 'PrimaryMetrics', {}, @(x) iscell(x) || isstring(x));
 parse(parser, varargin{:});
 opts = parser.Results;
+if ischar(opts.PrimaryMetrics)
+    opts.PrimaryMetrics = {opts.PrimaryMetrics};
+elseif isstring(opts.PrimaryMetrics)
+    opts.PrimaryMetrics = cellstr(opts.PrimaryMetrics);
+end
 end
 
-function gate_tbl = primary_metric_gate(table_cal, table_base)
+function gate_tbl = primary_metric_gate(table_cal, table_base, primary_names)
 % PRIMARY_METRIC_GATE — evaluate strict 5% absolute error gate.
-primary_names = {'QpQs', 'SAP_mean', 'LVEF'};
 metric_col = primary_names(:);
 clinical_col = nan(numel(primary_names), 1);
 model_col = nan(numel(primary_names), 1);
@@ -257,7 +209,7 @@ end
 
 function print_primary_gate(gate_tbl)
 % PRINT_PRIMARY_GATE — print explicit pass/fail warning lines for 5% gate.
-fprintf('\n--- PRIMARY 5%% TARGET GATE (Qp/Qs, MAP, LVEF) ---\n');
+fprintf('\n--- PRIMARY 5%% TARGET GATE (GSA-guided primary metrics) ---\n');
 disp(gate_tbl);
 
 idx_fail = find(~gate_tbl.Pass_5pct | isnan(gate_tbl.Pass_5pct));
