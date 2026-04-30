@@ -38,6 +38,7 @@ clinical.common.height_cm  = NaN;   % [cm]
 clinical.common.sex        = 'M';   % 'M' or 'F'
 clinical.common.BSA        = NaN;   % [m²]  leave NaN → computed by Mosteller
 clinical.common.HR         = NaN;   % [bpm]  resting heart rate
+clinical.common.maturation_mode = 'normal';   % 'normal' | 'pvr_fixed_day3' | 'pvr_fixed_day30' | 'none'
 
 %% =====================================================================
 %  PRE-SURGERY  — haemodynamics in the presence of the open VSD
@@ -46,6 +47,7 @@ clinical.common.HR         = NaN;   % [bpm]  resting heart rate
 pre = struct();
 
 % ---- Shunt geometry / severity ----------------------------------------
+pre.VSD_mode          = 'linear_bidirectional';   % 'linear_bidirectional' | 'orifice_bidirectional' | 'linear_left_to_right_only'
 pre.VSD_diameter_mm   = NaN;   % [mm]     defect diameter (echo)
 pre.VSD_gradient_mmHg = NaN;   % [mmHg]   peak instantaneous gradient (echo Doppler)
 pre.Q_shunt_Lmin      = NaN;   % [L/min]  net shunt flow (cath)
@@ -73,6 +75,7 @@ pre.LVESV_mL          = NaN;   % [mL]     LV end-systolic volume
 pre.RVEDV_mL          = NaN;   % [mL]     RV end-diastolic volume
 pre.RVESV_mL          = NaN;   % [mL]     RV end-systolic volume
 pre.LVEF              = NaN;   % [-]      LV ejection fraction (fraction, not %)
+pre.override_IC       = false; % [-]      enable echo-informed chamber tuning (V0 + E)
 
 % ---- Cardiac output ---------------------------------------------------
 pre.CO_Lmin           = NaN;   % [L/min]  systemic cardiac output (Fick or TD)

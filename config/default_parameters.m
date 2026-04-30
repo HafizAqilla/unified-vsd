@@ -114,6 +114,18 @@ params.epsilon_vsd = 0.1;           % [mmHg] tanh gate width for VSD shunt -- na
                                      % cardiac valves because VSD diastolic DeltaP can be < 1 mmHg.
                                      % At 0.5 mmHg, gate clips ~27% of diastolic shunt flow.
                                      % Reference: vsd_shunt_model.m header derivation.
+params.vsd.mode = 'linear_bidirectional';        % default calibration mode (R.vsd active)
+params.vsd.area_mm2 = 0.0;                       % [mm^2]
+params.vsd.diameter_mm = 0.0;                   % [mm]
+params.vsd.Cd = 0.7;                            % [-] discharge coefficient
+params.vsd.rho_blood = 1060;                    % [kg/m^3]
+params.vsd.reference_gradient_mmHg = 20;        % [mmHg]
+params.vsd.reverse_leak_fraction = 0.02;        % [-] used only in legacy mode
+params.maturation.mode = 'none';
+params.calibration.primary_target_pct = 5;
+params.calibration.secondary_target_pct = 10;
+params.calibration.secondary_lambda = 1.0;
+params.calibration.invalid_penalty_scale = 1e3;
 
 %% =====================================================================
 %  CARDIAC CHAMBERS  —  Valenti Table 3.3

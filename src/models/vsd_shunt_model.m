@@ -1,39 +1,48 @@
 function Q_VSD = vsd_shunt_model(P_LV, P_RV, params)
-% VSD_SHUNT_MODEL — Smooth-diode VSD shunt flow (L→R only)
-%   Q_VSD = gate(ΔP) · ΔP / R_vsd     [mL/s]
-%   gate  = 0.5 + 0.5·tanh(ΔP / ε)    sigmoid, ε = params.epsilon_vsd
+% VSD_SHUNT_MODEL
+% -----------------------------------------------------------------------
+% Configurable ventricular septal defect shunt model.
 %
-% INPUTS:
-%   P_LV   - left ventricular pressure  [mmHg]  (scalar or column vector)
-%   P_RV   - right ventricular pressure [mmHg]  (scalar or column vector)
-%   params - parameter struct; must contain:
-%              params.R.vsd           [mmHg·s/mL]
-%              params.epsilon_vsd     [mmHg]
+% MODES:
+%   linear_left_to_right_only   legacy smooth-diode linear resistance
+%   linear_bidirectional        symmetric linear resistance
+%   orifice_bidirectional       reduced-order orifice law with signed flow
 %
-% OUTPUTS:
-%   Q_VSD  - VSD shunt flow  [mL/s]
-%            Positive = left-to-right (physiologically typical).
-%            Near-zero for R.vsd >> 1e4 (post-surgery: effectively closed).
-%
-% DIODE GATE RATIONALE:
-%   epsilon_vsd = 0.1 mmHg is chosen to preserve >99% of diastolic
-%   L→R flow at ΔP ≈ 2 mmHg (restrictive pediatric VSD).
-%   At 0.5 mmHg the gate clips ~10% of diastolic shunt — too aggressive.
-%   This VSD gate is intentionally tighter than cardiac valves
-%   (epsilon_valve = 0.5 mmHg in valve_model/system_rhs).
-%   The tanh gate replaces a hard if-statement so the ODE RHS remains
-%   continuously differentiable, preventing step-size collapse in ode15s.
-%
-% REFERENCES:
-%   [1] system_rhs.m — VSD shunt ODE context.
-%   [2] Valenti (2023). Thesis. §2.8.3 (VSD shunt model).
+% SIGN CONVENTION:
+%   Positive Q_VSD = LV -> RV (left-to-right shunt)
+%   Negative Q_VSD = RV -> LV (right-to-left shunt)
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-25
-% VERSION:  1.0
+% DATE:     2026-04-28
+% VERSION:  2.0
 % -----------------------------------------------------------------------
 
-dP   = P_LV - P_RV;                                       % [mmHg]
-gate = 0.5 + 0.5 * tanh(dP / params.epsilon_vsd);         % smooth L→R diode
-Q_VSD = gate .* dP / params.R.vsd;                        % [mL/s]
+dP = P_LV - P_RV;
+mode = lower(params.vsd.mode);
+
+switch mode
+    case 'linear_left_to_right_only'
+        gate = 0.5 + 0.5 * tanh(dP / params.epsilon_vsd);
+        Q_VSD = gate .* dP / max(params.R.vsd, 1e-6);
+
+    case 'linear_bidirectional'
+        Q_VSD = dP / max(params.R.vsd, 1e-6);
+
+    case 'orifice_bidirectional'
+        if params.vsd.area_mm2 <= 0
+            Q_VSD = zeros(size(dP));
+            return;
+        end
+        A_m2 = params.vsd.area_mm2 * 1e-6;
+        dP_Pa = abs(dP) * params.conv.mmHg_to_Pa;
+        q_mag_m3s = params.vsd.Cd * A_m2 .* sqrt(2 * dP_Pa / params.vsd.rho_blood);
+        q_mag_mLs = q_mag_m3s * params.conv.m3_to_mL;
+        signed_gate = dP ./ sqrt(dP.^2 + params.epsilon_vsd^2);
+        Q_VSD = q_mag_mLs .* signed_gate;
+
+    otherwise
+        error('vsd_shunt_model:unknownMode', ...
+            'Unsupported VSD mode: %s', params.vsd.mode);
+end
+
 end
