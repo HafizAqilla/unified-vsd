@@ -1,4 +1,4 @@
-function make_gsa_matrix_table(gsa_out, highlight_thresh, save_fig)
+function make_gsa_matrix_table(gsa_out, highlight_thresh, save_fig, varargin)
 % MAKE_GSA_MATRIX_TABLE
 % -----------------------------------------------------------------------
 % Render a matrix-style GSA table:
@@ -26,6 +26,7 @@ function make_gsa_matrix_table(gsa_out, highlight_thresh, save_fig)
 
 if nargin < 2 || isempty(highlight_thresh), highlight_thresh = 0.1; end
 if nargin < 3 || isempty(save_fig),         save_fig         = false; end
+opts = parse_matrix_table_options(varargin{:});
 
 %% =====================================================================
 %  1. Collect metrics and parameters from gsa_out
@@ -158,7 +159,7 @@ annotation(hfig, 'textbox', [0.01 0.01 0.40 0.04], ...
 %  4. Optional save  (high-res PNG — captures all rows + columns)
 %% =====================================================================
 if save_fig
-    out_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
+    out_dir = opts.ResultsDir;
     if ~exist(out_dir, 'dir'), mkdir(out_dir); end
     fname = fullfile(out_dir, sprintf('gsa_matrix_table_%s.png', cfg.scenario));
     % ContentType='vector' gives exact patch boundaries; Resolution for raster fallback
@@ -168,6 +169,20 @@ if save_fig
 end
 
 end % make_gsa_matrix_table
+
+function opts = parse_matrix_table_options(varargin)
+% PARSE_MATRIX_TABLE_OPTIONS â€” parse optional export directory.
+default_dir = getenv('UNIFIED_VSD_GSA_DIR');
+if isempty(default_dir)
+    default_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
+end
+parser = inputParser;
+parser.FunctionName = mfilename;
+addParameter(parser, 'ResultsDir', default_dir, @(x) ischar(x) || isstring(x));
+parse(parser, varargin{:});
+opts = parser.Results;
+opts.ResultsDir = char(opts.ResultsDir);
+end
 
 
 %% =========================================================================

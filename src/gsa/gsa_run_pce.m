@@ -25,12 +25,18 @@ gsa_out = struct();
 N_train = cfg.PCEOpts.ExpDesign.NSamples;  % [dimensionless] number of training samples
 
 %% Per-metric autosave setup (checkpoint file for crash recovery)
-autosave_dir  = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
+autosave_dir = getenv('UNIFIED_VSD_GSA_DIR');
+if isempty(autosave_dir)
+    autosave_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
+end
 if ~exist(autosave_dir, 'dir'), mkdir(autosave_dir); end
 
-p_weight = round(params0.scaling.patient.weight_kg, 1);
-autosave_file = fullfile(autosave_dir, ...
-    sprintf('gsa_pce_%s_%.1fkg_checkpoint.mat', cfg.scenario, p_weight));
+autosave_file = getenv('UNIFIED_VSD_GSA_CHECKPOINT_FILE');
+if isempty(autosave_file)
+    p_weight = round(params0.scaling.patient.weight_kg, 1);
+    autosave_file = fullfile(autosave_dir, ...
+        sprintf('gsa_pce_%s_%.1fkg_checkpoint.mat', cfg.scenario, p_weight));
+end
 fprintf('[gsa_run_pce] Autosave checkpoint: %s\n', autosave_file);
 
 % Checkpoint validation: discard if patient x0 changed (stale bounds).

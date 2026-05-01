@@ -168,6 +168,10 @@ fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...
     clinical.common.weight_kg, clinical.common.height_cm, clinical.common.age_years);
 
+run_ctx = init_run_output(root, scenario, clinical);
+run_cleanup = onCleanup(@() cleanup_run_output(run_ctx)); %#ok<NASGU>
+fprintf('[main_run] Run folder: %s\n', run_ctx.root);
+
 run_timer = tic;   % wall-clock timer for the full pipeline
 
 %% =====================================================================
@@ -343,8 +347,7 @@ end
 %  STEP 8 — Validation report
 %% =====================================================================
 fprintf('\n=== [Step 8/10] Validation report (%.1fs elapsed) ===\n', toc(run_timer));
-results_dir = fullfile(root, 'results', 'tables');
-if ~exist(results_dir, 'dir'), mkdir(results_dir); end
+results_dir = run_ctx.tables_dir;
 
 report = validation_report( ...
     clinical, metrics_base, metrics_cal, scenario, ...
@@ -358,12 +361,15 @@ report = validation_report( ...
 %% =====================================================================
 fprintf('\n=== [Step 9/10] Plots (%.1fs elapsed) ===\n', toc(run_timer));
 if DO_PLOTS
-    plotting_tools(sim_base, params0, 'Baseline', scenario);
+    plotting_tools(sim_base, params0, 'Baseline', scenario, ...
+        'ResultsDir', run_ctx.figures_dir);
     if ~isempty(metrics_cal)
-        plotting_tools(sim_cal, params_cal, 'Calibrated', scenario);
+        plotting_tools(sim_cal, params_cal, 'Calibrated', scenario, ...
+            'ResultsDir', run_ctx.figures_dir);
         if DO_OVERLAY
             plot_overlay_comparison(sim_base, params0, 'Baseline', ...
-                sim_cal, params_cal, 'Calibrated', scenario);
+                sim_cal, params_cal, 'Calibrated', scenario, ...
+                'ResultsDir', run_ctx.figures_dir);
         end
     end
 end
@@ -372,10 +378,9 @@ end
 %  STEP 10 — Save artefacts
 %% =====================================================================
 fprintf('\n=== [Step 10/10] Saving artefacts (%.1fs elapsed) ===\n', toc(run_timer));
-timestamp  = datestr(now, 'yyyymmdd_HHMMSS');
+timestamp  = run_ctx.timestamp;
 if DO_GSA
-    gsa_results_dir = fullfile(root, 'results', 'gsa');
-    if ~exist(gsa_results_dir, 'dir'), mkdir(gsa_results_dir); end
+    gsa_results_dir = run_ctx.gsa_dir;
 
     gsa_fname  = fullfile(gsa_results_dir, ...
                           sprintf('gsa_pce_pipeline_%s_%s.mat', scenario, timestamp));
@@ -464,16 +469,51 @@ if DO_GSA
     disp(gsa_summary_final);
 
     % Matrix-style table for final sensitivities
-    make_gsa_matrix_table(gsa_final_out, sobol_ST_threshold, true);
+    make_gsa_matrix_table(gsa_final_out, sobol_ST_threshold, true, ...
+        'ResultsDir', run_ctx.gsa_dir);
 end
 
 %% =====================================================================
 %  STEP 11 — Save calibrated parameter result package
 %% =====================================================================
-save(fullfile(results_dir, sprintf('params_calibrated_%s.mat', scenario)), ...
-     'params_cal', 'calib_out', 'report', 'optMask', 'sobol_ST_threshold', ...
-     'primary_metrics', 'primary_selection_table', 'validity_base', 'validity_cal');
-fprintf('\n[main_run] Calibrated parameters saved to results/tables/\n');
+params_package_file = fullfile(run_ctx.mat_dir, sprintf('params_calibrated_%s.mat', scenario));
+save(params_package_file, 'params_cal', 'calib_out', 'report', 'optMask', ...
+     'sobol_ST_threshold', 'primary_metrics', 'primary_selection_table', ...
+     'validity_base', 'validity_cal');
+fprintf('\n[main_run] Calibrated parameters saved to:\n          %s\n', params_package_file);
+
+write_validation_exports(report, run_ctx.tables_dir, scenario);
+
+run_package = struct();
+run_package.scenario = scenario;
+run_package.timestamp = timestamp;
+run_package.run_folder = run_ctx.root;
+run_package.patient_label = run_ctx.patient_label;
+run_package.clinical = clinical;
+run_package.params_baseline = params0;
+run_package.params_calibrated = params_cal;
+run_package.sim_baseline = sim_base;
+run_package.sim_calibrated = sim_cal;
+run_package.metrics_baseline = metrics_base;
+run_package.metrics_calibrated = metrics_cal;
+run_package.validity_baseline = validity_base;
+run_package.validity_calibrated = validity_cal;
+run_package.report = report;
+run_package.calib_out = calib_out;
+run_package.optMask = optMask;
+run_package.sobol_ST_threshold = sobol_ST_threshold;
+run_package.primary_metrics = primary_metrics;
+run_package.primary_selection_table = primary_selection_table;
+run_package.mask_metrics = mask_metrics;
+run_package.gsa_init_cfg = gsa_init_cfg;
+run_package.gsa_init_out = gsa_init_out;
+run_package.gsa_final_cfg = gsa_final_cfg;
+run_package.gsa_final_out = gsa_final_out;
+run_package.paths = run_ctx;
+run_package_file = fullfile(run_ctx.mat_dir, ...
+    sprintf('run_package_%s_%s.mat', scenario, timestamp));
+save(run_package_file, 'run_package', '-v7.3');
+fprintf('[main_run] Full run package saved to:\n          %s\n', run_package_file);
 
 if strcmp(scenario, 'pre_surgery')
     % Export a dedicated handoff package so the calibrated pre-op state can
@@ -513,14 +553,17 @@ if strcmp(scenario, 'pre_surgery')
     end
     pre_to_post_seed.params_post_seed_closed_vsd = post_seed_params;
 
-    seed_fname_timestamped = fullfile(results_dir, ...
+    seed_fname_timestamped = fullfile(run_ctx.mat_dir, ...
         sprintf('pre_to_post_seed_%s.mat', timestamp));
-    seed_fname_latest = fullfile(results_dir, 'pre_to_post_seed_latest.mat');
+    seed_fname_latest = fullfile(run_ctx.mat_dir, 'pre_to_post_seed_latest.mat');
     save(seed_fname_timestamped, 'pre_to_post_seed');
     save(seed_fname_latest, 'pre_to_post_seed');
     fprintf('[main_run] Pre-to-post seed package saved to:\n          %s\n          %s\n', ...
         seed_fname_timestamped, seed_fname_latest);
 end
+
+write_run_manifest(run_ctx, scenario, timestamp, clinical, DO_GSA, DO_PLOTS, ...
+    report, params_package_file, run_package_file);
 
 fprintf('\n[main_run] Done. Scenario: %s  |  Total time: %.1f s\n', scenario, toc(run_timer));
 
@@ -534,4 +577,148 @@ is_shadow = contains(root_paths, [filesep '.claude' filesep], 'IgnoreCase', true
             contains(root_paths, [filesep '.git' filesep], 'IgnoreCase', true);
 is_existing = cellfun(@isfolder, root_paths);
 project_path = strjoin(root_paths(~is_shadow & is_existing), pathsep);
+end
+
+function run_ctx = init_run_output(root, scenario, clinical)
+% INIT_RUN_OUTPUT â€” create a single dated run folder and route sub-artifacts into it.
+timestamp = datestr(now, 'yyyymmdd_HHMMSS');
+patient_label = resolve_patient_label(clinical);
+run_name = sprintf('%s_%s_%s', timestamp, patient_label, scenario);
+
+run_ctx = struct();
+run_ctx.timestamp = timestamp;
+run_ctx.patient_label = patient_label;
+run_ctx.root = fullfile(root, 'results', 'runs', run_name);
+run_ctx.tables_dir = fullfile(run_ctx.root, 'tables');
+run_ctx.figures_dir = fullfile(run_ctx.root, 'figures');
+run_ctx.gsa_dir = fullfile(run_ctx.root, 'gsa');
+run_ctx.mat_dir = fullfile(run_ctx.root, 'mat');
+run_ctx.logs_dir = fullfile(run_ctx.root, 'logs');
+run_ctx.console_log = fullfile(run_ctx.logs_dir, sprintf('console_%s.log', run_name));
+run_ctx.gsa_checkpoint_file = fullfile(run_ctx.gsa_dir, ...
+    sprintf('gsa_pce_checkpoint_%s_%s.mat', patient_label, scenario));
+run_ctx.previous_env.UNIFIED_VSD_RUN_ROOT = getenv('UNIFIED_VSD_RUN_ROOT');
+run_ctx.previous_env.UNIFIED_VSD_GSA_DIR = getenv('UNIFIED_VSD_GSA_DIR');
+run_ctx.previous_env.UNIFIED_VSD_GSA_CHECKPOINT_FILE = getenv('UNIFIED_VSD_GSA_CHECKPOINT_FILE');
+
+mkdir_if_missing(run_ctx.root);
+mkdir_if_missing(run_ctx.tables_dir);
+mkdir_if_missing(run_ctx.figures_dir);
+mkdir_if_missing(run_ctx.gsa_dir);
+mkdir_if_missing(run_ctx.mat_dir);
+mkdir_if_missing(run_ctx.logs_dir);
+
+setenv('UNIFIED_VSD_RUN_ROOT', run_ctx.root);
+setenv('UNIFIED_VSD_GSA_DIR', run_ctx.gsa_dir);
+setenv('UNIFIED_VSD_GSA_CHECKPOINT_FILE', run_ctx.gsa_checkpoint_file);
+
+if strcmpi(get(0, 'Diary'), 'on')
+    diary off;
+end
+diary(run_ctx.console_log);
+diary on;
+fprintf('[main_run] Console diary started: %s\n', run_ctx.console_log);
+end
+
+function cleanup_run_output(run_ctx)
+% CLEANUP_RUN_OUTPUT â€” stop diary and restore environment routing.
+if strcmpi(get(0, 'Diary'), 'on')
+    diary off;
+end
+restore_env_field(run_ctx.previous_env, 'UNIFIED_VSD_RUN_ROOT');
+restore_env_field(run_ctx.previous_env, 'UNIFIED_VSD_GSA_DIR');
+restore_env_field(run_ctx.previous_env, 'UNIFIED_VSD_GSA_CHECKPOINT_FILE');
+end
+
+function restore_env_field(previous_env, field_name)
+% RESTORE_ENV_FIELD â€” restore previous environment value or clear it.
+if ~isfield(previous_env, field_name)
+    return;
+end
+if isempty(previous_env.(field_name))
+    setenv(field_name, '');
+else
+    setenv(field_name, previous_env.(field_name));
+end
+end
+
+function patient_label = resolve_patient_label(clinical)
+% RESOLVE_PATIENT_LABEL â€” derive a run-folder-safe patient label.
+patient_label = '';
+if isfield(clinical, 'common')
+    if isfield(clinical.common, 'patient_name') && ~isempty(clinical.common.patient_name)
+        patient_label = clinical.common.patient_name;
+    elseif isfield(clinical.common, 'patient_id') && ~isempty(clinical.common.patient_id)
+        patient_label = clinical.common.patient_id;
+    end
+end
+
+if isempty(patient_label)
+    patient_label = sprintf('patient_%0.1fkg_%0.0fcm', ...
+        clinical.common.weight_kg, clinical.common.height_cm);
+end
+
+patient_label = lower(char(patient_label));
+patient_label = strrep(patient_label, ' ', '_');
+patient_label = strrep(patient_label, '.', 'p');
+patient_label = regexprep(patient_label, '[^a-z0-9_]+', '');
+if isempty(patient_label)
+    patient_label = 'patient_unknown';
+end
+end
+
+function mkdir_if_missing(folder_path)
+% MKDIR_IF_MISSING â€” create output directory when absent.
+if ~exist(folder_path, 'dir')
+    mkdir(folder_path);
+end
+end
+
+function write_validation_exports(report, tables_dir, scenario)
+% WRITE_VALIDATION_EXPORTS â€” persist key validation tables as CSV artifacts.
+writetable(report.table_baseline, fullfile(tables_dir, ...
+    sprintf('validation_baseline_%s.csv', scenario)));
+if ~isempty(report.table_cal)
+    writetable(report.table_cal, fullfile(tables_dir, ...
+        sprintf('validation_calibrated_%s.csv', scenario)));
+end
+writetable(report.table_delta, fullfile(tables_dir, ...
+    sprintf('validation_delta_%s.csv', scenario)));
+writetable(report.sorted_errors, fullfile(tables_dir, ...
+    sprintf('validation_sorted_errors_%s.csv', scenario)));
+writetable(report.primary_gate, fullfile(tables_dir, ...
+    sprintf('validation_primary_gate_%s.csv', scenario)));
+end
+
+function write_run_manifest(run_ctx, scenario, timestamp, clinical, do_gsa, do_plots, report, params_package_file, run_package_file)
+% WRITE_RUN_MANIFEST â€” create a plain-text run summary inside the archive.
+manifest_file = fullfile(run_ctx.root, 'run_manifest.txt');
+fid = fopen(manifest_file, 'w');
+if fid < 0
+    warning('main_run:manifestOpenFailed', 'Unable to write run manifest: %s', manifest_file);
+    return;
+end
+cleaner = onCleanup(@() fclose(fid)); %#ok<NASGU>
+
+fprintf(fid, 'Unified VSD Run Manifest\n');
+fprintf(fid, '========================\n');
+fprintf(fid, 'Timestamp: %s\n', timestamp);
+fprintf(fid, 'Scenario: %s\n', scenario);
+fprintf(fid, 'PatientLabel: %s\n', run_ctx.patient_label);
+fprintf(fid, 'Weight_kg: %.4f\n', clinical.common.weight_kg);
+fprintf(fid, 'Height_cm: %.4f\n', clinical.common.height_cm);
+fprintf(fid, 'Age_years: %.4f\n', clinical.common.age_years);
+fprintf(fid, 'BSA_m2: %.4f\n', clinical.common.BSA);
+fprintf(fid, 'PlotsEnabled: %d\n', do_plots);
+fprintf(fid, 'GSAEnabled: %d\n', do_gsa);
+fprintf(fid, 'RMSE_Baseline: %.6f\n', report.rmse_baseline);
+fprintf(fid, 'RMSE_Calibrated: %.6f\n', report.rmse_cal);
+fprintf(fid, 'RunFolder: %s\n', run_ctx.root);
+fprintf(fid, 'ConsoleLog: %s\n', run_ctx.console_log);
+fprintf(fid, 'FiguresDir: %s\n', run_ctx.figures_dir);
+fprintf(fid, 'TablesDir: %s\n', run_ctx.tables_dir);
+fprintf(fid, 'GsaDir: %s\n', run_ctx.gsa_dir);
+fprintf(fid, 'MatDir: %s\n', run_ctx.mat_dir);
+fprintf(fid, 'ParamsPackage: %s\n', params_package_file);
+fprintf(fid, 'RunPackage: %s\n', run_package_file);
 end

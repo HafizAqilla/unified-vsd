@@ -28,6 +28,7 @@ function clinical = patient_reyna()
 % -----------------------------------------------------------------------
 
 clinical = struct();
+clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
 
 %% =====================================================================
 %  COMMON — patient demographics, measured for any scenario

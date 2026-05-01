@@ -1,4 +1,4 @@
-function plotting_tools(sim, params, tag, scenario)
+function plotting_tools(sim, params, tag, scenario, varargin)
 % PLOTTING_TOOLS
 % -----------------------------------------------------------------------
 % Generate publication-quality haemodynamic plots from a steady-state
@@ -18,11 +18,11 @@ function plotting_tools(sim, params, tag, scenario)
 %   5. Pulmonary valve flow  Q_PVv(t)
 %
 % OUTPUT FILES:
-%   results/figures/ChamberPressures_<tag>_<scenario>.pdf
-%   results/figures/VascularPressures_<tag>_<scenario>.pdf
-%   results/figures/PVLoops_<tag>_<scenario>.pdf
-%   results/figures/VSDShuntFlow_<tag>_<scenario>.pdf   (pre-surgery only)
-%   results/figures/PulmValveFlow_<tag>_<scenario>.pdf
+%   <ResultsDir>/ChamberPressures_<tag>_<scenario>.pdf
+%   <ResultsDir>/VascularPressures_<tag>_<scenario>.pdf
+%   <ResultsDir>/PVLoops_<tag>_<scenario>.pdf
+%   <ResultsDir>/VSDShuntFlow_<tag>_<scenario>.pdf   (pre-surgery only)
+%   <ResultsDir>/PulmValveFlow_<tag>_<scenario>.pdf
 %
 % ASSUMPTIONS:
 %   - All figures are publication-size: 16×12 cm, Arial 11 pt (Guardrail §11.1).
@@ -37,9 +37,8 @@ function plotting_tools(sim, params, tag, scenario)
 t  = sim.t(:);
 XV = sim.V;
 
-%% Locate results/figures directory (create if absent)
-root_dir   = fileparts(fileparts(mfilename('fullpath')));   % project root
-fig_dir    = fullfile(root_dir, 'results', 'figures');
+opts = parse_plot_options(varargin{:});
+fig_dir = opts.ResultsDir;
 if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
 
 %% Extract last cycle
@@ -178,6 +177,18 @@ style_axes(gca); grid on;
 export_fig(fig5, fig_dir, fig5_name);
 
 end  % plotting_tools
+
+function opts = parse_plot_options(varargin)
+% PARSE_PLOT_OPTIONS â€” parse optional output directory.
+root_dir = fileparts(fileparts(mfilename('fullpath')));   % project root
+parser = inputParser;
+parser.FunctionName = mfilename;
+addParameter(parser, 'ResultsDir', fullfile(root_dir, 'results', 'figures'), ...
+    @(x) ischar(x) || isstring(x));
+parse(parser, varargin{:});
+opts = parser.Results;
+opts.ResultsDir = char(opts.ResultsDir);
+end
 
 % =========================================================================
 %  LOCAL HELPER

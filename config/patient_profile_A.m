@@ -33,6 +33,7 @@ function clinical = patient_profile_A()
 % -----------------------------------------------------------------------
 
 clinical = patient_template();   % initialise all fields to NaN
+clinical.common.patient_name = 'patient_profile_A'; % [char] benchmark case label
 
 %% =====================================================================
 %  COMMON  — demographics

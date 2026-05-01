@@ -1,4 +1,4 @@
-function plot_overlay_comparison(sim_a, params_a, label_a, sim_b, params_b, label_b, scenario)
+function plot_overlay_comparison(sim_a, params_a, label_a, sim_b, params_b, label_b, scenario, varargin)
 % PLOT_OVERLAY_COMPARISON
 % -----------------------------------------------------------------------
 % Plot direct-overlap comparison (two curves in one canvas) for key
@@ -10,15 +10,15 @@ function plot_overlay_comparison(sim_a, params_a, label_a, sim_b, params_b, labe
 %   scenario                 - 'pre_surgery' | 'post_surgery'
 %
 % OUTPUTS:
-%   results/figures/Overlay_Chambers_<scenario>_<label_a>_vs_<label_b>.pdf
-%   results/figures/Overlay_Vascular_<scenario>_<label_a>_vs_<label_b>.pdf
+%   <ResultsDir>/Overlay_Chambers_<scenario>_<label_a>_vs_<label_b>.pdf
+%   <ResultsDir>/Overlay_Vascular_<scenario>_<label_a>_vs_<label_b>.pdf
 %
 % AUTHOR: Unified VSD Model
 % DATE:   2026-04-08
 % -----------------------------------------------------------------------
 
-root_dir = fileparts(fileparts(mfilename('fullpath')));
-fig_dir = fullfile(root_dir, 'results', 'figures');
+opts = parse_overlay_options(varargin{:});
+fig_dir = opts.ResultsDir;
 if ~exist(fig_dir, 'dir'), mkdir(fig_dir); end
 
 [ta, Pa] = last_cycle_pressures(sim_a, params_a);
@@ -68,6 +68,18 @@ exportgraphics(fv, out2, 'ContentType', 'vector', 'Resolution', 300);
 fprintf('[plot_overlay_comparison] Saved: %s\n', out1);
 fprintf('[plot_overlay_comparison] Saved: %s\n', out2);
 
+end
+
+function opts = parse_overlay_options(varargin)
+% PARSE_OVERLAY_OPTIONS â€” parse optional output directory.
+root_dir = fileparts(fileparts(mfilename('fullpath')));
+parser = inputParser;
+parser.FunctionName = mfilename;
+addParameter(parser, 'ResultsDir', fullfile(root_dir, 'results', 'figures'), ...
+    @(x) ischar(x) || isstring(x));
+parse(parser, varargin{:});
+opts = parser.Results;
+opts.ResultsDir = char(opts.ResultsDir);
 end
 
 function [tc, P] = last_cycle_pressures(sim, params)

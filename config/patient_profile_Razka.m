@@ -58,6 +58,8 @@ function clinical = patient_profile_Razka()
 % -----------------------------------------------------------------------
 
 clinical = patient_template();   % initialise all fields to NaN
+clinical.common.patient_name = 'razka';    % [char] patient label for run folders
+clinical.common.patient_id   = '00948048'; % [char] MRN from procedure log
 
 %% =====================================================================
 %  COMMON — demographics

@@ -38,6 +38,8 @@ clinical.common.height_cm  = NaN;   % [cm]
 clinical.common.sex        = 'M';   % 'M' or 'F'
 clinical.common.BSA        = NaN;   % [m²]  leave NaN → computed by Mosteller
 clinical.common.HR         = NaN;   % [bpm]  resting heart rate
+clinical.common.patient_name = '';  % [char] patient label for run folders and reports
+clinical.common.patient_id   = '';  % [char] optional identifier / MRN-safe alias
 clinical.common.maturation_mode = 'normal';   % 'normal' | 'pvr_fixed_day3' | 'pvr_fixed_day30' | 'none'
 
 %% =====================================================================
