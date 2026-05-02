@@ -31,7 +31,7 @@ if isfield(common, 'HR') && ~isnan(common.HR)
 end
 
 if isfield(src, 'SVR_WU') && ~isnan(src.SVR_WU)
-    SVR_target_WU = select_resistance_target(src, 'SVR');
+    [SVR_target_WU, SVR_diag] = select_resistance_target(src, 'SVR');
     SVR_mech = SVR_target_WU * k;
     SVR_ref = params.R.SAR + params.R.SC + params.R.SVEN;
     ratio = SVR_mech / max(SVR_ref, 1e-6);
@@ -39,10 +39,11 @@ if isfield(src, 'SVR_WU') && ~isnan(src.SVR_WU)
     params.R.SC = params.R.SC * ratio;
     params.R.SVEN = params.R.SVEN * ratio;
     params.clinical_override.SVR_seed_WU = SVR_target_WU;
+    params.clinical_override.SVR_target_diag = SVR_diag;
 end
 
 if isfield(src, 'PVR_WU') && ~isnan(src.PVR_WU)
-    PVR_target_WU = select_resistance_target(src, 'PVR');
+    [PVR_target_WU, PVR_diag] = select_resistance_target(src, 'PVR');
     PVR_mech = PVR_target_WU * k;
     R_cap_ref = 1 / max(1 / params.R.PCOX + 1 / params.R.PCNO, 1e-9);
     PVR_ref = params.R.PAR + R_cap_ref + params.R.PVEN;
@@ -52,6 +53,7 @@ if isfield(src, 'PVR_WU') && ~isnan(src.PVR_WU)
     params.R.PCNO = params.R.PCNO * ratio;
     params.R.PVEN = params.R.PVEN * ratio;
     params.clinical_override.PVR_seed_WU = PVR_target_WU;
+    params.clinical_override.PVR_target_diag = PVR_diag;
 end
 
 params = configure_vsd(params, src, scenario, R_VSD_CLOSED, Lmin_to_mLs);
@@ -87,6 +89,13 @@ switch scenario
         R_vsd = params.R.vsd;
         has_gradient = isfield(src, 'VSD_gradient_mmHg') && ~isnan(src.VSD_gradient_mmHg);
         has_flow = isfield(src, 'Q_shunt_Lmin') && ~isnan(src.Q_shunt_Lmin);
+        has_geometry = params.vsd.area_mm2 > 0;
+
+        if strcmpi(params.vsd.mode, 'orifice_bidirectional') && has_geometry && has_gradient && has_flow
+            params.vsd.Cd = estimate_orifice_discharge_coefficient(params, src, Lmin_to_mLs);
+            params.clinical_override.vsd_seed_mode = 'orifice_discharge_matched';
+            params.clinical_override.vsd_seed_Cd = params.vsd.Cd;
+        end
 
         if has_gradient && has_flow
             delta_P = 0.5 * src.VSD_gradient_mmHg;
@@ -157,7 +166,7 @@ params.scaling.V0_SVEN_scenario = scenario;
 params.scaling.V0_SVEN_reconciled = true;
 end
 
-function target_WU = select_resistance_target(src, resistance_name)
+function [target_WU, diag] = select_resistance_target(src, resistance_name)
 doc_value = NaN;
 derived_value = NaN;
 
@@ -186,13 +195,28 @@ switch upper(resistance_name)
 end
 
 target_WU = first_non_nan(doc_value, derived_value, 1.0);
+source_name = 'fallback';
+if ~isnan(doc_value)
+    source_name = 'documented';
+end
+if isnan(doc_value) && ~isnan(derived_value)
+    source_name = 'derived';
+end
 
-    if strcmpi(resistance_name, 'SVR') && ~isnan(doc_value) && ~isnan(derived_value)
-        relative_gap = abs(doc_value - derived_value) / max(abs(derived_value), 1e-6);
-        if relative_gap > 0.20
-            target_WU = derived_value;
-        end
+if strcmpi(resistance_name, 'SVR') && ~isnan(doc_value) && ~isnan(derived_value)
+    relative_gap = abs(doc_value - derived_value) / max(abs(derived_value), 1e-6);
+    if relative_gap > 0.20
+        target_WU = derived_value;
+        source_name = 'derived_due_to_gap';
     end
+end
+
+diag = struct();
+diag.resistance_name = upper(resistance_name);
+diag.documented_WU = doc_value;
+diag.derived_WU = derived_value;
+diag.selected_WU = target_WU;
+diag.source = source_name;
 end
 
 function BV_patient = resolve_total_blood_volume(patient, src)
@@ -239,6 +263,23 @@ DP_Pa = DP_ref * params.conv.mmHg_to_Pa;
 Q_m3s = params.vsd.Cd * A_m2 * sqrt(2 * DP_Pa / params.vsd.rho_blood);
 Q_mLs = Q_m3s * params.conv.m3_to_mL;
 R_vsd = DP_ref / max(Q_mLs, 1e-6);
+end
+
+function Cd = estimate_orifice_discharge_coefficient(params, src, Lmin_to_mLs)
+if isfield(src, 'DeltaP_VSD_peak_mmHg') && ~isnan(src.DeltaP_VSD_peak_mmHg)
+    DP_ref = 0.5 * src.DeltaP_VSD_peak_mmHg;
+elseif isfield(src, 'VSD_gradient_mmHg') && ~isnan(src.VSD_gradient_mmHg)
+    DP_ref = 0.5 * src.VSD_gradient_mmHg;
+else
+    DP_ref = params.vsd.reference_gradient_mmHg;
+end
+
+Q_target_mLs = src.Q_shunt_Lmin * Lmin_to_mLs;
+A_m2 = params.vsd.area_mm2 * 1e-6;
+DP_Pa = max(DP_ref, 0) * params.conv.mmHg_to_Pa;
+velocity_scale = A_m2 * sqrt(2 * DP_Pa / max(params.vsd.rho_blood, 1e-9));
+Cd = Q_target_mLs / max(velocity_scale * params.conv.m3_to_mL, 1e-6);
+Cd = min(max(Cd, 0.20), 1.20);
 end
 
 function params = apply_chamber_tuning_from_clinical(params, src)

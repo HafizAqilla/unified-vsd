@@ -208,6 +208,7 @@ sim_base     = integrate_system(params0);
 metrics_base = compute_clinical_indices(sim_base, params0);
 validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario, clinical);
 fprintf('[main_run] Baseline complete.\n');
+print_systemic_consistency_summary(metrics_base, clinical, scenario, 'Baseline');
 
 %% =====================================================================
 %  STEP 4 — Initial PCE GSA
@@ -320,6 +321,7 @@ sim_cal     = integrate_system(params_cal);
 metrics_cal = compute_clinical_indices(sim_cal, params_cal);
 validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario, clinical);
 fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
+print_systemic_consistency_summary(metrics_cal, clinical, scenario, 'Calibrated');
 
 % Calibration parameter summary table (active subset only)
 fprintf('\n--- Calibrated parameter changes (active subset) ---\n');
@@ -721,4 +723,44 @@ fprintf(fid, 'GsaDir: %s\n', run_ctx.gsa_dir);
 fprintf(fid, 'MatDir: %s\n', run_ctx.mat_dir);
 fprintf(fid, 'ParamsPackage: %s\n', params_package_file);
 fprintf(fid, 'RunPackage: %s\n', run_package_file);
+end
+
+function print_systemic_consistency_summary(metrics, clinical, scenario, tag)
+% PRINT_SYSTEMIC_CONSISTENCY_SUMMARY — concise systemic flow/resistance diagnostics.
+if ~isstruct(clinical) || ~isfield(clinical, scenario)
+    return;
+end
+
+src = clinical.(scenario);
+fprintf('\n[main_run] %s systemic consistency summary\n', tag);
+fprintf('           Qs(model)=%.4f L/min', field_or_nan(metrics, 'Qs_Lmin'));
+if isfield(src, 'CO_Lmin') && ~isnan(src.CO_Lmin)
+    fprintf(' | Qs(target)=%.4f L/min', src.CO_Lmin);
+end
+fprintf('\n');
+
+fprintf('           Qao(model)=%.4f L/min | Qp(model)=%.4f L/min | Qpv(model)=%.4f L/min\n', ...
+    field_or_nan(metrics, 'Qao_Lmin'), field_or_nan(metrics, 'Qp_Lmin'), field_or_nan(metrics, 'Qpv_Lmin'));
+fprintf('           SVR(model)=%.4f WU | SVR(from Qao)=%.4f WU', ...
+    field_or_nan(metrics, 'SVR'), field_or_nan(metrics, 'SVR_from_Qao'));
+if isfield(src, 'SVR_WU') && ~isnan(src.SVR_WU)
+    fprintf(' | SVR(target)=%.4f WU', src.SVR_WU);
+end
+fprintf('\n');
+
+fprintf('           Qao-Qs gap=%.4f L/min | Qp-Qpv gap=%.4f L/min\n', ...
+    field_or_nan(metrics, 'Qs_ao_gap_Lmin'), field_or_nan(metrics, 'Qp_pv_gap_Lmin'));
+fprintf('           SAP min/max/pulse = %.3f / %.3f / %.3f mmHg\n', ...
+    field_or_nan(metrics, 'SAP_min'), field_or_nan(metrics, 'SAP_max'), field_or_nan(metrics, 'SAP_pulse'));
+fprintf('           PAP min/max/pulse = %.3f / %.3f / %.3f mmHg\n', ...
+    field_or_nan(metrics, 'PAP_min'), field_or_nan(metrics, 'PAP_max'), field_or_nan(metrics, 'PAP_pulse'));
+end
+
+function value = field_or_nan(s, field_name)
+% FIELD_OR_NAN — helper for optional diagnostic fields.
+if isstruct(s) && isfield(s, field_name) && isfinite(s.(field_name))
+    value = s.(field_name);
+else
+    value = NaN;
+end
 end

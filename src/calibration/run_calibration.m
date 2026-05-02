@@ -201,7 +201,7 @@ end
 function names = fallback_stage_c_names(active_names, scenario)
 switch scenario
     case 'pre_surgery'
-        preferred = {'R.vsd','R.PAR','R.SAR','E.LV.EA','V0.LV'};
+        preferred = {'R.vsd','vsd.Cd','R.PAR','R.SAR','E.LV.EA','V0.LV'};
     otherwise
         preferred = {'R.SAR','R.PAR','C.SAR','E.LV.EA','V0.LV'};
 end

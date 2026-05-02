@@ -73,14 +73,15 @@ switch scenario
             };
         calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN', ...
                       'C.SAR','C.SVEN','C.PAR','C.PVEN','R.vsd'};
-        calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_mean','PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
+        calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_min','SAP_max','SAP_mean', ...
+            'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
         calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','E.LA.EA','E.RA.EA','V0.LV','V0.RV'};
         calib.stageB.metricFields = {'RAP_mean','LAP_mean','LVEDV','LVESV','LVEF','RVEDV','RVESV','RVEF'};
 
         if isfield(params0, 'vsd') && isfield(params0.vsd, 'mode')
             if strcmpi(params0.vsd.mode, 'orifice_bidirectional')
-                calib.names_all = calib.names_all(~strcmp(calib.names_all, 'R.vsd'));
-                calib.stageA.names = calib.stageA.names(~strcmp(calib.stageA.names, 'R.vsd'));
+                calib.names_all(strcmp(calib.names_all, 'R.vsd')) = {'vsd.Cd'};
+                calib.stageA.names(strcmp(calib.stageA.names, 'R.vsd')) = {'vsd.Cd'};
             end
         end
 
@@ -120,7 +121,8 @@ switch scenario
             };
         calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN', ...
                       'C.SAR','C.SVEN','C.PAR','C.PVEN'};
-        calib.stageA.metricFields = {'RAP_mean','SAP_mean','PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
+        calib.stageA.metricFields = {'RAP_mean','SAP_min','SAP_max','SAP_mean', ...
+            'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
         calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
         calib.stageB.metricFields = {'RAP_mean','LVEDV','LVEF','RVEDV','RVEF'};
 
@@ -171,6 +173,10 @@ if isfield(weights, 'QpQs'), weights.QpQs = max(weights.QpQs, 1.5); end
 if isfield(weights, 'PAP_mean'), weights.PAP_mean = max(weights.PAP_mean, 1.4); end
 if isfield(weights, 'PVR'), weights.PVR = max(weights.PVR, 1.4); end
 if isfield(weights, 'SAP_mean'), weights.SAP_mean = max(weights.SAP_mean, 1.3); end
+if isfield(weights, 'SAP_min'), weights.SAP_min = max(weights.SAP_min, 1.3); end
+if isfield(weights, 'SAP_max'), weights.SAP_max = max(weights.SAP_max, 1.4); end
+if isfield(weights, 'CO_Lmin'), weights.CO_Lmin = max(weights.CO_Lmin, 1.8); end
+if isfield(weights, 'SVR'), weights.SVR = min(weights.SVR, 1.0); end
 if isfield(weights, 'RAP_mean'), weights.RAP_mean = max(weights.RAP_mean, 1.5); end
 if isfield(weights, 'LAP_mean'), weights.LAP_mean = max(weights.LAP_mean, 1.5); end
 if isfield(weights, 'LVEDV'), weights.LVEDV = max(weights.LVEDV, 1.4); end
@@ -200,6 +206,9 @@ for i = 1:numel(names)
             lb(i) = 0.25 * x0;
             ub(i) = 4.00 * x0;
         end
+    elseif strcmp(nm, 'vsd.Cd')
+        lb(i) = max(0.20, 0.50 * x0);
+        ub(i) = min(1.20, 1.50 * max(x0, 0.20));
     elseif startsWith(nm, 'C.')
         lb(i) = 0.30 * x0;
         ub(i) = 6.00 * x0;

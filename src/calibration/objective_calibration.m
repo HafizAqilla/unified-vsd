@@ -29,6 +29,8 @@ end
 
 targets = get_calibration_targets(scenario, clinical);
 target_names = {targets.Metric};
+systemic_bundle = build_systemic_bundle(clinical, scenario);
+pressure_bundle = build_pressure_waveform_bundle(clinical, scenario);
 
 J_primary = 0;
 J_secondary = 0;
@@ -41,6 +43,14 @@ for k = 1:numel(calib.metricFields)
     end
     y_clin = targets(idx).ClinicalValue;
     if isnan(y_clin) || ~isfield(metrics, mf) || ~isfinite(metrics.(mf))
+        continue;
+    end
+
+    if strcmp(mf, 'SVR') && systemic_bundle.has_full_systemic_targets
+        % When MAP, RAP, and Qs are all explicit clinical targets, SVR is
+        % a derived systemic consistency check rather than an independent
+        % free target. Skipping the direct SVR term avoids double-counting
+        % the same mismatch while keeping a dedicated bundle penalty below.
         continue;
     end
 
@@ -60,10 +70,123 @@ if isfield(calib, 'regLambda') && calib.regLambda > 0
     J_reg = calib.regLambda * sum(((x(:) - calib.x0(:)) ./ max(abs(calib.x0(:)), 1e-6)).^2);
 end
 
-J = J_primary + calib.secondaryLambda * J_secondary + J_clinical_guard + J_reg + validity_penalty;
+J_systemic = systemic_bundle_penalty(metrics, systemic_bundle, calib);
+J_pressure = pressure_waveform_penalty(metrics, pressure_bundle, calib);
+
+J = J_primary + calib.secondaryLambda * J_secondary + J_systemic + ...
+    J_pressure + J_clinical_guard + J_reg + validity_penalty;
 
 if ~isempty(sim) && ~sim.ss_reached
     J = J + calib.invalidPenaltyScale;
+end
+
+function bundle = build_systemic_bundle(clinical, scenario)
+% BUILD_SYSTEMIC_BUNDLE — collect coupled systemic targets for consistency checks.
+bundle = struct();
+bundle.has_full_systemic_targets = false;
+bundle.Qs_target_Lmin = NaN;
+bundle.SAP_mean_target_mmHg = NaN;
+bundle.RAP_mean_target_mmHg = NaN;
+bundle.SVR_target_WU = NaN;
+
+if ~isstruct(clinical) || ~isfield(clinical, scenario)
+    return;
+end
+
+src = clinical.(scenario);
+required_fields = {'CO_Lmin', 'SAP_mean_mmHg', 'RAP_mean_mmHg'};
+if ~all(isfield(src, required_fields))
+    return;
+end
+
+target_vec = [src.CO_Lmin, src.SAP_mean_mmHg, src.RAP_mean_mmHg];
+if any(isnan(target_vec))
+    return;
+end
+
+bundle.has_full_systemic_targets = true;
+bundle.Qs_target_Lmin = src.CO_Lmin;
+bundle.SAP_mean_target_mmHg = src.SAP_mean_mmHg;
+bundle.RAP_mean_target_mmHg = src.RAP_mean_mmHg;
+bundle.SVR_target_WU = (src.SAP_mean_mmHg - src.RAP_mean_mmHg) / max(src.CO_Lmin, 1e-6);
+if isfield(src, 'SVR_WU') && ~isnan(src.SVR_WU)
+    bundle.SVR_documented_WU = src.SVR_WU;
+else
+    bundle.SVR_documented_WU = NaN;
+end
+end
+
+function penalty = systemic_bundle_penalty(metrics, bundle, calib)
+% SYSTEMIC_BUNDLE_PENALTY — couple Qs, SVR, and systemic-flow balance.
+penalty = 0;
+if ~bundle.has_full_systemic_targets
+    return;
+end
+
+qs_err_rel = abs(metrics.CO_Lmin - bundle.Qs_target_Lmin) / max(abs(bundle.Qs_target_Lmin), 1e-6);
+svr_err_rel = abs(metrics.SVR - bundle.SVR_target_WU) / max(abs(bundle.SVR_target_WU), 1e-6);
+
+flow_balance_rel = 0;
+if isfield(metrics, 'Qao_Lmin') && isfield(metrics, 'Qs_Lmin')
+    flow_balance_rel = abs(metrics.Qao_Lmin - metrics.Qs_Lmin) / ...
+        max(abs(bundle.Qs_target_Lmin), 1e-6);
+end
+
+penalty = penalty + 1.4 * (qs_err_rel / calib.primaryTarget)^2;
+penalty = penalty + 0.7 * (svr_err_rel / calib.secondaryTarget)^2;
+penalty = penalty + 0.4 * (flow_balance_rel / calib.secondaryTarget)^2;
+end
+
+function bundle = build_pressure_waveform_bundle(clinical, scenario)
+% BUILD_PRESSURE_WAVEFORM_BUNDLE — collect systolic/diastolic pressure shape targets.
+bundle = struct();
+bundle.has_systemic_shape = false;
+bundle.has_pulmonary_shape = false;
+
+if ~isstruct(clinical) || ~isfield(clinical, scenario)
+    return;
+end
+
+src = clinical.(scenario);
+if all(isfield(src, {'SAP_sys_mmHg', 'SAP_dia_mmHg'})) && ...
+        all(~isnan([src.SAP_sys_mmHg, src.SAP_dia_mmHg]))
+    bundle.has_systemic_shape = true;
+    bundle.SAP_min_target_mmHg = src.SAP_dia_mmHg;
+    bundle.SAP_max_target_mmHg = src.SAP_sys_mmHg;
+    bundle.SAP_pulse_target_mmHg = src.SAP_sys_mmHg - src.SAP_dia_mmHg;
+end
+
+if all(isfield(src, {'PAP_sys_mmHg', 'PAP_dia_mmHg'})) && ...
+        all(~isnan([src.PAP_sys_mmHg, src.PAP_dia_mmHg]))
+    bundle.has_pulmonary_shape = true;
+    bundle.PAP_min_target_mmHg = src.PAP_dia_mmHg;
+    bundle.PAP_max_target_mmHg = src.PAP_sys_mmHg;
+    bundle.PAP_pulse_target_mmHg = src.PAP_sys_mmHg - src.PAP_dia_mmHg;
+end
+end
+
+function penalty = pressure_waveform_penalty(metrics, bundle, calib)
+% PRESSURE_WAVEFORM_PENALTY — pressure-shape penalties beyond mean pressures.
+penalty = 0;
+
+if bundle.has_systemic_shape
+    sap_max_err_rel = abs(metrics.SAP_max - bundle.SAP_max_target_mmHg) / ...
+        max(abs(bundle.SAP_max_target_mmHg), 1e-6);
+    sap_min_err_rel = abs(metrics.SAP_min - bundle.SAP_min_target_mmHg) / ...
+        max(abs(bundle.SAP_min_target_mmHg), 1e-6);
+    sap_pulse_err_rel = abs(metrics.SAP_pulse - bundle.SAP_pulse_target_mmHg) / ...
+        max(abs(bundle.SAP_pulse_target_mmHg), 1e-6);
+
+    penalty = penalty + 0.8 * (sap_max_err_rel / calib.secondaryTarget)^2;
+    penalty = penalty + 0.6 * (sap_min_err_rel / calib.secondaryTarget)^2;
+    penalty = penalty + 0.5 * (sap_pulse_err_rel / calib.secondaryTarget)^2;
+end
+
+if bundle.has_pulmonary_shape
+    pap_pulse_err_rel = abs(metrics.PAP_pulse - bundle.PAP_pulse_target_mmHg) / ...
+        max(abs(bundle.PAP_pulse_target_mmHg), 1e-6);
+    penalty = penalty + 0.2 * (pap_pulse_err_rel / calib.secondaryTarget)^2;
+end
 end
 
 function penalty = clinical_guard_penalty(metric_name, err_rel, y_model, y_clin)
