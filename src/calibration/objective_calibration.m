@@ -31,6 +31,7 @@ targets = get_calibration_targets(scenario, clinical);
 target_names = {targets.Metric};
 systemic_bundle = build_systemic_bundle(clinical, scenario);
 pressure_bundle = build_pressure_waveform_bundle(clinical, scenario);
+shunt_bundle = build_shunt_fraction_bundle(clinical, scenario);
 
 J_primary = 0;
 J_secondary = 0;
@@ -72,9 +73,10 @@ end
 
 J_systemic = systemic_bundle_penalty(metrics, systemic_bundle, calib);
 J_pressure = pressure_waveform_penalty(metrics, pressure_bundle, calib);
+J_shunt = shunt_fraction_penalty(metrics, shunt_bundle, calib);
 
 J = J_primary + calib.secondaryLambda * J_secondary + J_systemic + ...
-    J_pressure + J_clinical_guard + J_reg + validity_penalty;
+    J_pressure + J_shunt + J_clinical_guard + J_reg + validity_penalty;
 
 if ~isempty(sim) && ~sim.ss_reached
     J = J + calib.invalidPenaltyScale;
@@ -186,6 +188,61 @@ if bundle.has_pulmonary_shape
     pap_pulse_err_rel = abs(metrics.PAP_pulse - bundle.PAP_pulse_target_mmHg) / ...
         max(abs(bundle.PAP_pulse_target_mmHg), 1e-6);
     penalty = penalty + 0.2 * (pap_pulse_err_rel / calib.secondaryTarget)^2;
+end
+end
+
+function bundle = build_shunt_fraction_bundle(clinical, scenario)
+% BUILD_SHUNT_FRACTION_BUNDLE — derive a soft shunt-severity target from Qp/Qs.
+bundle = struct();
+bundle.has_target = false;
+bundle.VSD_frac_target_pct = NaN;
+bundle.collapse_floor_scale = NaN;
+bundle.penalty_weight = 0;
+
+if ~strcmp(scenario, 'pre_surgery') || ~isstruct(clinical) || ~isfield(clinical, scenario)
+    return;
+end
+
+src = clinical.(scenario);
+if ~isfield(src, 'QpQs') || isnan(src.QpQs) || src.QpQs <= 1
+    return;
+end
+
+% Apply this guard only when clinical data clearly indicates a sizeable
+% left-to-right shunt. Mild shunts can otherwise lose their best
+% pressure-flow basin to an overly aggressive shunt-fraction target.
+has_documented_shunt_flow = isfield(src, 'Q_shunt_Lmin') && ...
+    ~isnan(src.Q_shunt_Lmin) && src.Q_shunt_Lmin > 0;
+
+if src.QpQs >= 1.5 && has_documented_shunt_flow
+    bundle.has_target = true;
+    bundle.collapse_floor_scale = 0.68;
+    bundle.penalty_weight = 0.70;
+elseif src.QpQs >= 1.10 && (~isfield(src, 'CO_Lmin') || isnan(src.CO_Lmin))
+    % When Qp/Qs is measured but systemic flow is not, keep a gentle floor
+    % under shunt fraction so calibration does not mimic a near-closed VSD.
+    bundle.has_target = true;
+    bundle.collapse_floor_scale = 0.45;
+    bundle.penalty_weight = 0.25;
+else
+    return;
+end
+
+bundle.VSD_frac_target_pct = 100 * (1 - 1 / src.QpQs);
+end
+
+function penalty = shunt_fraction_penalty(metrics, bundle, calib)
+% SHUNT_FRACTION_PENALTY — discourage shunt collapse inconsistent with Qp/Qs.
+penalty = 0;
+if ~bundle.has_target || ~isfield(metrics, 'VSD_frac_pct') || ~isfinite(metrics.VSD_frac_pct)
+    return;
+end
+
+collapse_floor_pct = bundle.collapse_floor_scale * bundle.VSD_frac_target_pct;
+if metrics.VSD_frac_pct < collapse_floor_pct
+    collapse_rel = (collapse_floor_pct - metrics.VSD_frac_pct) / ...
+        max(abs(bundle.VSD_frac_target_pct), 1e-6);
+    penalty = penalty + bundle.penalty_weight * (collapse_rel / calib.secondaryTarget)^2;
 end
 end
 
