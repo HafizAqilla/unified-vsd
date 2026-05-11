@@ -1,6 +1,6 @@
 # Clinical Data Dictionary
 
-**Last updated:** 2026-03-03
+**Last updated:** 2026-05-11
 
 Maps clinical record terminology to MATLAB variable names in the unified VSD model.
 All values derive from `patient_template.m`; filled examples are in
@@ -53,6 +53,23 @@ clinical.post_surgery % measurements after VSD closure
 | `BSA` | Body surface area | Mosteller formula | m² | Derived | YYYY-MM |
 | `HR` | Resting heart rate | ECG / pulse ox | bpm | High | YYYY-MM |
 
+### Reyna anthropometry revision
+
+For Reyna, Keisya's 2026-05-11 anthropometry revision is now the active
+baseline-scaling source:
+
+```text
+weight_kg = 14.0
+height_cm = 98.0
+BSA = sqrt(14.0 * 98.0 / 3600) = 0.6173419726 m^2
+```
+
+The adult reference for the current Lundquist-BSA scaling mode remains
+`BSA_ref = 1.73 m^2`, matching the Valenti adult baseline convention used by
+the code. The alternative adult Mosteller value from `70 kg, 175 cm`
+(`1.8447 m^2`) is documented as a comparison value, not the active code
+reference.
+
 ---
 
 ## PRE-SURGERY  —  `clinical.pre_surgery`
@@ -101,6 +118,21 @@ clinical.post_surgery % measurements after VSD closure
 | `RVESV_mL` | Right ventricular end-systolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
 | `LVEF` | LV ejection fraction | Echo / MRI | fraction (not %) | Moderate | YYYY-MM |
 | `CO_Lmin` | Systemic cardiac output | Fick / thermodilution | L/min | Moderate | YYYY-MM |
+| `CO_comparator` | Model metric used for CO comparison | Modeling metadata | text | Derived | N/A |
+| `CO_uncertainty_Lmin` | Absolute uncertainty assigned to CO target | Modeling metadata | L/min | Derived | N/A |
+
+### Reyna CO comparator note
+
+For Reyna pre-surgery, `CO_Lmin = 3.423 L/min` is a catheter Fick systemic
+flow estimate (`Qs`). The model comparator is therefore `metrics.Qs_Lmin`,
+reported as `metrics.CO_Lmin`, not `LVCO_Lmin`. In unrepaired VSD, LV stroke
+output includes recirculated pulmonary/shunt flow and is expected to align more
+closely with `Qp_Lmin` than with Fick `Qs`.
+
+The Reyna Teichholz LV volumes imply a lower `LVSV*HR` than the Fick/QpQs
+flow pair. This is treated as a clinical target-consistency limitation, not as
+a silent model bug. The calibration target metadata therefore records
+`CO_comparator = Qs_Lmin` and `CO_uncertainty_Lmin = 0.50 L/min` (about 15%).
 
 ---
 
