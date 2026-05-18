@@ -88,6 +88,9 @@ metrics.RAP_min  = min(Pc.RA);      % [mmHg]  Right Atrial Minimal Pressure
 metrics.RAP_mean = (metrics.RAP_max + metrics.RAP_min) / 2;   % [mmHg]  Right Atrial Mean Pressure = (max + min) / 2
 metrics.LAP_mean = mean_t(Pc.LA);   % [mmHg]
 
+%% Pulmonary Capillary Wedge Pressure (PWP_mean)
+metrics.PWP_mean = mean_t(Pc.PVEN); % [mmHg]
+
 %% Pulmonary artery  (P_PAR)
 metrics.PAP_min  = min(Pc.PAR);     % [mmHg]
 metrics.PAP_max  = max(Pc.PAR);     % [mmHg]
@@ -128,16 +131,21 @@ metrics.QpQs = Qpul_Lmin / max(Qsys_Lmin, 1e-6);                               %
 V_LV_c = XV(time_mask, sidx.V_LV);   % [mL]
 V_RV_c = XV(time_mask, sidx.V_RV);   % [mL]
 
-metrics.LVEDV = max(V_LV_c);     % [mL]
+[metrics.LVEDV, idx_ed_lv] = max(V_LV_c);     % [mL]
 metrics.LVESV = min(V_LV_c);     % [mL]
-metrics.RVEDV = max(V_RV_c);     % [mL]
+[metrics.RVEDV, idx_ed_rv] = max(V_RV_c);     % [mL]
 metrics.RVESV = min(V_RV_c);     % [mL]
+
+% True End-Diastolic Pressures (pressure at maximum volume)
+metrics.LVEDP = Pc.LV(idx_ed_lv);    % [mmHg]
+metrics.RVEDP = Pc.RV(idx_ed_rv);    % [mmHg]
 
 % EF stored as fraction (0–1), NOT percentage (Guardrail §6.4)
 metrics.LVEF  = (metrics.LVEDV - metrics.LVESV) / max(metrics.LVEDV, 1e-6);   % [-]
 metrics.RVEF  = (metrics.RVEDV - metrics.RVESV) / max(metrics.RVEDV, 1e-6);   % [-]
 metrics.LVSV  = metrics.LVEDV - metrics.LVESV;   % [mL]
 metrics.RVSV  = metrics.RVEDV - metrics.RVESV;   % [mL]
+
 
 %% VSD shunt
 metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);   % [mL/s]  positive = L→R

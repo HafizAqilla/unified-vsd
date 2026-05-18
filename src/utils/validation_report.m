@@ -66,19 +66,24 @@ switch scenario
     case 'post_surgery'
         src = clinical.post_surgery;
         metric_defs = {
-            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (trough)'
+            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
+            'RAP_max',   'RAP_max_mmHg',   'mmHg',   'Right atrial maximal pressure'
+            'RAP_min',   'RAP_min_mmHg',   'mmHg',   'Right atrial minimal pressure'
+            'PAP_min',   'PAP_dia_mmHg',   'mmHg',   'PA diastolic pressure (trough)'
+            'PAP_max',   'PAP_sys_mmHg',   'mmHg',   'PA systolic pressure (peak)'
+            'PAP_mean',  'PAP_mean_mmHg',  'mmHg',   'PA mean pressure'
             'SAP_max',   'SAP_sys_mmHg',   'mmHg',   'Systemic arterial systolic (peak)'
-            'SAP_mean',  'MAP_mmHg',       'mmHg',   'Mean arterial pressure'
+            'SAP_min',   'SAP_dia_mmHg',   'mmHg',   'Systemic arterial diastolic (trough)'
+            'SAP_mean',  'SAP_mean_mmHg',  'mmHg',   'Mean arterial pressure (MAP)'
+            'QpQs',      'QpQs',           '—',      'Pulmonary/Systemic flow ratio'
+            'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
+            'LVESV',     'LVESV_mL',       'mL',     'LV end-systolic volume'
+            'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
+            'RVESV',     'RVESV_mL',       'mL',     'RV end-systolic volume'
             'SVR',       'SVR_WU',         'WU',     'Systemic vascular resistance'
             'PVR',       'PVR_WU',         'WU',     'Pulmonary vascular resistance'
             'LVEF',      'LVEF',           '—',      'LV ejection fraction'
             'RVEF',      'RVEF',           '—',      'RV ejection fraction'
-            'QpQs',      'QpQs',           '—',      'Qp/Qs ratio (should be ~1.0)'
-            'LVEDV',     'LVEDV_mL',       'mL',     'LV end-diastolic volume'
-            'RVEDV',     'RVEDV_mL',       'mL',     'RV end-diastolic volume'
-            'RAP_max',   'RAP_max_mmHg',   'mmHg',   'Right atrial maximal pressure'
-            'RAP_min',   'RAP_min_mmHg',   'mmHg',   'Right atrial minimal pressure'
-            'RAP_mean',  'RAP_mean_mmHg',  'mmHg',   'Right atrial mean pressure'
             };
     otherwise
         error('validation_report:unknownScenario', ...

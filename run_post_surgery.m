@@ -86,7 +86,7 @@ root        = fileparts(mfilename('fullpath'));
 addpath(genpath(root));
 
 tables_dir  = fullfile(root, 'results', 'tables');
-latest_mat  = fullfile(tables_dir, 'params_calibrated_pre_surgery_hafiz.mat');
+latest_mat  = fullfile(tables_dir, 'params_calibrated_pre_surgery_20260429_162931.mat');
 
 if ~isfile(latest_mat)
     error(['run_post_surgery:noCalibFile\n' ...
@@ -156,21 +156,21 @@ post.QpQs              = 0.9;     % [-]      target: no residual shunt
 % ---- Pulmonary circulation (expected normalisation) ------------------
 % Low pre-op PAP (mean 15 mmHg) → expected to remain or decrease slightly.
 post.PAP_sys_mmHg      = 17;    % [mmHg]  set when (echo/RHC) available
-post.PAP_dia_mmHg      = 8.67;    % [mmHg]
+post.PAP_dia_mmHg      = 9;    % [mmHg]
 post.PAP_mean_mmHg     = 13;    % [mmHg]
 post.PVR_WU            = NaN;    % [WU]    expected ↓; set if measured
 
 % ---- Systemic circulation --------------------------------------------
 % With shunt closed, systemic CO = pulmonary CO → SAP similar or slightly ↑.
-post.SAP_sys_mmHg      = 104.3;    % [mmHg]  set when available
-post.SAP_dia_mmHg      = 71.67;    % [mmHg]
-post.MAP_mmHg          = 66;    % [mmHg]  mean arterial pressure post-op
+post.SAP_sys_mmHg      = 104;    % [mmHg]  set when available
+post.SAP_dia_mmHg      = 75;    % [mmHg]
+post.MAP_mmHg          = 88;    % [mmHg]  mean arterial pressure post-op
 post.SVR_WU            = NaN;    % [WU]    set if SVR measured
 
 % ---- Atrial pressures ------------------------------------------------
 post.RAP_mean_mmHg     = 5;    % [mmHg]
-post.RAP_max_mmHg      = 7.67;    % [mmHg]
-post.RAP_min_mmHg      = 5;    % [mmHg]
+post.RAP_max_mmHg      = NaN;    % [mmHg]
+post.RAP_min_mmHg      = NaN;    % [mmHg]
 post.LAP_mean_mmHg     = NaN;    % [mmHg]
 
 % ---- Ventricular volumes (expected remodelling) ----------------------

@@ -34,6 +34,7 @@ clinical.pre_surgery.LVESV_mL      = 23.6;    % mL
 clinical.pre_surgery.RVEDV_mL      = 30.5;    % mL
 clinical.pre_surgery.RVESV_mL      = 12;      % mL
 
+
 % 5. Run the full pipeline
 scenario = 'pre_surgery';
 fprintf('Starting calibration for patient 1...\n');
