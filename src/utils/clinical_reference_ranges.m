@@ -77,11 +77,11 @@ function ref = clinical_reference_ranges(population)
 %     HR        73–142
 %     LVEDV     32.9 ± 7.5 → ~[25, 41]
 %     LVESV     13.0 ± 3.1 → ~[10, 16]
-%     RVEDV     17.09 ± 2.70 → ~[14, 20]
-%     RVESV     8.71 ± 1.78 → ~[7, 10]
+%     RVEDV     30.73–65.68
+%     RVESV     4.2–26.18
 %     SV        19.9 ± 4.9 → ~[15, 25]
 %     LVEF      64 ± 9 %   → ~[55, 73]
-%     RVEF      63 ± 5 %   → ~[58, 68]
+%     RVEF      45–78 %
 %     SBP       90–103
 %     DBP       47–59
 %     MAP       61–74
@@ -139,11 +139,11 @@ switch lower(strtrim(population))
         ref.CO       = [2.20, 4.85];    % L/min
         ref.LVEDV    = [25,   41];      % mL    — 32.9 ± 7.5
         ref.LVESV    = [10,   16];      % mL    — 13.0 ± 3.1
-        ref.RVEDV    = [14,   20];      % mL    — 17.09 ± 2.70
-        ref.RVESV    = [7,    10];      % mL    — 8.71 ± 1.78
+        ref.RVEDV    = [30.73, 65.68];  % mL
+        ref.RVESV    = [4.2,  26.18];   % mL
         ref.SV       = [15,   25];      % mL    — 19.9 ± 4.9
         ref.LVEF     = [55,   73];      % %     — 64 ± 9
-        ref.RVEF     = [58,   68];      % %     — 63 ± 5
+        ref.RVEF     = [45,   78];      % %
         ref.SBP      = [90,   103];     % mmHg
         ref.DBP      = [47,   59];      % mmHg
         ref.MAP      = [61,   74];      % mmHg
