@@ -76,7 +76,7 @@ pre.LVEDV_mL          = NaN;   % [mL]     LV end-diastolic volume
 pre.LVESV_mL          = NaN;   % [mL]     LV end-systolic volume
 pre.RVEDV_mL          = NaN;   % [mL]     RV end-diastolic volume
 pre.RVESV_mL          = NaN;   % [mL]     RV end-systolic volume
-pre.LVEF              = NaN;   % [-]      LV ejection fraction (fraction, not %)
+pre.EF                = NaN;   % [-]      LV ejection fraction (fraction, not %)
 pre.override_IC       = false; % [-]      enable echo-informed chamber tuning (V0 + E)
 
 % ---- Cardiac output ---------------------------------------------------
@@ -115,7 +115,7 @@ post.LVEDV_mL         = NaN;
 post.LVESV_mL         = NaN;
 post.RVEDV_mL         = NaN;
 post.RVESV_mL         = NaN;
-post.LVEF             = NaN;
+post.EF               = NaN;
 post.RVEF             = NaN;
 
 % ---- Cardiac output --------------------------------------------------

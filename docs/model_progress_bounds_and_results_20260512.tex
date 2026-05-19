@@ -1,0 +1,686 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={Model Progress, Bounds, and Run Results},
+    pdfauthor={Unified VSD Model}
+}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+
+\title{Model Progress, Bounds, and Run Results}
+\author{Unified VSD Pre-Surgery Calibration Workflow}
+\date{2026-05-12}
+
+\begin{document}
+
+\maketitle
+
+\section{Purpose}
+
+This note records what has been done so far to make the model more
+scientifically defensible, especially:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item where the clinical data came from
+    \item how the calibration bounds (\texttt{lb} and \texttt{ub}) are defined
+    \item what changes were made to improve the model
+    \item what the most important runs have shown so far
+\end{itemize}
+
+The goal is to keep one readable progress record that explains both the
+scientific reasoning and the operational results.
+
+\section{Data Sources Used So Far}
+
+\subsection{Reyna}
+
+Primary sources:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{Filled Protokol\_VSD Pre\_Reyna (2).pdf}
+    \item \texttt{docs/clinical\_data\_dictionary.md}
+    \item \texttt{docs/pak\_dipo\_co\_objective\_memo.md}
+    \item \texttt{docs/reyna\_pak\_dipo\_systemic\_flow\_revision.md}
+\end{itemize}
+
+Key decisions:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Active anthropometry uses the raw protocol values:
+    \begin{verbatim}
+weight_kg = 13.4
+height_cm = 95.0
+BSA = 0.588 m^2
+    \end{verbatim}
+    \item Clinical \texttt{CO\_Lmin = 3.423} is compared to model
+    \texttt{Qs\_Lmin}, not \texttt{LVCO\_Lmin}
+    \item Pulmonary calibration is intentionally reduced to \texttt{PAP\_mean} only
+    \item \texttt{PAP\_sys\_mmHg} and \texttt{PAP\_dia\_mmHg} are set to
+    \texttt{NaN} in the active Reyna file
+\end{itemize}
+
+Why:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item This keeps Reyna strictly patient-specific
+    \item It avoids spending optimization leverage on pulmonary waveform shape
+    that is less trustworthy than the mean pressure
+    \item It follows Pak Dipo's advice that the main remaining issue is
+    systemic preload-flow-volume consistency
+\end{itemize}
+
+\subsection{Razka}
+
+Primary sources:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{config/patient\_profile\_Razka.m}
+    \item procedure-log style catheter values embedded in the profile comments
+\end{itemize}
+
+Key characteristics:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Real patient data
+    \item Good catheter pressure and \texttt{QpQs} information
+    \item No measured \texttt{CO\_Lmin}
+    \item No ventricular volume block
+\end{itemize}
+
+Why it matters:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Razka is useful for testing the sparse real-data path
+    \item Razka is not the right case to test the Reyna CO-volume cleanup directly
+\end{itemize}
+
+\subsection{Profile A and Profile B}
+
+Primary sources:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{config/patient\_profile\_A.m}
+    \item \texttt{config/patient\_profile\_B.m}
+    \item synthetic benchmark comments embedded in those files
+\end{itemize}
+
+Key characteristics:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item These are synthetic benchmark profiles, not real patient cases
+    \item They are useful for stress-testing the pipeline
+    \item They should not be treated as scientific validation equal to Reyna or Razka
+\end{itemize}
+
+Important caution:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Profile A in particular contains internal tension between stated
+    \texttt{MAP}, \texttt{Qs}, \texttt{SVR}, and volume targets
+    \item Therefore a poor fit on A may reflect benchmark inconsistency rather
+    than a true modeling failure
+\end{itemize}
+
+\section{What We Changed to Make the Model Better}
+
+\subsection{Locked the CO definition to the correct comparator}
+
+We changed the interpretation of clinical cardiac output so that:
+
+\begin{verbatim}
+clinical CO target -> model Qs_Lmin
+not -> model LVCO_Lmin
+\end{verbatim}
+
+Reason:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item In unrepaired VSD, LV output includes recirculated pulmonary/shunt flow
+    \item Effective systemic delivery is represented by \texttt{Qs}
+    \item Comparing Fick CO to LV outflow can reward the wrong physiology
+\end{itemize}
+
+\subsection{Treated the systemic quartet as one coupled physiological target}
+
+The model now treats these as linked rather than fully independent:
+
+\begin{verbatim}
+SAP_mean, RAP_mean, CO_Lmin, SVR
+\end{verbatim}
+
+Reason:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{SVR = (SAP\_mean - RAP\_mean) / Qs}
+    \item If these are optimized independently, the solver can improve pressure
+    by suppressing flow or inflate flow while creating unrealistic resistance
+\end{itemize}
+
+\subsection{Reduced pulmonary waveform pressure matching for Reyna}
+
+For Reyna, the active target now keeps:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{PAP\_mean}
+    \item \texttt{QpQs}
+\end{itemize}
+
+and intentionally de-emphasizes:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{PAP\_min}
+    \item \texttt{PAP\_max}
+\end{itemize}
+
+Reason:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item The remaining bottleneck was not pulmonary polishing
+    \item The model was already better at matching shunt and pulmonary mean
+    pressure than at producing correct systemic flow and chamber-volume balance
+\end{itemize}
+
+\subsection{Added targeted systemic flow and volume guardrails for Reyna}
+
+The Reyna-specific systemic-flow profile now:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item strengthens \texttt{CO\_Lmin}, \texttt{SAP\_mean}, and \texttt{RAP\_mean}
+    \item adds stronger penalty against high \texttt{RVEDV}
+    \item adds stronger penalty against low \texttt{LVESV}
+    \item adds stronger penalty against overly high \texttt{LVEF}
+    \item keeps \texttt{CO\_Lmin} in the preferred primary set
+\end{itemize}
+
+This was implemented in:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{src/calibration/build\_case\_calibration\_profile.m}
+    \item \texttt{src/calibration/objective\_calibration.m}
+    \item \texttt{src/utils/select\_primary\_metrics.m}
+\end{itemize}
+
+\subsection{Added a regression test for the Reyna profile}
+
+The Reyna-specific assumptions are now checked in:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{tests/test\_reyna\_systemic\_flow\_profile.m}
+\end{itemize}
+
+The test verifies:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item raw protocol anthropometry remains active
+    \item \texttt{PAP\_sys} and \texttt{PAP\_dia} stay omitted
+    \item primary metrics include \texttt{CO\_Lmin}
+    \item the volume-flow guard is active
+\end{itemize}
+
+\section{How \texttt{lb} and \texttt{ub} Are Defined}
+
+The current calibration bounds are no longer arbitrary wide boxes. They are
+defined centrally in:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{config/build\_parameter\_registry.m}
+\end{itemize}
+
+\subsection{General rule}
+
+Each calibratable parameter gets:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item a \texttt{baseline\_scaled} value after pediatric scaling
+    \item a \texttt{seeded\_value} after clinical seeding
+    \item a \texttt{bound\_anchor}
+    \item an \texttt{lb}
+    \item an \texttt{ub}
+    \item a \texttt{bound\_source}
+    \item a \texttt{confidence\_level}
+\end{itemize}
+
+This makes every active calibration knob traceable.
+
+\subsection{Bound families}
+
+\subsubsection{Coupled vascular resistance scales}
+
+Examples:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{group.R\_sys\_scale}
+    \item \texttt{group.R\_pul\_scale}
+\end{itemize}
+
+Default form:
+
+\begin{verbatim}
+lb = 0.25
+ub = 2.80
+\end{verbatim}
+
+Then profile-level tightening can make the lower bound stricter. For Reyna:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{group.R\_sys\_scale}: \texttt{0.25} to \texttt{2.80}
+    \item \texttt{group.R\_pul\_scale}: \texttt{0.45} to \texttt{2.80}
+\end{itemize}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{kung2013\_bsa\_rc\_coupled\_resistance\_prior}
+\end{itemize}
+
+\subsubsection{VSD orifice coefficient}
+
+Example:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{vsd.Cd}
+\end{itemize}
+
+Form:
+
+\begin{verbatim}
+lb = 0.20
+ub = 1.20
+\end{verbatim}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{orifice\_discharge\_coefficient\_literature\_plus\_expert\_box}
+\end{itemize}
+
+\subsubsection{Arterial compliances}
+
+Examples:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{C.SAR}
+    \item \texttt{C.PAR}
+\end{itemize}
+
+These are anchored to pulse-pressure estimates, not broad multiplier boxes.
+
+For the Reyna active run:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{C.SAR}: \texttt{0.3785} to \texttt{0.6813}
+\end{itemize}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{windkessel\_stroke\_volume\_over\_pulse\_pressure\_anchor}
+\end{itemize}
+
+\subsubsection{Resistances}
+
+Example:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{R.SVEN}
+\end{itemize}
+
+Form:
+
+\begin{verbatim}
+lb = lower_mult * baseline_scaled
+ub = upper_mult * baseline_scaled
+\end{verbatim}
+
+With venous resistances given slightly wider upper room.
+
+For the Reyna active run:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{R.SVEN}: \texttt{0.0588} to \texttt{0.4119}
+\end{itemize}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{kung2013\_sharp2000\_scaled\_resistance\_prior}
+\end{itemize}
+
+\subsubsection{Elastances}
+
+Examples:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{E.LV.EA}
+    \item \texttt{E.LV.EB}
+    \item \texttt{E.RV.EA}
+    \item \texttt{E.RV.EB}
+\end{itemize}
+
+These are anchored to pediatric elastance priors, then widened if needed to
+include the clinically seeded start.
+
+For the Reyna active run:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{E.LV.EA}: \texttt{7.0026} to \texttt{30.7613}
+    \item \texttt{E.LV.EB}: \texttt{0.0840} to \texttt{0.3501}
+    \item \texttt{E.RV.EA}: \texttt{1.3531} to \texttt{5.9046}
+    \item \texttt{E.RV.EB}: \texttt{0.1041} to \texttt{0.4920}
+\end{itemize}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{zhang2019\_pediatric\_elastance\_anchor}
+\end{itemize}
+
+\subsubsection{Unstressed volumes}
+
+Examples:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{V0.LV}
+    \item \texttt{V0.RV}
+\end{itemize}
+
+These are not free-floating broad search terms anymore. They are anchored to
+blood-volume and preload consistency.
+
+For the Reyna active run:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{V0.LV}: \texttt{3.8237} to \texttt{7.1376}
+    \item \texttt{V0.RV}: \texttt{9.0034} to \texttt{18.3538}
+\end{itemize}
+
+Source tag:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{blood\_volume\_preload\_consistency\_prior}
+\end{itemize}
+
+\subsection{Why this matters}
+
+The model now has two protections:
+
+\begin{enumerate}[leftmargin=1.5em]
+    \item The optimizer cannot drift into physiologically absurd values too easily.
+    \item We can explain afterward whether a good fit was achieved cleanly or only
+    by parking near the edge of the allowable space.
+\end{enumerate}
+
+\section{Reyna Active Bounds and Best Candidate}
+
+Source artifacts:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{results/runs/20260511\_223816\_reyna\_pre\_surgery/tables/parameter\_registry\_pre\_surgery.csv}
+    \item \texttt{results/runs/20260511\_223816\_reyna\_pre\_surgery/tables/parameter\_plausibility\_best\_candidate\_pre\_surgery.csv}
+\end{itemize}
+
+\begin{longtable}{lrrrrrl}
+\toprule
+Parameter & BaselineScaled & LB & UB & Best fit & Ratio & Plausibility \\
+\midrule
+\endhead
+group.R\_sys\_scale & 1.0000 & 0.2500 & 2.8000 & 0.4016 & 0.4016 & WARNING \\
+R.SVEN & 0.1471 & 0.0588 & 0.4119 & 0.3255 & 2.2126 & OK \\
+group.R\_pul\_scale & 1.0000 & 0.4500 & 2.8000 & 0.5447 & 0.5447 & WARNING \\
+C.SAR & 0.4079 & 0.3785 & 0.6813 & 0.5067 & 1.2423 & OK \\
+E.LV.EA & 13.9824 & 7.0026 & 30.7613 & 7.0807 & 0.5064 & WARNING \\
+E.LV.EB & 0.1400 & 0.0840 & 0.3501 & 0.2415 & 1.7246 & OK \\
+E.RV.EA & 2.4602 & 1.3531 & 5.9046 & 5.6594 & 2.3004 & WARNING \\
+E.RV.EB & 0.1892 & 0.1041 & 0.4920 & 0.1547 & 0.8174 & OK \\
+V0.LV & 5.0983 & 3.8237 & 7.1376 & 6.0467 & 1.1860 & OK \\
+V0.RV & 13.5954 & 9.0034 & 18.3538 & 9.1245 & 0.6711 & WARNING \\
+\bottomrule
+\end{longtable}
+
+Interpretation:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item The best Reyna scientific candidate stays inside all active bounds
+    \item Several active parameters sit close to one edge of the allowed range
+    \item That is why the run is scientifically informative but not yet clean
+    enough to claim a finished patient-specific calibration
+\end{itemize}
+
+\section{Run Results So Far}
+
+\subsection{Reyna sequence}
+
+\begin{longtable}{p{4.0cm}p{4.7cm}rrp{3.1cm}}
+\toprule
+Run folder & Main change & Baseline RMSE & Best scientific RMSE & Status \\
+\midrule
+\endhead
+\texttt{20260510\_225025\_reyna\_pre\_surgery} & first strong systemic-flow scientific candidate & 0.2513 & 0.1195 & REJECT, rollback \\
+\texttt{20260511\_134027\_reyna\_pre\_surgery} & corrected-BSA experiment (\texttt{14.0 kg}, \texttt{98 cm}, \texttt{0.6173 m\^{}2}) & 0.2454 & 0.1087 & REJECT, rollback \\
+\texttt{20260511\_203930\_reyna\_pre\_surgery} & raw PDF anthropometry + \texttt{PAP\_mean} only & 0.2699 & 0.1702 & REJECT, rollback \\
+\texttt{20260511\_223816\_reyna\_pre\_surgery} & targeted systemic-flow polish & 0.2699 & 0.1287 & REJECT, rollback \\
+\bottomrule
+\end{longtable}
+
+Latest Reyna best-candidate bottleneck metrics:
+
+\begin{tabularx}{\textwidth}{lrrrr}
+\toprule
+Metric & Clinical & Best candidate & Error \% \\
+\midrule
+\texttt{RAP\_mean} & 5.000 & 5.343 & 6.86 \\
+\texttt{PAP\_mean} & 15.000 & 16.049 & 6.99 \\
+\texttt{SAP\_mean} & 71.300 & 63.559 & -10.86 \\
+\texttt{QpQs} & 1.194 & 1.140 & -4.52 \\
+\texttt{SVR} & 19.370 & 20.784 & 7.30 \\
+\texttt{CO\_Lmin} & 3.423 & 2.801 & -18.17 \\
+\texttt{RVEDV} & 30.500 & 38.079 & 24.85 \\
+\texttt{LVESV} & 19.300 & 16.464 & -14.69 \\
+\texttt{LVEF} & 0.528 & 0.610 & 15.45 \\
+\bottomrule
+\end{tabularx}
+
+Interpretation:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item The model is better than before at systemic consistency
+    \item The remaining problem is still low effective systemic flow with RV
+    volume overshoot and high LV ejection bias
+    \item This is no longer mainly a pulmonary waveform problem
+\end{itemize}
+
+\subsection{Profile A}
+
+Run folder:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{20260512\_070804\_patient\_profile\_a\_pre\_surgery}
+\end{itemize}
+
+Result summary:
+
+\begin{tabular}{lr}
+\toprule
+Quantity & Value \\
+\midrule
+Baseline RMSE & 0.2444 \\
+Best candidate RMSE & 0.2951 \\
+Status & REJECT, rollback \\
+\bottomrule
+\end{tabular}
+
+Main best-candidate errors:
+
+\begin{tabular}{lr}
+\toprule
+Metric & Error \% \\
+\midrule
+\texttt{QpQs} & -62.52 \\
+\texttt{SVR} & -52.36 \\
+\texttt{CO\_Lmin} & +52.74 \\
+\texttt{LVEDV} & -38.44 \\
+\texttt{RVEDV} & -26.50 \\
+\texttt{LVEF} & -22.29 \\
+\bottomrule
+\end{tabular}
+
+Interpretation:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Calibration made A worse, not better
+    \item This benchmark is not a good judge of the Reyna improvement strategy
+    \item Profile A likely reflects benchmark inconsistency more than a clean
+    model failure
+\end{itemize}
+
+\subsection{Profile B}
+
+Run folder:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{20260512\_072450\_patient\_profile\_b\_pre\_surgery}
+\end{itemize}
+
+Result summary:
+
+\begin{tabular}{lr}
+\toprule
+Quantity & Value \\
+\midrule
+Baseline RMSE & 0.2093 \\
+Best candidate RMSE & 0.1880 \\
+Status & REJECT, rollback \\
+\bottomrule
+\end{tabular}
+
+Main best-candidate errors:
+
+\begin{tabular}{lr}
+\toprule
+Metric & Error \% \\
+\midrule
+\texttt{RAP\_mean} & +38.67 \\
+\texttt{CO\_Lmin} & +38.86 \\
+\texttt{SVR} & -23.10 \\
+\texttt{QpQs} & +18.92 \\
+\texttt{PVR} & -13.70 \\
+\texttt{SAP\_mean} & +10.11 \\
+\bottomrule
+\end{tabular}
+
+Interpretation:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item B improves slightly, but still rejects
+    \item The residual pattern is different from Reyna
+    \item This again argues against promoting the Reyna-specific polish blindly
+    to all full-data cases
+\end{itemize}
+
+\subsection{Razka}
+
+Run folder:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{20260512\_073515\_razka\_pre\_surgery}
+\end{itemize}
+
+Result summary:
+
+\begin{tabular}{lr}
+\toprule
+Quantity & Value \\
+\midrule
+Baseline RMSE & 0.2290 \\
+Best candidate RMSE & 0.1346 \\
+Status & PROMISING\_NEAR\_MISS \\
+Rollback applied & No \\
+\bottomrule
+\end{tabular}
+
+Main best-candidate errors:
+
+\begin{tabular}{lr}
+\toprule
+Metric & Error \% \\
+\midrule
+\texttt{RAP\_mean} & +3.64 \\
+\texttt{PAP\_min} & -14.92 \\
+\texttt{PAP\_mean} & -15.82 \\
+\texttt{SAP\_mean} & +11.63 \\
+\texttt{QpQs} & -1.57 \\
+\bottomrule
+\end{tabular}
+
+Interpretation:
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Razka is the strongest non-Reyna result so far
+    \item It behaves like a real sparse-cath case, not like a synthetic benchmark
+    \item Because Razka has no clinical CO or ventricular volume targets, it
+    should be improved through the sparse-data path, not through Reyna-style
+    systemic flow-volume tuning
+\end{itemize}
+
+\section{Current Scientific Position}
+
+The work so far supports the following conclusion.
+
+\subsection{What is working}
+
+\begin{itemize}[leftmargin=1.5em]
+    \item The calibration framework is much more defensible than before
+    \item \texttt{lb} and \texttt{ub} are now traceable to clinical seeding and
+    literature-informed priors
+    \item Reyna improved meaningfully once CO was mapped to \texttt{Qs} and
+    systemic variables were treated as one coupled target
+    \item Razka shows that the real-data pipeline can produce a near-miss result
+    without rollback
+\end{itemize}
+
+\subsection{What is not solved yet}
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Reyna still undershoots effective systemic flow
+    \item Reyna still overshoots \texttt{RVEDV}
+    \item Some good Reyna fits still lean on boundary-adjacent parameters
+    \item Synthetic A and B are not reliable enough to validate the same fix path
+\end{itemize}
+
+\subsection{Best next interpretation}
+
+\begin{itemize}[leftmargin=1.5em]
+    \item Reyna remains the best case for systemic preload-flow-volume cleanup
+    \item Razka should be used to improve the sparse real-data path
+    \item Profile A and B should remain synthetic stress benchmarks, not core
+    scientific validation cases
+\end{itemize}
+
+\section{Files Most Relevant to This Progress}
+
+\begin{itemize}[leftmargin=1.5em]
+    \item \texttt{config/patient\_reyna.m}
+    \item \texttt{docs/clinical\_data\_dictionary.md}
+    \item \texttt{docs/reyna\_pak\_dipo\_systemic\_flow\_revision.md}
+    \item \texttt{config/build\_parameter\_registry.m}
+    \item \texttt{src/calibration/build\_case\_calibration\_profile.m}
+    \item \texttt{src/calibration/objective\_calibration.m}
+    \item \texttt{tests/test\_reyna\_systemic\_flow\_profile.m}
+\end{itemize}
+
+\end{document}

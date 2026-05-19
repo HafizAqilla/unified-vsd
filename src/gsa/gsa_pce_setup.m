@@ -81,7 +81,12 @@ cfg.names = {
 };
 
 if strcmp(scenario, 'pre_surgery')
-    cfg.names{end+1} = 'R.vsd';
+    if isfield(params0, 'vsd') && isfield(params0.vsd, 'mode') && ...
+            strcmpi(params0.vsd.mode, 'orifice_bidirectional')
+        cfg.names{end+1} = 'vsd.Cd';
+    else
+        cfg.names{end+1} = 'R.vsd';
+    end
 end
 
 d = numel(cfg.names);
@@ -105,6 +110,9 @@ for i = 1:d
             lb(i) = 0.4 * x0(i);
             ub(i) = 2.5 * x0(i);
         end
+    elseif strcmp(nm, 'vsd.Cd')
+        lb(i) = 0.8 * x0(i);
+        ub(i) = 1.2 * x0(i);
     elseif startsWith(nm, 'C.')
         lb(i) = 0.5 * x0(i);  ub(i) = 2.0 * x0(i);
     elseif startsWith(nm, 'E.')

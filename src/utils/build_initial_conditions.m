@@ -37,12 +37,16 @@ if ~isempty(clinical) && isstruct(clinical)
     end
 end
 
-if patient.age_years < 1
-    BV_per_kg = 82;
+if isfield(src, 'BV_total_mL') && ~isnan(src.BV_total_mL)
+    BV_patient = src.BV_total_mL;
 else
-    BV_per_kg = 70;
+    if patient.age_years < 1
+        BV_per_kg = 82;
+    else
+        BV_per_kg = 70;
+    end
+    BV_patient = patient.weight_kg * BV_per_kg;
 end
-BV_patient = patient.weight_kg * BV_per_kg;
 
 P_nom_SAR = first_valid(src, {'SAP_mean_mmHg', 'MAP_mmHg'}, 65);
 P_nom_SC = max(0.5 * P_nom_SAR, 15);
@@ -68,7 +72,13 @@ if isfield(src, 'LVEDV_mL') && ~isnan(src.LVEDV_mL)
 else
     ic(sidx.V_LV) = params.V0.LV + P_nom_LV_ED / max(params.E.LV.EB, 1e-6);
 end
-if isfield(src, 'RVEDV_mL') && ~isnan(src.RVEDV_mL)
+if isfield(params, 'clinical_override') && ...
+        isfield(params.clinical_override, 'RVEDV_consistency_only') && ...
+        params.clinical_override.RVEDV_consistency_only && ...
+        isfield(params.clinical_override, 'RVEDV_flow_consistent_seed_mL') && ...
+        isfinite(params.clinical_override.RVEDV_flow_consistent_seed_mL)
+    ic(sidx.V_RV) = params.clinical_override.RVEDV_flow_consistent_seed_mL;
+elseif isfield(src, 'RVEDV_mL') && ~isnan(src.RVEDV_mL)
     ic(sidx.V_RV) = src.RVEDV_mL;
 else
     ic(sidx.V_RV) = params.V0.RV + P_nom_RV_ED / max(params.E.RV.EB, 1e-6);
@@ -109,6 +119,15 @@ function Q_init = initial_flow_seed(params, src, V_LV_ed)
 if isfield(src, 'CO_Lmin') && ~isnan(src.CO_Lmin)
     Q_init = src.CO_Lmin * params.conv.Lmin_to_mLs;
     return;
+end
+
+if isfield(src, 'Q_shunt_Lmin') && ~isnan(src.Q_shunt_Lmin) && ...
+        isfield(src, 'QpQs') && ~isnan(src.QpQs) && src.QpQs > 1
+    Qs_estimate_Lmin = src.Q_shunt_Lmin / max(src.QpQs - 1, 1e-6);
+    if isfinite(Qs_estimate_Lmin) && Qs_estimate_Lmin > 0
+        Q_init = Qs_estimate_Lmin * params.conv.Lmin_to_mLs;
+        return;
+    end
 end
 
 SV_seed = max(0.25 * V_LV_ed, 5.0);

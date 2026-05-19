@@ -1,6 +1,6 @@
 # Clinical Data Dictionary
 
-**Last updated:** 2026-03-03
+**Last updated:** 2026-05-11
 
 Maps clinical record terminology to MATLAB variable names in the unified VSD model.
 All values derive from `patient_template.m`; filled examples are in
@@ -53,6 +53,32 @@ clinical.post_surgery % measurements after VSD closure
 | `BSA` | Body surface area | Mosteller formula | m² | Derived | YYYY-MM |
 | `HR` | Resting heart rate | ECG / pulse ox | bpm | High | YYYY-MM |
 
+### Reyna anthropometry note
+
+The active Reyna patient file follows the raw protocol anthropometry so the
+main case remains strictly patient-specific:
+
+```text
+weight_kg = 13.4
+height_cm = 95.0
+BSA = 0.588 m^2
+```
+
+Keisya's 2026-05-11 anthropometry revision was tested as an alternate
+baseline-scaling experiment:
+
+```text
+weight_kg = 14.0
+height_cm = 98.0
+BSA = sqrt(14.0 * 98.0 / 3600) = 0.6173419726 m^2
+```
+
+The adult reference for the current Lundquist-BSA scaling mode remains
+`BSA_ref = 1.73 m^2`, matching the Valenti adult baseline convention used by
+the code. The alternative adult Mosteller value from `70 kg, 175 cm`
+(`1.8447 m^2`) is documented as a comparison value, not the active code
+reference.
+
 ---
 
 ## PRE-SURGERY  —  `clinical.pre_surgery`
@@ -74,6 +100,11 @@ clinical.post_surgery % measurements after VSD closure
 | `PAP_dia_mmHg` | Diastolic pulmonary artery pressure | RHC | mmHg | High | YYYY-MM |
 | `PAP_mean_mmHg` | Mean pulmonary artery pressure (mPAP) | RHC | mmHg | High | YYYY-MM |
 | `PVR_WU` | Pulmonary vascular resistance | RHC / Fick | Wood units | Moderate | YYYY-MM |
+
+For Reyna pre-surgery, the active calibration target uses `PAP_mean_mmHg`
+only. `PAP_sys_mmHg` and `PAP_dia_mmHg` are intentionally stored as `NaN` in
+`config/patient_reyna.m` so the optimizer does not spend leverage matching a
+pulmonary waveform shape that is less reliable than the mean pressure.
 
 ### Systemic haemodynamics
 
@@ -99,8 +130,23 @@ clinical.post_surgery % measurements after VSD closure
 | `LVESV_mL` | Left ventricular end-systolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVEDV_mL` | Right ventricular end-diastolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVESV_mL` | Right ventricular end-systolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
-| `LVEF` | LV ejection fraction | Echo / MRI | fraction (not %) | Moderate | YYYY-MM |
+| `EF` | LV ejection fraction | Echo / MRI | fraction (not %) | Moderate | YYYY-MM |
 | `CO_Lmin` | Systemic cardiac output | Fick / thermodilution | L/min | Moderate | YYYY-MM |
+| `CO_comparator` | Model metric used for CO comparison | Modeling metadata | text | Derived | N/A |
+| `CO_uncertainty_Lmin` | Absolute uncertainty assigned to CO target | Modeling metadata | L/min | Derived | N/A |
+
+### Reyna CO comparator note
+
+For Reyna pre-surgery, `CO_Lmin = 3.423 L/min` is a catheter Fick systemic
+flow estimate (`Qs`). The model comparator is therefore `metrics.Qs_Lmin`,
+reported as `metrics.CO_Lmin`, not `LVCO_Lmin`. In unrepaired VSD, LV stroke
+output includes recirculated pulmonary/shunt flow and is expected to align more
+closely with `Qp_Lmin` than with Fick `Qs`.
+
+The Reyna Teichholz LV volumes imply a lower `LVSV*HR` than the Fick/QpQs
+flow pair. This is treated as a clinical target-consistency limitation, not as
+a silent model bug. The calibration target metadata therefore records
+`CO_comparator = Qs_Lmin` and `CO_uncertainty_Lmin = 0.50 L/min` (about 15%).
 
 ---
 
@@ -123,7 +169,7 @@ clinical.post_surgery % measurements after VSD closure
 | `LVESV_mL` | LVESV | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVEDV_mL` | RVEDV (volume unloaded post-op) | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVESV_mL` | RVESV | Echo / MRI | mL | Moderate | YYYY-MM |
-| `LVEF` | LVEF | Echo / MRI | fraction | Moderate | YYYY-MM |
+| `EF` | LV ejection fraction | Echo / MRI | fraction | Moderate | YYYY-MM |
 | `RVEF` | RVEF | Echo / MRI | fraction | Moderate | YYYY-MM |
 | `CO_Lmin` | Systemic cardiac output | Fick / thermodilution | L/min | Moderate | YYYY-MM |
 

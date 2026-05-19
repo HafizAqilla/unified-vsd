@@ -9,7 +9,8 @@ function params = apply_scaling(params_ref, patient)
 % VERSION:  3.0
 % -----------------------------------------------------------------------
 
-params = apply_physiological_scaling(params_ref, patient, 'zhang');
+scaling_mode = resolve_scaling_mode(patient);
+params = apply_physiological_scaling(params_ref, patient, scaling_mode);
 
 if isfield(patient, 'age_days') && ~isnan(patient.age_days)
     age_days = patient.age_days;
@@ -29,9 +30,10 @@ params = reconcile_vascular_v0(params, patient, []);
 params.ic.V = build_initial_conditions(params, patient);
 params.scaling.age_days = age_days;
 params.scaling.maturation_mode = maturation_mode;
+params.scaling.requested_mode = scaling_mode;
 
-fprintf('[apply_scaling] weight=%.1f kg | age=%.0f days | mode=zhang+%s\n', ...
-    patient.weight_kg, age_days, maturation_mode);
+fprintf('[apply_scaling] weight=%.1f kg | age=%.0f days | mode=%s+%s\n', ...
+    patient.weight_kg, age_days, scaling_mode, maturation_mode);
 
 end
 
@@ -111,4 +113,16 @@ for k = 1:numel(field_names)
         return;
     end
 end
+end
+
+% RESOLVE_SCALING_MODE - choose patient-declared or environment scaling mode.
+function scaling_mode = resolve_scaling_mode(patient)
+scaling_mode = getenv('UNIFIED_VSD_SCALING_MODE');
+if isfield(patient, 'scaling_mode') && ~isempty(patient.scaling_mode)
+    scaling_mode = patient.scaling_mode;
+end
+if isempty(scaling_mode)
+    scaling_mode = 'lundquist_bsa';
+end
+scaling_mode = lower(strtrim(char(scaling_mode)));
 end

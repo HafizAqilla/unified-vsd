@@ -34,10 +34,10 @@ clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
 %  COMMON — patient demographics, measured for any scenario
 %% =====================================================================
 clinical.common.age_years  = 3.17;    % [years] 3 years 2 months [cite: 80]
-clinical.common.weight_kg  = 13.4;    % [kg] [cite: 80]
-clinical.common.height_cm  = 95;      % [cm] [cite: 80]
+clinical.common.weight_kg  = 14.0;    % [kg] Keisya anthropometry revision, 2026-05-11
+clinical.common.height_cm  = 98.0;    % [cm] Keisya anthropometry revision, 2026-05-11
 clinical.common.sex        = 0;       % 0 = female, 1 = male — AGENTS.md §3.10
-clinical.common.BSA        = 0.588;   % [m²] [cite: 80]
+clinical.common.BSA        = 0.6173419726; % [m^2] Mosteller: sqrt(14.0 kg * 98.0 cm / 3600)
 clinical.common.HR         = 119;     % [bpm] [cite: 81]
 
 %% =====================================================================
@@ -53,6 +53,7 @@ pre.VSD_diameter_mm   = 3.025;   % [mm] mean RV-side range: (2.35+3.7)/2
 pre.VSD_gradient_mmHg = 69;      % [mmHg] peak systolic gradient: LV 94 - RV 25 (row 9)
 pre.Q_shunt_Lmin      = 0.664;   % [L/min] Qp - Qs = 4.087 - 3.423 (rows 21–22)
 pre.QpQs              = 1.194;   % [-]  protocol row 23
+pre.VSD_mode          = 'orifice_bidirectional'; % [-] geometry/gradient-based shunt mode
 
 % ---- Pulmonary circulation — catheterization (rows 16–18, 3 repeated measures)
 pre.PAP_sys_mmHg      = 20;      % [mmHg] mean of 20/20/20 mmHg
@@ -106,13 +107,16 @@ pre.LVEF              = 0.528;   % [-]  (41.0 - 19.3) / 41.0 — Teichholz EF
 
 % ---- IC override flag -------------------------------------------------
 % Activates pressure-based IC override in params_from_clinical.m.
-% Essential: allometric scaling produces LVEDV < 5 mL at BSA=0.588 m².
+% Essential: allometric scaling alone can under-predict chamber filling at BSA=0.617 m^2.
 % Uses LVEDV/LVESV/RVEDV/RVESV + pressure fields to seed the ODE correctly.
 pre.override_IC       = true;
+pre.CO_comparator     = 'Qs_Lmin'; % [-] Fick CO is compared with model systemic flow Qs
+pre.CO_uncertainty_Lmin = 0.50;    % [L/min] widened because Fick Qs and Teichholz LVSV disagree
 
 % ---- Cardiac output ---------------------------------------------------
 % Clinical catheter Fick gives Qs = 3.423 L/min (systemic venous return).
-% The model computes CO_Lmin = LVSV × HR / 1000 ≈ Qp in a VSD with L→R shunt.
+% The model reports CO_Lmin as Qs. LVCO_Lmin is reported separately as
+% LVSV * HR / 1000 and should approximate Qp in VSD.
 %
 % We calibrate to Qs (3.423) as the CO target because:
 %   - Qs is the direct Fick measurement (highest confidence)
