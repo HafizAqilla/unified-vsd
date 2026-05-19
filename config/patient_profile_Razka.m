@@ -113,7 +113,7 @@ pre.LVEDV_mL          = NaN;    % [mL]     not reported
 pre.LVESV_mL          = NaN;    % [mL]     not reported
 pre.RVEDV_mL          = NaN;    % [mL]     not reported
 pre.RVESV_mL          = NaN;    % [mL]     not reported
-pre.LVEF              = NaN;    % [-]      not reported
+pre.EF                = NaN;    % [-]      not reported
 
 % ---- Cardiac output --------------------------------------------------
 pre.CO_Lmin           = NaN;    % [L/min]  explicitly not measured ("no CO" — procedure log)
