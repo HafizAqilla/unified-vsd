@@ -1,167 +1,305 @@
 # Unified VSD Lumped-Parameter Model
 
-**A cohesive, physically complete 0-D cardiovascular simulation for pre- and post-operative paediatric Ventricular Septal Defect (VSD) analysis.**
+Patient-specific 0-D cardiovascular simulation for pediatric Ventricular
+Septal Defect (VSD) analysis before and after surgical closure.
 
----
+This repository is a scientific MATLAB codebase, not a throwaway script. The
+main model combines a Valenti-style 14-state lumped-parameter circulation,
+time-varying chamber elastance, VSD shunt physiology, evidence-aware clinical
+target handling, and reproducible calibration outputs.
 
-## 📖 Overview
+Last updated: 2026-05-19.
 
-This codebase simulates patient-specific paediatric cardiovascular haemodynamics using a robust **14-state Valenti RLC lumped-parameter model** (Valenti 2023, Eqs. 2.1–2.7). Built for high-reliability medical physics, it manages pre- and post-surgical clinical scenarios from one unified codebase:
+## Current Status
 
-| Scenario | Physics | `R.vsd` | Primary Calibration Targets |
+The current `main` branch includes the latest systemic-flow calibration work.
+The model now produces auditable pre-surgery and post-surgery run folders with
+clinical consistency checks, parameter plausibility tables, baseline provenance,
+candidate snapshots, and validation reports.
+
+Scientific interpretation remains important:
+
+- The model is physiologically meaningful and reproducible.
+- The main remaining bottleneck is simultaneous patient-specific matching of
+  systemic flow, systemic pressure, vascular resistance, and chamber volumes.
+- For unrepaired VSD, clinical cardiac output is treated as systemic flow
+  (`Qs_Lmin`) rather than raw LV outflow (`LVCO_Lmin`).
+- Derived quantities such as EF, SVR, Qp/Qs, and stroke volumes are audited so
+  they are not silently double-counted as independent measurements.
+
+## Latest Changes On Main
+
+- Added a centralized parameter registry in `config/build_parameter_registry.m`
+  with scenario-aware bounds, units, source notes, and plausibility anchors.
+- Added baseline provenance export through
+  `config/build_baseline_provenance.m` and `scripts/audit_baseline_provenance.m`.
+- Added evidence-aware case profiles in
+  `src/calibration/build_case_calibration_profile.m`, including `full_data`,
+  `sparse_cath`, and `synthetic_benchmark` governance paths.
+- Added target-tier handling in `src/calibration/build_target_tiers.m` so direct
+  measurements, derived consistency checks, and excluded targets are explicit.
+- Added clinical consistency audits in `src/validation/`, including stroke
+  volume, flow, pressure, and target availability checks.
+- Added vascular R-C coupling helpers so coupled resistance/compliance movement
+  is tracked and penalized more defensibly during calibration.
+- Added parameter plausibility scoring and calibration classification through
+  `src/calibration/evaluate_parameter_plausibility.m` and
+  `src/calibration/classify_calibration_run.m`.
+- Added best, scientific, and accepted candidate snapshots to `main_run.m`.
+  Conservative rollback behavior is now visible instead of hiding strong
+  but rejected candidates.
+- Added age-validity and scaling annotations, including `lundquist_bsa` as the
+  preferred pediatric scaling mode and `zhang` as a comparator.
+- Added post-surgery warm-start support through
+  `src/utils/apply_post_surgery_warm_start.m` and `run_post_surgery.m`.
+- Added focused Reyna analysis scripts for uncertainty, targeted polish,
+  pressure-flow grid polish, local sensitivity, and systemic-output audits.
+- Added regression and governance tests for parameter registry, plausibility,
+  target tiers, scaling modes, vascular R-C coupling, post-surgery warm start,
+  and Reyna systemic-flow profile behavior.
+- Route generated outputs into per-run archives under
+  `results/runs/<timestamp>_<patient>_<scenario>/`.
+- Ignore generated `results/` artifacts, MATLAB logs, and LaTeX helper files so
+  GitHub keeps code and documentation instead of large run dumps.
+
+## Scenarios
+
+| Scenario | Physiology | VSD handling | Primary use |
 |---|---|---|---|
-| `pre_surgery` | Full VSD shunt active | Computed from clinical gradient/orifice via Ohm's law | Qp/Qs, PAP_mean, PVR, LVEDV, LVESV, LVEF |
-| `post_surgery` | Shunt closed (`R.vsd → ∞`) | Fixed rigidly at 10⁶ mmHg·s/mL | SAP, MAP, SVR, LVEF, RVEF, chamber volumes |
+| `pre_surgery` | Unrepaired VSD circulation | Active shunt resistance and Qp/Qs accounting | Fit pre-operative catheter/echo targets and evaluate systemic-flow consistency |
+| `post_surgery` | Closed VSD / repair state | `R.vsd` closed numerically and optionally warm-started from pre-op fit | Evaluate post-operative hemodynamics from a pre-op calibrated seed |
 
-## ✨ Key Features
+## Requirements
 
-- **14-State RLC Physics Engine**: Covers time-varying elastances in 4 cardiac chambers, advanced systemic/pulmonary circuitry, and piecewise VSD modeling.
-- **Pediatric Allometric Scaling**: Employs Lundquist-informed volume adjustments to effectively scale baseline references across variable infant body surface areas (BSA).
-- **Expanded Parameter Calibration (Latest Upgrade)**: `pre_surgery` modeling now relies on a highly rigorous **11-parameter phase** bounds-constrained refinement.
-- **Global Sensitivity Analysis (GSA)**: Includes comprehensive Saltelli / Jansen Sobol implementations mapped across parameters.
-- **Strict Scientific Guardrails**: Ensures adherence to strict medical physics reproducibility standards (see [AGENTS.md](AGENTS.md)).
+Core runs require MATLAB and the Optimization Toolbox.
 
----
+Optional GSA/PCE workflows use external uncertainty/sensitivity tooling such as
+UQLab or SoBioS. Those packages are not committed to this repository. Keep
+licensed toolboxes outside Git, for example under a local `Toolbox/` directory.
 
-## 🚀 Getting Started
+## Quick Start
 
-### 1. Prerequisites and Setup
-The codebase runs seamlessly on modern **MATLAB** distributions. To utilize the Global Sensitivity Analysis (GSA) tools effectively, please manually install the following toolboxes:
-
-- **UQLab** (Release 2.2.0 or later): Framework for uncertainty quantification.
-- **SoBioS**: Surrogate-based optimization and sensitivity analysis toolbox.
-
-*(Note: These dependencies are not tracked in the repository due to licensing and size footprint. Place them in your corresponding `Toolbox/` paths or adjust the mappings inside `main_run.m`)*
-
-### 2. Execution Guide
-
-To simulate scenarios, edit or leverage the main runner script:
+From MATLAB:
 
 ```matlab
-% 0. Add everything to path (run once per MATLAB session)
-addpath(genpath('D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd'));
+cd('D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd')
+addpath(genpath(pwd))
 
-% 1. Load a patient profile 
-clinical = patient_profile_A();   % Profile A: 1.6-month high-flow infant
-clinical = patient_profile_B();   % Profile B: older infant, high-pressure
-% clinical = patient_template();  % Utilize this blank template structure for novel patients
+setenv('UNIFIED_VSD_DO_GSA', '0')       % faster first run
+setenv('UNIFIED_VSD_DO_PLOTS', '1')
+setenv('UNIFIED_VSD_DO_OVERLAY', '1')
 
-% 2. Run the desired scenario
-main_run('pre_surgery',  clinical)
-main_run('post_surgery', clinical)
-
-% 3. Run virtual patient sweep (both profiles, both scenarios)
-run_virtual_patients()
+clinical = patient_template();          % fill fields before scientific use
+main_run('pre_surgery', clinical)
 ```
 
-You can toggle simulation behaviors directly inside `main_run.m`:
+Run an existing profile:
+
 ```matlab
-DO_CALIBRATION = true; % Optimized for recent 11-dimension refinements
-DO_GSA         = false;
-DO_PLOTS       = true;
+clinical = patient_reyna();
+main_run('pre_surgery', clinical)
 ```
 
----
+Run the post-surgery handoff after a pre-surgery seed exists:
 
-## ⚙️ Under The Hood: The Calibration Engine
-
-Calibration employs a **two-phase approach** combining deterministic physics-based initialisation with a multi-start bounded optimisation.
-
-### Phase 0: Deterministic Mapping
-`utils/params_from_clinical.m` maps 28 detailed patient clinical inputs directly to fundamental model parameters before simulating. Utilizing Ohm's law and basic mass conservation, it secures a pre-conditioned starting state mathematically verified to generally sit right around ±15% of all clinical targets sans optimization.
-
-### Phase 1: Two-Stage Bounded L-BFGS Optimisation
-
-`run_calibration.m` refines the Phase 0 mapping using **`fmincon` interior-point with an L-BFGS Hessian approximation**. The active parameter subset is screened first via Sobol total-order indices (GSA). `calibration_param_sets.m` tracks **11 separate physical constants** concurrently in `pre_surgery`:
-
-1. `R.SAR` & `R.SVEN`: Systemic arterial and venous resistance
-2. `R.PAR` & `R.PVEN`: Pulmonary arterial and venous resistance
-3. `C.SVEN`: Systemic venous compliance
-4. `E.LV.EA` & `E.LV.EB`: Left ventricular active and passive elastance
-5. `E.RV.EA`: Right ventricular active elastance
-6. `V0.LV` & `V0.RV`: Left and right ventricular unstressed volume
-7. `R.vsd`: VSD shunt resistance
-
-**Solver Profile:**
-
-- **Stage 1** — single start from the analytical baseline with soft L2 regularisation (`λ = 0.005`). `MaxFunctionEvaluations = 4000`.
-- **Stage 2** — three diverse restarts (lower-quartile, upper-quartile, uniform random within bounds) without regularisation. `MaxFunctionEvaluations = 2000` each. Best solution across all starts is kept.
-
----
-
-## 🧪 Global Sensitivity Analysis (GSA)
-
-`gsa_sobol_setup.m` + `gsa_run_sobol.m` handles our Sobol (Saltelli/Jansen) variance analysis, outputting sensitivity matrices aligned differently with core targets per operation tier:
-- **Pre-surgery:** Qp/Qs, PAP_mean, PVR
-- **Post-surgery:** LVEF, SAP_mean, SVR
-
----
-
-## 📂 Project Architecture
-
+```matlab
+run run_post_surgery
 ```
+
+## Useful Environment Flags
+
+| Variable | Effect |
+|---|---|
+| `UNIFIED_VSD_DO_GSA` | `0` disables GSA for faster runs; `1` enables GSA/PCE passes |
+| `UNIFIED_VSD_DO_PLOTS` | `0` disables figure generation; `1` enables figures |
+| `UNIFIED_VSD_DO_OVERLAY` | `0` disables overlay figures; `1` enables overlays |
+| `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` |
+| `UNIFIED_VSD_FAST_CALIBRATION` | Enables shorter calibration settings for triage |
+| `UNIFIED_VSD_FMINCON_PARALLEL` | Enables parallel fmincon behavior when appropriate |
+| `UNIFIED_VSD_USE_PARPOOL` | Allows `main_run.m` to start a MATLAB parallel pool |
+| `UNIFIED_VSD_MAX_FUN_EVALS` | Overrides calibration function-evaluation budget |
+| `UNIFIED_VSD_MAX_ITERATIONS` | Overrides calibration iteration budget |
+
+## Common Workflows
+
+Fast no-plot regression sweep:
+
+```matlab
+run_quick_regression_suite
+```
+
+Audit baseline parameter provenance:
+
+```matlab
+audit_baseline_provenance
+```
+
+Compare pediatric scaling modes:
+
+```matlab
+run scripts/compare_scaling_modes.m
+```
+
+Run Reyna-focused polish or sensitivity helpers after a candidate package
+exists:
+
+```matlab
+run_reyna_best_fit_search
+run_reyna_15pct_gate_polish
+run_reyna_targeted_grid_polish
+run_reyna_pressure_flow_grid_polish
+scan_reyna_gate_local_sensitivity
+scan_reyna_targeted_sensitivity
+run_reyna_uncertainty_ensemble
+```
+
+Run the cohort triage helper only after adding an authorized local
+`patient_cohort_cases.m` manifest:
+
+```matlab
+run_patient_cohort_fast_pipeline
+```
+
+## Output Layout
+
+Each `main_run` creates a self-contained archive:
+
+```text
+results/runs/<timestamp>_<patient>_<scenario>/
+  figures/       publication-oriented plots
+  gsa/           PCE/GSA checkpoints and summaries
+  logs/          console diary
+  mat/           parameter packages and run packages
+  tables/        validation, plausibility, target, and audit tables
+  run_manifest.txt
+```
+
+Important generated files include:
+
+- `mat/params_best_candidate_<scenario>.mat`
+- `mat/params_scientific_candidate_<scenario>.mat`
+- `mat/params_accepted_candidate_<scenario>.mat`
+- `mat/pre_to_post_seed_latest.mat` for pre-to-post handoff
+- `tables/validation_best_candidate_<scenario>.csv`
+- `tables/validation_accepted_candidate_<scenario>.csv`
+- `tables/parameter_plausibility_<scenario>.csv`
+- `tables/baseline_provenance_<scenario>.csv`
+- `tables/clinical_consistency_*.csv`
+- `tables/co_definition_audit_<scenario>.csv`
+- `run_manifest.txt`
+
+`results/` is intentionally ignored by Git. Commit code, documentation, and
+figure-generation logic; do not commit regenerated run dumps or patient data
+without documented authorization.
+
+## Calibration And Validation Design
+
+The current calibration pipeline is structured around reproducibility and
+physiological review:
+
+1. Load reference parameters from `config/default_parameters.m`.
+2. Build baseline provenance from `config/build_baseline_provenance.m`.
+3. Apply pediatric scaling with `src/utils/apply_scaling.m`.
+4. Build a case profile from the available clinical evidence.
+5. Map clinical values into seeded model parameters with
+   `src/utils/params_from_clinical.m`.
+6. Build the active parameter vector and bounds from the registry.
+7. Run calibration with target-tier weights, plausibility penalties, and
+   optional GSA-informed masks.
+8. Simulate best and accepted candidates.
+9. Export validation, clinical consistency, CO-definition, plausibility,
+   baseline provenance, and manifest records.
+
+The accepted candidate may roll back to baseline or another conservative state
+when a lower-RMSE solution violates physiological or plausibility gates. The
+best candidate remains saved for scientific inspection.
+
+## Project Layout
+
+```text
 unified_vsd/
-├── main_run.m                    ← Scenario entry point (configuration toggles inside).
-├── run_virtual_patients.m        ← Batch runner: handles comprehensive profile sweeps.
-├── README.md                     ← Standard project orientation.
-├── AGENTS.md                     ← Strict modeling guardrails and standardization laws.
-│
-├── config/                       ← Clinical profiles, default references, and patient templates.
-├── models/                       ← Base physical rules: 14-state ODE, elastance limits, valve modeling.
-├── solvers/                      ← Main simulation drivers (`ode15s` integrations, convergence bounds).
-├── utils/                        ← Allometric sizing, structural determinism, plotting wrappers.
-├── calibration/                  ← Core parameter mapping sets, cost definitions, optimization logic.
-├── gsa/                          ← Sobol execution environments and summary visualizations.
-├── tests/                        ← Core health verifications against physiological limits.
-├── results/                      ← Un-tracked raw matrix outputs safely separated from vector figures.
-└── docs/                         ← Underlying mathematical schemas and nomenclature structures.
+  main_run.m                         main pre/post scenario runner
+  run_post_surgery.m                 post-op handoff runner
+  run_patient_case.m                 patient batch entry point
+  config/                            reference params, profiles, registries
+  src/models/                        ODE RHS, elastance, valves, VSD shunt
+  src/solvers/                       integration wrapper
+  src/utils/                         scaling, ICs, indices, plotting, reports
+  src/calibration/                   calibration profiles, bounds, objectives
+  src/gsa/                           Sobol/PCE sensitivity helpers
+  src/validation/                    clinical data and consistency audits
+  scripts/                           operational audits and experiment runners
+  tests/                             regression and governance checks
+  docs/                              theory, data dictionary, decision memos
+  results/                           generated output; ignored by Git
 ```
 
----
+## Recommended Checks Before Sharing Results
 
-## 🔧 Numerical Reference Bounds
-
-| Setting | Baseline / Validation | Calibration Context |
-|---|---|---|
-| `nCyclesSteady` | **80** (Crucial mapping limit for high-flow VSD) | 40 (Fast mapping override) |
-| `ss_tol_P` | **0.1 mmHg** | 0.5 mmHg |
-| `ss_tol_V` | **0.1 mL** | 0.5 mL |
-| `rtol` / `atol` | 1e-7 / 1e-8 | same |
-| Integrator | `ode15s` (Stiff setup, BDF) | same |
-| Execution timing | ~30–40 s | ~3–4 s |
-
----
-
-## ✅ Quality Standards & Testing
-
-Always execute the testing suite prior to developing any patient's specific profile or injecting code (see AGENTS.md §10.1):
+Run the focused governance tests after calibration logic changes:
 
 ```matlab
-addpath(genpath('D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd'));
+run('tests/test_parameter_registry.m')
+run('tests/test_parameter_plausibility.m')
+run('tests/test_clinical_consistency_target_tiers.m')
+run('tests/test_reyna_systemic_flow_profile.m')
+run('tests/test_vascular_rc_coupling.m')
+run('tests/test_scaling_modes.m')
+run('tests/test_post_surgery_warm_start.m')
+```
+
+Run the classic physiology checks when touching model dynamics:
+
+```matlab
 run('tests/test_baseline.m')
 run('tests/test_valve_logic.m')
 run('tests/test_ic_perturbation.m')
+run('tests/test_vsd_modes.m')
 ```
 
----
+For broad smoke testing:
 
-## 👥 Authors 
+```matlab
+run_quick_regression_suite
+```
 
-| Contributor | Focus Areas |
-|---|---|
-| **Hafiz** | Lundquist allometric scaling, patient IC formulas, baseline structural determinism. |
-| **Keisya** | Valenti 14-state model mapping, Sobol GSA integrations. |
-| **Joint** | 11-Parameter Multi-Dimensional Calibration Engine, architecture management, clinical abstractions. |
+## Patient Data Policy
 
-*Last Updated: April 2026*
+Patient-specific profiles and clinical records must be handled deliberately.
+The template file is safe to version:
 
----
+```text
+config/patient_template.m
+```
 
-## 📚 References
+Real clinical files, raw patient records, large `.mat` outputs, and generated
+run archives must not be committed without documented authorization. See
+`AGENTS.md` and `docs/clinical_data_dictionary.md` for the project rules.
 
-1. **Valenti (2023).** *Thesis: Full-order 0D cardiovascular model*. Table 3.3, Eqs. 2.1–2.7.
-2. **Lundquist et al. (2025).** *Patient-Specific Pediatric Cardiovascular Lumped Parameter Modeling*. ASAIO J.
-3. **Saltelli et al. (2010).** *Variance based sensitivity analysis of model output*. CPC 181:259–270.
-4. **Jansen (1999).** *Analysis of variance designs for model output*. CPC 117:35–43.
-5. **Byrd, Lu, Nocedal (1995).** *A Limited Memory Algorithm for Bound Constrained Optimization*. SIAM J. Scientific Computing 16(5). (L-BFGS algorithm used by fmincon)
-6. **Gorlin R & Gorlin SG (1951).** *Hydraulic formula for valve area*. Am Heart J 41(1):1–29.
+## Key Documentation
+
+- `AGENTS.md` - MATLAB/physiology coding guardrails.
+- `docs/theory_notes.md` - governing equations and assumptions.
+- `docs/clinical_data_dictionary.md` - clinical field mapping.
+- `docs/calibration_data_governance_notes.md` - target-tier policy.
+- `docs/pak_dipo_co_objective_memo.md` - CO/Qs interpretation.
+- `docs/reyna_pak_dipo_systemic_flow_revision.md` - Reyna systemic-flow notes.
+- `docs/model_progress_bounds_and_results_20260512.md` - latest progress memo.
+- `docs/scaling_method_comparison.md` - Zhang vs Lundquist workflow notes.
+- `docs/zhang_vs_lundquist_audit_20260516.md` - scaling audit.
+- `docs/zhang_vs_lundquist_target_values_20260516.md` - target comparison.
+
+## References
+
+1. Valenti (2023). Full-order 0-D cardiovascular model thesis, Table 3.3 and
+   Eqs. 2.1-2.7.
+2. Lundquist et al. (2025). Patient-specific pediatric cardiovascular lumped
+   parameter modeling. ASAIO Journal.
+3. Saltelli et al. (2010). Variance based sensitivity analysis of model output.
+   Computer Physics Communications, 181, 259-270.
+4. Jansen (1999). Analysis of variance designs for model output. Computer
+   Physics Communications, 117, 35-43.
+5. Byrd, Lu, and Nocedal (1995). A limited memory algorithm for bound
+   constrained optimization. SIAM Journal on Scientific Computing, 16(5).
+6. Gorlin and Gorlin (1951). Hydraulic formula for valve area. American Heart
+   Journal, 41(1), 1-29.
