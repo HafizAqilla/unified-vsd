@@ -12,18 +12,24 @@
 %   3. All-below-threshold input still activates one parameter (safety).
 %   4. Invalid threshold raises an error.
 %   5. Mask-size mismatch in calibration_param_sets raises an error.
+%   6. Sparse case profile restricts the active parameter set.
+%   7. Sparse cath governance keeps only representative vascular knobs.
 %
 % USAGE:
 %   >> test_optimization_mask
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-03-16
-% VERSION:  1.0
+% DATE:     2026-05-05
+% VERSION:  1.1
 % =========================================================================
 
 clear; clc;
 root = fileparts(mfilename('fullpath'));
-addpath(genpath(fullfile(root, '..')));
+project_root = fullfile(root, '..');
+addpath(genpath(project_root));
+addpath(fullfile(project_root, 'src', 'utils'), '-begin');
+addpath(fullfile(project_root, 'src', 'calibration'), '-begin');
+addpath(fullfile(project_root, 'config'), '-begin');
 
 fprintf('==========================================\n');
 fprintf('  UNIFIED VSD MODEL - Optimization Mask Test\n');
@@ -101,6 +107,41 @@ if threw_5
     n_pass = n_pass + 1;
 else
     fprintf('  [FAIL] Mask-size mismatch did not throw an error.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 6: Sparse cath profile restricts active parameters
+fprintf('--- Test 6: Sparse cath case-profile restriction ---\n');
+params0 = default_parameters();
+calib_sparse = calibration_param_sets('pre_surgery', params0);
+profile_sparse = struct();
+profile_sparse.allowedFreeParameters = {'R.SAR','R.PAR','R.vsd'};
+ST_sparse = ones(numel(calib_sparse.names_all), 1);
+mask_6 = create_optimization_mask(ST_sparse, 0.10, calib_sparse.names_all, profile_sparse);
+active_6 = calib_sparse.names_all(mask_6);
+if all(ismember(active_6, profile_sparse.allowedFreeParameters)) && ...
+        all(ismember(profile_sparse.allowedFreeParameters, active_6'))
+    fprintf('  [PASS] Case profile restricts active parameters to supported names.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Case profile restriction mismatch.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 7: Sparse cath governance reflects Batch B identifiability recommendations
+fprintf('--- Test 7: Sparse cath governance representative knobs ---\n');
+clinical_sparse = patient_profile_Razka();
+profile_sparse_real = build_case_calibration_profile(clinical_sparse, 'pre_surgery');
+expected_free = {'group.R_sys_scale','R.SVEN','group.R_pul_scale','R.vsd','vsd.Cd'};
+forbidden_free = {'R.SAR','R.SC','R.PAR','R.PCOX','R.PVEN', ...
+    'C.SAR','C.SVEN','C.PAR','C.PVEN','E.LV.EA','V0.LV'};
+if strcmp(profile_sparse_real.mode, 'sparse_cath') && ...
+        all(ismember(expected_free, profile_sparse_real.allowedFreeParameters)) && ...
+        ~any(ismember(forbidden_free, profile_sparse_real.allowedFreeParameters))
+    fprintf('  [PASS] Sparse cath profile uses grouped vascular scales for weak serial beds.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Sparse cath profile does not match Batch B governance.\n');
     n_fail = n_fail + 1;
 end
 

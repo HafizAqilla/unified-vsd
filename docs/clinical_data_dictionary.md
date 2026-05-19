@@ -53,10 +53,19 @@ clinical.post_surgery % measurements after VSD closure
 | `BSA` | Body surface area | Mosteller formula | m² | Derived | YYYY-MM |
 | `HR` | Resting heart rate | ECG / pulse ox | bpm | High | YYYY-MM |
 
-### Reyna anthropometry revision
+### Reyna anthropometry note
 
-For Reyna, Keisya's 2026-05-11 anthropometry revision is now the active
-baseline-scaling source:
+The active Reyna patient file follows the raw protocol anthropometry so the
+main case remains strictly patient-specific:
+
+```text
+weight_kg = 13.4
+height_cm = 95.0
+BSA = 0.588 m^2
+```
+
+Keisya's 2026-05-11 anthropometry revision was tested as an alternate
+baseline-scaling experiment:
 
 ```text
 weight_kg = 14.0
@@ -92,6 +101,11 @@ reference.
 | `PAP_mean_mmHg` | Mean pulmonary artery pressure (mPAP) | RHC | mmHg | High | YYYY-MM |
 | `PVR_WU` | Pulmonary vascular resistance | RHC / Fick | Wood units | Moderate | YYYY-MM |
 
+For Reyna pre-surgery, the active calibration target uses `PAP_mean_mmHg`
+only. `PAP_sys_mmHg` and `PAP_dia_mmHg` are intentionally stored as `NaN` in
+`config/patient_reyna.m` so the optimizer does not spend leverage matching a
+pulmonary waveform shape that is less reliable than the mean pressure.
+
 ### Systemic haemodynamics
 
 | MATLAB field | Clinical term | Source | Unit | Reliability | Date |
@@ -116,7 +130,7 @@ reference.
 | `LVESV_mL` | Left ventricular end-systolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVEDV_mL` | Right ventricular end-diastolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVESV_mL` | Right ventricular end-systolic volume | Echo / MRI | mL | Moderate | YYYY-MM |
-| `LVEF` | LV ejection fraction | Echo / MRI | fraction (not %) | Moderate | YYYY-MM |
+| `EF` | LV ejection fraction | Echo / MRI | fraction (not %) | Moderate | YYYY-MM |
 | `CO_Lmin` | Systemic cardiac output | Fick / thermodilution | L/min | Moderate | YYYY-MM |
 | `CO_comparator` | Model metric used for CO comparison | Modeling metadata | text | Derived | N/A |
 | `CO_uncertainty_Lmin` | Absolute uncertainty assigned to CO target | Modeling metadata | L/min | Derived | N/A |
@@ -155,7 +169,7 @@ a silent model bug. The calibration target metadata therefore records
 | `LVESV_mL` | LVESV | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVEDV_mL` | RVEDV (volume unloaded post-op) | Echo / MRI | mL | Moderate | YYYY-MM |
 | `RVESV_mL` | RVESV | Echo / MRI | mL | Moderate | YYYY-MM |
-| `LVEF` | LVEF | Echo / MRI | fraction | Moderate | YYYY-MM |
+| `EF` | LV ejection fraction | Echo / MRI | fraction | Moderate | YYYY-MM |
 | `RVEF` | RVEF | Echo / MRI | fraction | Moderate | YYYY-MM |
 | `CO_Lmin` | Systemic cardiac output | Fick / thermodilution | L/min | Moderate | YYYY-MM |
 

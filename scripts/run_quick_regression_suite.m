@@ -13,7 +13,7 @@ function run_quick_regression_suite()
 % -----------------------------------------------------------------------
 
 root = fileparts(fileparts(mfilename('fullpath')));
-addpath(genpath(root));
+addpath(build_clean_project_path(root));
 
 setenv('UNIFIED_VSD_DO_PLOTS', '0');
 setenv('UNIFIED_VSD_DO_OVERLAY', '0');
@@ -31,6 +31,17 @@ for i = 1:size(cases, 1)
     fprintf('\n[run_quick_regression_suite] Case %d/%d: %s (%s)\n', ...
         i, size(cases, 1), resolve_case_label(clinical), scenario);
     main_run(scenario, clinical);
+end
+
+function project_path = build_clean_project_path(root)
+% BUILD_CLEAN_PROJECT_PATH — exclude shadow worktrees from regression runs.
+root_paths = strsplit(genpath(root), pathsep);
+root_paths = root_paths(~cellfun('isempty', root_paths));
+is_shadow = contains(root_paths, [filesep '.claude' filesep], 'IgnoreCase', true) | ...
+            contains(root_paths, [filesep '.clone' filesep], 'IgnoreCase', true) | ...
+            contains(root_paths, [filesep '.git' filesep], 'IgnoreCase', true);
+is_existing = cellfun(@isfolder, root_paths);
+project_path = strjoin(root_paths(~is_shadow & is_existing), pathsep);
 end
 end
 

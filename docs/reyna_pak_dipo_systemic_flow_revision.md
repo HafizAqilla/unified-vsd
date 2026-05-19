@@ -1,25 +1,30 @@
 # Reyna Pak Dipo Systemic-Flow Revision
 
-Date: 2026-05-11  
-Case: Reyna pre-surgery VSD calibration  
-Best pre-BSA-revision scientific run: `results/runs/20260510_225025_reyna_pre_surgery`  
+Date: 2026-05-11
+Case: Reyna pre-surgery VSD calibration
+Best pre-BSA-revision scientific run: `results/runs/20260510_225025_reyna_pre_surgery`
 Corrected-BSA test run: `results/runs/20260511_134027_reyna_pre_surgery`
+Current raw-PDF/PAP-mean-only run: `results/runs/20260511_203930_reyna_pre_surgery`
 
-## Keisya Anthropometry Update
+## Anthropometry Decision
 
-After the best scientific run above, Keisya provided a corrected Reyna
-anthropometry baseline:
+The active Reyna patient file now follows the raw protocol anthropometry so the
+main case remains strictly patient-specific:
+
+```text
+weight_kg = 13.4
+height_cm = 95.0
+BSA = 0.588 m^2
+```
+
+Keisya's 2026-05-11 anthropometry revision remains documented as an alternate
+baseline-scaling experiment:
 
 ```text
 weight_kg = 14.0
 height_cm = 98.0
 BSA = sqrt(14.0 * 98.0 / 3600) = 0.6173419726 m^2
 ```
-
-This is now the active value in `config/patient_reyna.m`. The best run
-documented below used the older `BSA = 0.588 m^2`, so the next run should be
-interpreted as a baseline-scaling revision, not as an objective-function tuning
-change.
 
 Corrected-BSA run outcome:
 
@@ -34,6 +39,40 @@ Corrected-BSA run outcome:
 The corrected BSA moved the scientific candidate in the right direction but did
 not by itself reach the target `RMSE < 0.10`. The candidate is still rejected by
 the strict gate, mainly because `RAP_mean` and `SAP_mean` remain outside 5%.
+
+The subsequent raw-PDF/PAP-mean-only run confirmed the remaining bottleneck:
+systemic preload-flow-volume consistency, especially `CO_Lmin`, `SVR`,
+`SAP_mean`, `RAP_mean`, `RVEDV`, `LVESV`, and `LVEF`.
+
+Targeted systemic-flow polish run outcome:
+
+| Quantity | Raw-PDF/PAP-mean-only run | Targeted systemic polish |
+|---|---:|---:|
+| Run folder | `20260511_203930_reyna_pre_surgery` | `20260511_223816_reyna_pre_surgery` |
+| Baseline RMSE | 0.2699 | 0.2699 |
+| Best scientific RMSE | 0.1702 | 0.1287 |
+| Scientific improvement vs baseline | 36.9% | 52.3% |
+| Operational status | REJECT / rollback | REJECT / rollback |
+
+The targeted run improved the intended bottleneck family without reintroducing
+PAP systolic/diastolic waveform targets. Best-candidate errors moved as follows:
+
+| Metric | Previous error % | Targeted error % |
+|---|---:|---:|
+| `CO_Lmin` | -24.49 | -18.17 |
+| `SVR` | +17.92 | +7.30 |
+| `SAP_mean` | -11.39 | -10.86 |
+| `RAP_mean` | -17.17 | +6.86 |
+| `LVESV` | -26.93 | -14.69 |
+| `LVEF` | +19.03 | +15.45 |
+| `RVEDV` | +20.98 | +24.85 |
+
+The remaining rejection is not primarily a pulmonary issue. It reflects an
+unresolved systemic output and chamber-volume trade-off: `CO_Lmin` is still low
+while `RVEDV` remains high and several active parameters sit near plausible
+bounds. Further RMSE improvement should therefore be treated as a model
+identifiability/preload-representation problem, not just another weight-tuning
+problem.
 
 ## Purpose
 
@@ -209,16 +248,16 @@ The candidate should be presented carefully because several clinically relevant 
 | `LVESV` | 14.93 | LV end-systolic volume is low |
 | `RAP_mean` | 13.96 | Right atrial mean pressure is low |
 
-For publication-quality calibration, the next refinement should be targeted, not broad. The next target set should remain:
+For publication-quality calibration, the next refinement should be targeted, not broad. The active target set is now:
 
 ```text
-CO_Lmin, SVR, RVEDV, LVESV, LVEF, RAP_mean, SAP_max
+CO_Lmin, SVR, SAP_mean, RAP_mean, RVEDV, LVESV, LVEF
 ```
 
-However, any further improvement should preserve the current good matches for:
+Pulmonary waveform polishing is intentionally reduced. The preserved pulmonary/shunt targets are:
 
 ```text
-PAP_max, PAP_mean, SAP_mean, QpQs
+PAP_mean, QpQs
 ```
 
 ## Publication Readiness
@@ -249,7 +288,7 @@ Recommended guardrails for the next run:
 - Keep the systemic quartet coupled.
 - Penalize low systemic flow without allowing SVR inflation.
 - Penalize RVEDV overshoot and LVESV/LVEF mismatch together.
-- Preserve the current primary-pass metrics: `PAP_max`, `PAP_mean`, `SAP_mean`, and `QpQs`.
+- Preserve `PAP_mean` and `QpQs` while prioritizing systemic flow recovery.
 - Reject candidates that improve RMSE only by pushing active parameters closer to implausible bounds.
 
 ## Reproducibility Artifacts

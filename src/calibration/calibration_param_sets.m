@@ -1,11 +1,11 @@
-function calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics)
+function calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics, caseProfile, registryContext)
 % CALIBRATION_PARAM_SETS
 % -----------------------------------------------------------------------
 % Returns staged calibration configuration for pediatric VSD fitting.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-04-28
-% VERSION:  2.0
+% DATE:     2026-05-07
+% VERSION:  3.0
 % -----------------------------------------------------------------------
 
 if nargin < 3 || isempty(optMask)
@@ -13,6 +13,12 @@ if nargin < 3 || isempty(optMask)
 end
 if nargin < 4 || isempty(primaryMetrics)
     primaryMetrics = {};
+end
+if nargin < 5 || isempty(caseProfile)
+    caseProfile = struct();
+end
+if nargin < 6 || isempty(registryContext)
+    registryContext = struct();
 end
 if ischar(primaryMetrics)
     primaryMetrics = {primaryMetrics};
@@ -27,6 +33,14 @@ calib.secondaryTarget = params0.calibration.secondary_target_pct / 100;
 calib.secondaryLambda = params0.calibration.secondary_lambda;
 calib.invalidPenaltyScale = params0.calibration.invalid_penalty_scale;
 calib.regLambda = 0;
+calib.paramPlausibilityLambda = 0.5;
+calib.boundaryPlausibilityLambda = 20.0;
+calib.caseProfile = caseProfile;
+if isfield(caseProfile, 'targetTiers')
+    calib.targetTiers = caseProfile.targetTiers;
+else
+    calib.targetTiers = struct();
+end
 
 switch scenario
     case 'pre_surgery'
@@ -38,9 +52,7 @@ switch scenario
             'R.PCOX'
             'R.PVEN'
             'C.SAR'
-            'C.SVEN'
             'C.PAR'
-            'C.PVEN'
             'E.LV.EA'
             'E.LV.EB'
             'E.RV.EA'
@@ -71,8 +83,7 @@ switch scenario
             'LVEF'
             'RVEF'
             };
-        calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN', ...
-                      'C.SAR','C.SVEN','C.PAR','C.PVEN','R.vsd'};
+        calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN','C.SAR','C.PAR','R.vsd'};
         calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_min','SAP_max','SAP_mean', ...
             'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
         calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','E.LA.EA','E.RA.EA','V0.LV','V0.RV'};
@@ -94,9 +105,7 @@ switch scenario
             'R.PCOX'
             'R.PVEN'
             'C.SAR'
-            'C.SVEN'
             'C.PAR'
-            'C.PVEN'
             'E.LV.EA'
             'E.LV.EB'
             'E.RV.EA'
@@ -119,8 +128,7 @@ switch scenario
             'LVEF'
             'RVEF'
             };
-        calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN', ...
-                      'C.SAR','C.SVEN','C.PAR','C.PVEN'};
+        calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN','C.SAR','C.PAR'};
         calib.stageA.metricFields = {'RAP_mean','SAP_min','SAP_max','SAP_mean', ...
             'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
         calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
@@ -131,10 +139,29 @@ switch scenario
             'scenario must be ''pre_surgery'' or ''post_surgery''.');
 end
 
-calib.weights = make_metric_weights(calib.metricFields, calib.primaryMetrics);
-
-calib.x0_all = pack_x(params0, calib.names_all);
-[calib.lb_all, calib.ub_all] = bounds_from_names(params0, calib.names_all, scenario);
+calib = apply_case_profile_coupling(calib, caseProfile);
+calib = apply_case_profile_metrics(calib, caseProfile);
+if isfield(caseProfile, 'regLambda') && isfinite(caseProfile.regLambda)
+    calib.regLambda = caseProfile.regLambda;
+end
+if isfield(caseProfile, 'paramPlausibilityLambdaScale') && ...
+        isfinite(caseProfile.paramPlausibilityLambdaScale)
+    calib.paramPlausibilityLambda = calib.paramPlausibilityLambda * ...
+        caseProfile.paramPlausibilityLambdaScale;
+end
+if isfield(caseProfile, 'boundaryPlausibilityLambdaScale') && ...
+        isfinite(caseProfile.boundaryPlausibilityLambdaScale)
+    calib.boundaryPlausibilityLambda = calib.boundaryPlausibilityLambda * ...
+        caseProfile.boundaryPlausibilityLambdaScale;
+end
+calib.primaryMetrics = intersect(calib.primaryMetrics, calib.metricFields, 'stable');
+calib.weights = make_metric_weights(calib.metricFields, calib.primaryMetrics, caseProfile);
+calib.referenceParams = resolve_group_reference_params(params0, registryContext);
+calib.registryContext = registryContext;
+calib.parameterRegistry = build_registry(params0, scenario, caseProfile, calib.names_all, registryContext);
+validate_bounds(calib.parameterRegistry, scenario);
+[calib.x0_all, calib.lb_all, calib.ub_all, calib.names_all, calib.parameterRegistry] = ...
+    build_calibration_vector(calib.parameterRegistry, calib.names_all);
 
 if isempty(optMask)
     optMask = true(numel(calib.names_all), 1);
@@ -145,6 +172,8 @@ if numel(optMask) ~= numel(calib.names_all)
         'Mask length (%d) must match parameter count (%d).', ...
         numel(optMask), numel(calib.names_all));
 end
+optMask = apply_case_profile_parameter_mask(optMask, calib.names_all, caseProfile);
+optMask = apply_case_profile_required_mask(optMask, calib.names_all, caseProfile);
 if ~any(optMask)
     error('calibration_param_sets:emptyActiveSet', ...
         'Mask deactivates all parameters.');
@@ -155,10 +184,51 @@ calib.names = calib.names_all(calib.mask);
 calib.x0 = calib.x0_all(calib.mask);
 calib.lb = calib.lb_all(calib.mask);
 calib.ub = calib.ub_all(calib.mask);
+calib.parameterRegistryActive = calib.parameterRegistry(calib.mask, :);
 
 end
 
-function weights = make_metric_weights(metric_fields, primary_metrics)
+function calib = apply_case_profile_coupling(calib, case_profile)
+if ~isfield(case_profile, 'coupledParameterGroups') || isempty(case_profile.coupledParameterGroups)
+    return;
+end
+calib.names_all = collapse_coupled_parameter_names(calib.names_all, case_profile);
+calib.stageA.names = collapse_coupled_parameter_names(calib.stageA.names, case_profile);
+calib.stageB.names = collapse_coupled_parameter_names(calib.stageB.names, case_profile);
+end
+
+function calib = apply_case_profile_metrics(calib, case_profile)
+if ~isfield(case_profile, 'allowedMetricFields') || isempty(case_profile.allowedMetricFields)
+    return;
+end
+allowed = case_profile.allowedMetricFields(:)';
+calib.metricFields = intersect(calib.metricFields, allowed, 'stable');
+calib.stageA.metricFields = intersect(calib.stageA.metricFields, allowed, 'stable');
+calib.stageB.metricFields = intersect(calib.stageB.metricFields, allowed, 'stable');
+end
+
+function optMask = apply_case_profile_parameter_mask(optMask, names_all, case_profile)
+if ~isfield(case_profile, 'allowedFreeParameters') || isempty(case_profile.allowedFreeParameters)
+    return;
+end
+allowed_mask = ismember(names_all(:), case_profile.allowedFreeParameters(:));
+optMask = optMask & allowed_mask;
+if ~any(optMask) && any(allowed_mask)
+    first_allowed = find(allowed_mask, 1, 'first');
+    optMask(first_allowed) = true;
+end
+end
+
+function optMask = apply_case_profile_required_mask(optMask, names_all, case_profile)
+if isfield(case_profile, 'systemicPolishEnabled') && case_profile.systemicPolishEnabled && ...
+        isfield(case_profile, 'systemicPolishNames') && ~isempty(case_profile.systemicPolishNames)
+    required_mask = ismember(names_all(:), case_profile.systemicPolishNames(:));
+    optMask = optMask | required_mask;
+    return;
+end
+end
+
+function weights = make_metric_weights(metric_fields, primary_metrics, case_profile)
 weights = struct();
 for k = 1:numel(metric_fields)
     weights.(metric_fields{k}) = 1.0;
@@ -181,54 +251,69 @@ if isfield(weights, 'RAP_mean'), weights.RAP_mean = max(weights.RAP_mean, 1.5); 
 if isfield(weights, 'LAP_mean'), weights.LAP_mean = max(weights.LAP_mean, 1.5); end
 if isfield(weights, 'LVEDV'), weights.LVEDV = max(weights.LVEDV, 1.4); end
 if isfield(weights, 'RVEDV'), weights.RVEDV = max(weights.RVEDV, 1.4); end
-end
 
-function x = pack_x(params, names)
-x = zeros(numel(names), 1);
-for i = 1:numel(names)
-    x(i) = get_param_by_name(params, names{i});
-end
-end
-
-function [lb, ub] = bounds_from_names(params, names, scenario)
-lb = zeros(numel(names), 1);
-ub = zeros(numel(names), 1);
-
-for i = 1:numel(names)
-    x0 = get_param_by_name(params, names{i});
-    nm = names{i};
-
-    if startsWith(nm, 'R.')
-        if strcmp(nm, 'R.vsd') && strcmp(scenario, 'pre_surgery')
-            lb(i) = max(0.001, 0.05 * x0);
-            ub(i) = min(500, 20 * max(x0, 0.01));
-        else
-            lb(i) = 0.25 * x0;
-            ub(i) = 4.00 * x0;
+if isfield(case_profile, 'metricWeightOverrides') && isstruct(case_profile.metricWeightOverrides)
+    override_names = fieldnames(case_profile.metricWeightOverrides);
+    for k = 1:numel(override_names)
+        mf = override_names{k};
+        if isfield(weights, mf)
+            weights.(mf) = weights.(mf) * case_profile.metricWeightOverrides.(mf);
         end
-    elseif strcmp(nm, 'vsd.Cd')
-        lb(i) = max(0.20, 0.50 * x0);
-        ub(i) = min(1.20, 1.50 * max(x0, 0.20));
-    elseif startsWith(nm, 'C.')
-        lb(i) = 0.30 * x0;
-        ub(i) = 6.00 * x0;
-    elseif startsWith(nm, 'E.')
-        lb(i) = 0.30 * x0;
-        ub(i) = 4.00 * x0;
-    elseif startsWith(nm, 'V0.')
-        lb(i) = 0.30 * x0;
-        ub(i) = 3.00 * x0;
-    else
-        lb(i) = 0.30 * x0;
-        ub(i) = 4.00 * x0;
+    end
+end
+
+if isfield(case_profile, 'targetTiers') && isstruct(case_profile.targetTiers)
+    weights = apply_target_tier_weight_multipliers(weights, case_profile.targetTiers);
+end
+end
+
+function weights = apply_target_tier_weight_multipliers(weights, target_tiers)
+if ~isfield(target_tiers, 'table') || isempty(target_tiers.table)
+    return;
+end
+tier_tbl = target_tiers.table;
+for idx = 1:height(tier_tbl)
+    metric_name = tier_tbl.Metric{idx};
+    if ~isfield(weights, metric_name)
+        continue;
+    end
+    switch tier_tbl.Tier{idx}
+        case 'consistency_check_only'
+            weights.(metric_name) = 0;
+    end
+end
+
+if isfield(target_tiers, 'weights') && isstruct(target_tiers.weights)
+    names = fieldnames(target_tiers.weights);
+    for idx = 1:numel(names)
+        metric_name = names{idx};
+        if isfield(weights, metric_name)
+            weights.(metric_name) = weights.(metric_name) * target_tiers.weights.(metric_name);
+        end
     end
 end
 end
 
-function v = get_param_by_name(params, name)
-parts = strsplit(name, '.');
-v = params;
-for k = 1:numel(parts)
-    v = v.(parts{k});
+function registry = build_registry(params0, scenario, case_profile, names_all, registry_context)
+params_adult = params0;
+params_scaled = params0;
+if isstruct(registry_context)
+    if isfield(registry_context, 'params_adult') && ~isempty(registry_context.params_adult)
+        params_adult = registry_context.params_adult;
+    end
+    if isfield(registry_context, 'params_scaled') && ~isempty(registry_context.params_scaled)
+        params_scaled = registry_context.params_scaled;
+    end
+end
+
+registry = build_parameter_registry( ...
+    params_adult, params_scaled, params0, scenario, case_profile, names_all);
+end
+
+function reference_params = resolve_group_reference_params(params0, registry_context)
+reference_params = params0;
+if isstruct(registry_context) && isfield(registry_context, 'params_scaled') && ...
+        ~isempty(registry_context.params_scaled)
+    reference_params = registry_context.params_scaled;
 end
 end

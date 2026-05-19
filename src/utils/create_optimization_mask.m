@@ -1,4 +1,4 @@
-function mask = create_optimization_mask(ST, threshold)
+function mask = create_optimization_mask(ST, threshold, parameterNames, caseProfile)
 % CREATE_OPTIMIZATION_MASK
 % -----------------------------------------------------------------------
 % Builds a boolean optimisation mask from Sobol total-order indices.
@@ -12,6 +12,8 @@ function mask = create_optimization_mask(ST, threshold)
 %                Values are dimensionless and expected in [0, 1].
 %   threshold  - activation threshold for ST [dimensionless]
 %                Typical value: 0.10
+%   parameterNames - optional calibration parameter names [nParam x 1]
+%   caseProfile    - optional evidence-aware calibration profile struct
 %
 % OUTPUTS:
 %   mask       - logical column vector [nParam x 1]
@@ -35,6 +37,12 @@ function mask = create_optimization_mask(ST, threshold)
 if nargin < 2 || isempty(threshold)
     threshold = 0.10;   % [dimensionless] default screening threshold
 end
+if nargin < 3
+    parameterNames = {};
+end
+if nargin < 4
+    caseProfile = struct();
+end
 
 validateattributes(ST, {'double', 'single'}, {'2d', 'nonempty'}, ...
     mfilename, 'ST', 1);
@@ -57,6 +65,7 @@ else
 end
 
 mask = ST_agg >= threshold;    % logical [nParam x 1]
+mask = apply_case_profile_mask(mask, ST_agg, parameterNames, caseProfile);
 
 % Safety guard: never return an all-false mask.
 if ~any(mask)
@@ -66,4 +75,25 @@ end
 
 mask = logical(mask(:));
 
+end
+
+function mask = apply_case_profile_mask(mask, ST_agg, parameterNames, caseProfile)
+% APPLY_CASE_PROFILE_MASK — restrict active parameters by case evidence.
+if isempty(parameterNames) || ~isfield(caseProfile, 'allowedFreeParameters') || ...
+        isempty(caseProfile.allowedFreeParameters)
+    return;
+end
+parameterNames = parameterNames(:);
+allowed_mask = ismember(parameterNames, caseProfile.allowedFreeParameters(:));
+if numel(allowed_mask) ~= numel(mask) || ~any(allowed_mask)
+    return;
+end
+
+mask = mask & allowed_mask;
+if ~any(mask)
+    ST_allowed = ST_agg;
+    ST_allowed(~allowed_mask) = -Inf;
+    [~, idx_max] = max(ST_allowed);
+    mask(idx_max) = true;
+end
 end

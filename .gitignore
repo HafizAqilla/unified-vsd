@@ -94,6 +94,9 @@ $RECYCLE.BIN/
 *.orig
 *.log
 *.out
+*.aux
+*.fdb_latexmk
+*.fls
 
 # Scratch MATLAB scripts (naming convention for exploratory work)
 scratch_*.m
@@ -153,3 +156,14 @@ results/gsa/*.mat
 #  (Uncomment the line below if you want to stop tracking PDF figures)
 # -----------------------------------------------------------------------------
 # results/figures/*.pdf
+
+# -----------------------------------------------------------------------------
+#  Generated simulation outputs
+#  Keep the directory placeholders, but do not commit regenerated run artifacts.
+# -----------------------------------------------------------------------------
+results/**
+!results/
+!results/figures/
+!results/tables/
+!results/figures/.gitkeep
+!results/tables/.gitkeep

@@ -72,7 +72,13 @@ if isfield(src, 'LVEDV_mL') && ~isnan(src.LVEDV_mL)
 else
     ic(sidx.V_LV) = params.V0.LV + P_nom_LV_ED / max(params.E.LV.EB, 1e-6);
 end
-if isfield(src, 'RVEDV_mL') && ~isnan(src.RVEDV_mL)
+if isfield(params, 'clinical_override') && ...
+        isfield(params.clinical_override, 'RVEDV_consistency_only') && ...
+        params.clinical_override.RVEDV_consistency_only && ...
+        isfield(params.clinical_override, 'RVEDV_flow_consistent_seed_mL') && ...
+        isfinite(params.clinical_override.RVEDV_flow_consistent_seed_mL)
+    ic(sidx.V_RV) = params.clinical_override.RVEDV_flow_consistent_seed_mL;
+elseif isfield(src, 'RVEDV_mL') && ~isnan(src.RVEDV_mL)
     ic(sidx.V_RV) = src.RVEDV_mL;
 else
     ic(sidx.V_RV) = params.V0.RV + P_nom_RV_ED / max(params.E.RV.EB, 1e-6);

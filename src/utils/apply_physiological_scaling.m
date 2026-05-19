@@ -8,7 +8,7 @@ function params = apply_physiological_scaling(params_ref, patient, scaling_mode)
 % INPUTS:
 %   params_ref     - reference parameter struct                      [-]
 %   patient        - patient demographics struct                     [-]
-%   scaling_mode   - 'zhang' (default)                              [-]
+%   scaling_mode   - 'zhang' | 'lundquist_bsa' (default: zhang)     [-]
 %
 % OUTPUTS:
 %   params         - scaled parameter struct with unchanged params.ic [-]
@@ -31,6 +31,9 @@ scaling_mode = lower(char(scaling_mode));
 switch scaling_mode
     case 'zhang'
         params = apply_zhang_scaling(params_ref, patient);
+    case {'lundquist_bsa', 'lundquist', 'lundqvist'}
+        scaling_mode = 'lundquist_bsa';
+        params = apply_lundquist_bsa_scaling(params_ref, patient);
     otherwise
         error('apply_physiological_scaling:unknownMode', ...
             'Unsupported scaling mode: %s', scaling_mode);
@@ -40,13 +43,95 @@ params.scaling.mode = scaling_mode;
 
 end
 
+function params = apply_lundquist_bsa_scaling(params_ref, patient)
+% APPLY_LUNDQUIST_BSA_SCALING -- BSA allometry based on Lundquist exponents.
+
+BSA_ref = 1.73;   % [m^2] adult reference corresponding to Valenti baseline
+if isfield(patient, 'BSA') && ~isempty(patient.BSA) && isfinite(patient.BSA)
+    BSA_patient = patient.BSA;
+else
+    BSA_patient = sqrt(patient.height_cm * patient.weight_kg / 3600);
+end
+s = BSA_patient / BSA_ref;
+
+params = params_ref;
+params.scaling.BSA_ref = BSA_ref;
+params.scaling.BSA_patient = BSA_patient;
+params.scaling.s = s;
+params.scaling.patient = patient;
+
+eHR = -0.33;
+eE_lv = -1.00;
+eE_rv = -1.50;
+eV0 = +1.00;
+eR = -1.00;
+eC = +1.00;
+eL = -1.00;
+eRv_op = -1.00;
+
+params.HR = params_ref.HR * s^eHR;
+
+params.E.LV.EA = params_ref.E.LV.EA * s^eE_lv;
+params.E.LV.EB = params_ref.E.LV.EB * s^eE_lv;
+params.E.LA.EA = params_ref.E.LA.EA * s^eE_lv;
+params.E.LA.EB = params_ref.E.LA.EB * s^eE_lv;
+params.E.RV.EA = params_ref.E.RV.EA * s^eE_rv;
+params.E.RV.EB = params_ref.E.RV.EB * s^eE_rv;
+params.E.RA.EA = params_ref.E.RA.EA * s^eE_rv;
+params.E.RA.EB = params_ref.E.RA.EB * s^eE_rv;
+
+params.V0.LV = params_ref.V0.LV * s^eV0;
+params.V0.RV = params_ref.V0.RV * s^eV0;
+params.V0.LA = params_ref.V0.LA * s^eV0;
+params.V0.RA = params_ref.V0.RA * s^eV0;
+params.V0.SAR = params_ref.V0.SAR * s^eV0;
+params.V0.SC = params_ref.V0.SC * s^eV0;
+params.V0.SVEN = params_ref.V0.SVEN * s^eV0;
+params.V0.PAR = params_ref.V0.PAR * s^eV0;
+params.V0.PVEN = params_ref.V0.PVEN * s^eV0;
+if isfield(params_ref.V0, 'PCOX'), params.V0.PCOX = params_ref.V0.PCOX * s^eV0; end
+if isfield(params_ref.V0, 'PCNO'), params.V0.PCNO = params_ref.V0.PCNO * s^eV0; end
+
+params.R.SAR  = params_ref.R.SAR  * s^eR;
+params.R.SC   = params_ref.R.SC   * s^eR;
+params.R.SVEN = params_ref.R.SVEN * s^eR;
+params.R.PAR  = params_ref.R.PAR  * s^eR;
+params.R.PCOX = params_ref.R.PCOX * s^eR;
+params.R.PCNO = params_ref.R.PCNO * s^eR;
+params.R.PVEN = params_ref.R.PVEN * s^eR;
+
+params.C.SAR  = params_ref.C.SAR  * s^eC;
+params.C.SC   = params_ref.C.SC   * s^eC;
+params.C.SVEN = params_ref.C.SVEN * s^eC;
+params.C.PAR  = params_ref.C.PAR  * s^eC;
+params.C.PCOX = params_ref.C.PCOX * s^eC;
+params.C.PCNO = params_ref.C.PCNO * s^eC;
+params.C.PVEN = params_ref.C.PVEN * s^eC;
+if isfield(params_ref.C, 'RA'), params.C.RA = params_ref.C.RA * s^eC; end
+if isfield(params_ref.C, 'LA'), params.C.LA = params_ref.C.LA * s^eC; end
+
+params.L.SAR = params_ref.L.SAR * s^eL;
+params.L.SVEN = params_ref.L.SVEN * s^eL;
+params.L.PAR = params_ref.L.PAR * s^eL;
+params.L.PVEN = params_ref.L.PVEN * s^eL;
+
+params.Rvalve.open = params_ref.Rvalve.open * s^eRv_op;
+params.Rvalve.closed = params_ref.Rvalve.closed;
+
+T_HB = 60 / params.HR;
+params = recompute_timing(params, T_HB);
+params.scaling.lundquist_exponents = struct( ...
+    'HR', eHR, 'E_lv', eE_lv, 'E_rv', eE_rv, 'V0', eV0, ...
+    'R', eR, 'C', eC, 'L', eL, 'Rvalve_open', eRv_op);
+end
+
 function params = apply_zhang_scaling(params_ref, patient)
 % APPLY_ZHANG_SCALING -- weight-based physiological scaling only.
 
 W_ref = 70;   % [kg]
 w = patient.weight_kg / W_ref;
 
-if isfield(patient, 'BSA') && ~isnan(patient.BSA)
+if isfield(patient, 'BSA') && ~isempty(patient.BSA) && isfinite(patient.BSA)
     BSA_patient = patient.BSA;
 else
     BSA_patient = sqrt(patient.height_cm * patient.weight_kg / 3600);

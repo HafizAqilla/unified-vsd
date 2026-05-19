@@ -37,7 +37,7 @@ patient = struct('age_years', clinical.common.age_years, ...
     'sex', clinical.common.sex, ...
     'maturation_mode', 'normal');
 params0 = apply_scaling(params_ref, patient);
-params1 = params_from_clinical(params0, clinical, 'pre_surgery');
+params1 = params_from_clinical(params0, clinical, 'pre_surgery', params0, struct());
 
 assert(params1.V0.LV > 0 && params1.V0.LV < pre.LVESV_mL, 'LV V0 outside plausible range.');
 assert(params1.V0.RV > 0 && params1.V0.RV < pre.RVESV_mL, 'RV V0 outside plausible range.');

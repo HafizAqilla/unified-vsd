@@ -17,6 +17,7 @@ addpath(strjoin(project_paths(~is_shadow), pathsep));
 
 scenario = 'pre_surgery';
 clinical = patient_profile_A();
+case_profile = build_case_calibration_profile(clinical, scenario);
 
 % Batch 3 comparison pair. Adjust as needed.
 N_small = 512;
@@ -37,7 +38,7 @@ if isfield(clinical.common, 'BSA') && ~isnan(clinical.common.BSA)
 end
 
 params0 = apply_scaling(params_ref, patient);
-params0 = params_from_clinical(params0, clinical, scenario);
+params0 = params_from_clinical(params0, clinical, scenario, params0, case_profile);
 
 % Run GSA at two N values.
 cfg_small = gsa_sobol_setup(params0, scenario, N_small);

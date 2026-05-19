@@ -14,6 +14,7 @@ addpath(strjoin(project_paths(~is_shadow), pathsep));
 % Choose benchmark profile/scenario (dummy/synthetic-compatible).
 scenario = 'pre_surgery';
 clinical = patient_profile_A();
+case_profile = build_case_calibration_profile(clinical, scenario);
 
 % Build baseline params exactly as in main pipeline.
 params_ref = default_parameters();
@@ -25,7 +26,7 @@ if isfield(clinical.common, 'BSA') && ~isnan(clinical.common.BSA)
 	patient.BSA = clinical.common.BSA;
 end
 params0 = apply_scaling(params_ref, patient);
-params0 = params_from_clinical(params0, clinical, scenario);
+params0 = params_from_clinical(params0, clinical, scenario, params0, case_profile);
 
 % Calibration config and objective.
 calib = calibration_param_sets(scenario, params0);
