@@ -1,11 +1,11 @@
 %% test_reyna_systemic_flow_profile.m
 % =========================================================================
-% Regression test for Reyna raw-protocol systemic-flow calibration profile.
+% Regression test for Reyna hemodynamic-only pre-surgery calibration profile.
 %
 % PURPOSE:
 %   Confirms that the active Reyna case uses protocol anthropometry,
-%   direct PAP waveform evidence, PAP_mean-centered fitting, and the systemic preload-flow-volume
-%   polish profile.
+%   direct PAP waveform evidence, PAP_mean-centered fitting, and excludes
+%   H+1 post-operative volume/function targets from pre-surgery fitting.
 %
 % USAGE:
 %   >> test_reyna_systemic_flow_profile
@@ -59,27 +59,62 @@ else
     n_fail = n_fail + 1;
 end
 
-%% Test 3: primary metrics target systemic flow consistency
-expected_primary = {'RAP_mean','PAP_mean','SAP_mean','QpQs','CO_Lmin'};
-if isequal(primary_metrics(:)', expected_primary)
-    fprintf('  [PASS] Primary metrics include CO_Lmin with systemic pressure targets.\n');
+%% Test 3: H+1 post-operative echo volumes are excluded from pre-surgery
+volume_values = [clinical.pre_surgery.LVEDV_mL, clinical.pre_surgery.LVESV_mL, ...
+    clinical.pre_surgery.RVEDV_mL, clinical.pre_surgery.RVESV_mL, clinical.pre_surgery.EF];
+if all(isnan(volume_values)) && isequal(clinical.pre_surgery.override_IC, false)
+    fprintf('  [PASS] Pre-surgery Reyna excludes H+1 post-operative volume/function targets.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Primary metrics do not match the Reyna systemic profile.\n');
+    fprintf('  [FAIL] Pre-surgery Reyna still contains volume/function targets.\n');
     n_fail = n_fail + 1;
 end
 
-%% Test 4: Reyna volume-flow guard respects target-tier governance
-guard_ok = isfield(profile, 'volumeFlowGuard') && profile.volumeFlowGuard.enabled && ...
-    isinf(profile.volumeFlowGuard.RVEDV_upper_ratio) && ...
-    profile.volumeFlowGuard.RVEDV_upper_scale == 0 && ...
-    profile.volumeFlowGuard.LVEF_upper_ratio == 1.10 && ...
-    profile.volumeFlowGuard.CO_low_rel_thresh == 0.12;
-if guard_ok
-    fprintf('  [PASS] Reyna guard disables consistency-only RVEDV penalty while retaining EF/CO checks.\n');
+%% Test 4: primary metrics target hemodynamics only
+expected_primary = {'RAP_mean','PAP_mean','SAP_mean','QpQs','CO_Lmin'};
+if isequal(primary_metrics(:)', expected_primary)
+    fprintf('  [PASS] Primary metrics include only direct hemodynamic targets.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Reyna volume-flow guard governance is missing or changed.\n');
+    fprintf('  [FAIL] Primary metrics do not match the Reyna hemodynamic-only profile.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 5: sparse cath profile keeps CO in the fit surface
+if strcmp(profile.mode, 'sparse_cath') && ...
+        ismember('CO_Lmin', profile.allowedMetricFields) && ...
+        ismember('Q_shunt_Lmin', profile.allowedMetricFields) && ...
+        ~ismember('LVEDV', profile.allowedMetricFields) && ...
+        ~ismember('LVEF', profile.allowedMetricFields)
+    fprintf('  [PASS] Sparse cath profile fits CO and derived shunt flow without volume/function targets.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Sparse cath profile target surface is not hemodynamic-only.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 6: sparse cath profile excludes unsupported chamber knobs
+chamber_parameters = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
+if ~any(ismember(chamber_parameters, profile.allowedFreeParameters)) && ...
+        all(ismember({'group.R_sys_scale','R.SVEN','C.SAR', ...
+        'group.R_pul_scale','C.PAR','vsd.Cd'}, profile.allowedFreeParameters))
+    fprintf('  [PASS] Sparse cath profile does not tune chamber mechanics without pre-op chamber evidence.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Sparse cath profile allows unsupported chamber parameters.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 7: derived shunt flow is visible but not selected over direct anchors
+shunt_idx = find(strcmp(tiers.table.Metric, 'Q_shunt_Lmin'), 1);
+if isfinite(clinical.pre_surgery.Q_shunt_Lmin) && ...
+        ~isempty(shunt_idx) && ...
+        strcmp(tiers.table.Tier{shunt_idx}, 'soft') && ...
+        ~ismember('Q_shunt_Lmin', primary_metrics)
+    fprintf('  [PASS] Derived Q_shunt target is a soft guard behind direct hemodynamic anchors.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Derived Q_shunt target governance is not configured as expected.\n');
     n_fail = n_fail + 1;
 end
 

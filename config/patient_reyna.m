@@ -78,20 +78,19 @@ pre.LAP_mean_mmHg     = NaN;
 pre.LVEDP_mmHg        = NaN;
 
 % ---- Ventricular volumes and ejection fraction -----------------------
-% Protocol rows 26-29 report chamber volumes directly in mL.
-pre.LVEDV_mL          = 32.0;    % [mL] protocol row 26, LVEDV
-pre.LVESV_mL          = 23.6;    % [mL] protocol row 27, LVESV
-pre.RVEDV_mL          = 30.5;    % [mL] protocol row 28, RVEDV
-pre.RVESV_mL          = 12.0;    % [mL] protocol row 29, RVESV
-pre.EF                = (pre.LVEDV_mL - pre.LVESV_mL) / pre.LVEDV_mL; % [-] LV EF from reported volumes
+% The available LV/RV volume and EF block was confirmed to be H+1 after
+% surgery, so it is not a valid pre-surgery calibration target.
+pre.LVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
+pre.LVESV_mL          = NaN;     % [mL] unavailable pre-surgery
+pre.RVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
+pre.RVESV_mL          = NaN;     % [mL] unavailable pre-surgery
+pre.EF                = NaN;     % [-] unavailable pre-surgery
 
 % ---- IC override flag -------------------------------------------------
-% Activates pressure-based IC override in params_from_clinical.m.
-% Essential: allometric scaling alone can under-predict chamber filling at raw BSA=0.588 m^2.
-% Uses LVEDV/LVESV/RVEDV/RVESV + pressure fields to seed the ODE correctly.
-pre.override_IC       = true;
+% Do not tune chamber elastance/V0 from H+1 post-operative echo volumes.
+pre.override_IC       = false;
 pre.CO_comparator     = 'Qs_Lmin'; % [-] compare model systemic flow with protocol-derived Qs
-pre.CO_uncertainty_Lmin = 0.50;    % [L/min] widened because protocol-derived Qs and echo LVSV disagree
+pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowance
 
 % ---- Cardiac output ---------------------------------------------------
 % Qs is back-calculated from protocol Qp and Qp/Qs:
@@ -101,13 +100,8 @@ pre.CO_uncertainty_Lmin = 0.50;    % [L/min] widened because protocol-derived Qs
 %
 % We calibrate to Qs (3.423) as the CO target because:
 %   - Qp and Qp/Qs are catheter/Fick entries, and Qs follows directly from them
-%   - The reported echo volumes (LVEDV=32, LVESV=23.6) imply
-%     LVSV = 8.4 mL -> CO_volumes = 1.0 L/min at HR = 119 bpm, which is
-%     strongly inconsistent with catheter-derived systemic flow.
-%   - Setting CO = Qp = 4.087 would force LVSV = 34.4 mL, far above the
-%     reported chamber volumes, which is worse than the current trade-off.
-%   - Calibrating to Qs = 3.423 produces the best simultaneous fit across
-%     volumes, flows, and pressures given the flow-volume disagreement.
+%   - The H+1 post-operative echo volume block is excluded from pre-operative
+%     fitting, so the pre-surgery objective is hemodynamic-only.
 pre.CO_Lmin           = 3.423;   % [L/min] Qs = Qp/QpQs = 4.087/1.194 (rows 21 and 23)
 
 clinical.pre_surgery = pre;

@@ -406,6 +406,10 @@ end
 if isfield(src, 'CO_Lmin') && isfinite(src.CO_Lmin)
     bundle.has_flow_consistency_target = true;
     bundle.Q_shunt_target_Lmin = src.CO_Lmin * (src.QpQs - 1);
+    if isfield(src, 'Q_shunt_Lmin') && isfinite(src.Q_shunt_Lmin) && src.Q_shunt_Lmin > 0
+        bundle.Q_shunt_target_Lmin = src.Q_shunt_Lmin;
+        bundle.flow_consistency_weight = 0.65;
+    end
 end
 
 % Apply this guard only when clinical data clearly indicates a sizeable

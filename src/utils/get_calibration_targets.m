@@ -38,6 +38,7 @@ switch scenario
             'SAP_max',      'SAP_sys_mmHg',   'mmHg',  'Systemic arterial systolic pressure',  true,  false, true,  'Moderate'
             'SAP_mean',     'SAP_mean_mmHg',  'mmHg',  'Mean arterial pressure',               true,  true,  false, 'High'
             'QpQs',         'QpQs',           '-',     'Pulmonary/systemic flow ratio',        true,  true,  false, 'High'
+            'Q_shunt_Lmin', 'Q_shunt_Lmin',   'L/min', 'Net shunt flow derived as Qp minus Qs', true,  false, false, 'Derived'
             'PVR',          'PVR_WU',         'WU',    'Pulmonary vascular resistance',        true,  true,  false, 'High'
             'SVR',          'SVR_WU',         'WU',    'Systemic vascular resistance',         true,  false, true,  'High'
             'CO_Lmin',      'CO_Lmin',        'L/min', 'Effective systemic cardiac output (Qs)', true, false, true, 'High'

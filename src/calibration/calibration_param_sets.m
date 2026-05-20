@@ -73,6 +73,7 @@ switch scenario
             'SAP_max'
             'SAP_mean'
             'QpQs'
+            'Q_shunt_Lmin'
             'SVR'
             'PVR'
             'CO_Lmin'
@@ -85,7 +86,7 @@ switch scenario
             };
         calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN','C.SAR','C.PAR','R.vsd'};
         calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_min','SAP_max','SAP_mean', ...
-            'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
+            'PAP_mean','SVR','PVR','QpQs','Q_shunt_Lmin','CO_Lmin'};
         calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','E.LA.EA','E.RA.EA','V0.LV','V0.RV'};
         calib.stageB.metricFields = {'RAP_mean','LAP_mean','LVEDV','LVESV','LVEF','RVEDV','RVESV','RVEF'};
 
