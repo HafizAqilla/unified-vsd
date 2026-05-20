@@ -73,20 +73,21 @@ switch profile.mode
     case 'adaptive_patient'
         profile = apply_adaptive_patient_governance(profile, src, scenario);
     case 'sparse_cath'
-        profile.maxPrimaryMetrics = 4;        % [-] avoid pretending sparse data give five anchors
+        profile.maxPrimaryMetrics = 5;        % [-] five direct hemodynamic anchors when CO is available
         profile.regLambda = 0.05;             % [-] soft prior against unsupported drift
         profile.allowedMetricFields = {'RAP_mean','PAP_min','PAP_max','PAP_mean', ...
-            'SAP_min','SAP_max','SAP_mean','QpQs'};
+            'SAP_min','SAP_max','SAP_mean','QpQs','Q_shunt_Lmin','CO_Lmin'};
+        profile.preferredPrimaryMetrics = {'RAP_mean','PAP_mean','SAP_mean','QpQs','CO_Lmin'};
         % Batch B identifiability audit showed near-collinearity inside
-        % serial systemic and pulmonary beds. Use shared scale factors so
-        % sparse cases retain physiologic flexibility without independent
-        % drift of weakly identifiable subcomponents.
-        profile.allowedFreeParameters = {'group.R_sys_scale','R.SVEN', ...
-            'group.R_pul_scale','R.vsd','vsd.Cd'};
-        profile.stageCPreferredNames = {'R.vsd','vsd.Cd','group.R_pul_scale', ...
-            'group.R_sys_scale','R.SVEN'};
+        % serial systemic and pulmonary beds. Sparse cases therefore use
+        % vascular/shunt knobs by default; chamber mechanics are enabled
+        % only when matching pre-surgery chamber evidence is available.
+        profile.allowedFreeParameters = sparse_cath_free_parameters(src, scenario);
+        profile.stageCPreferredNames = sparse_cath_stage_c_names( ...
+            profile.allowedFreeParameters);
         profile.boundScale = make_sparse_bound_scale();
-        profile.metricWeightOverrides = struct('QpQs', 1.2, 'PAP_mean', 1.2, 'SAP_mean', 1.2);
+        profile.metricWeightOverrides = struct('QpQs', 1.3, 'Q_shunt_Lmin', 1.5, ...
+            'PAP_mean', 1.2, 'SAP_mean', 1.2, 'CO_Lmin', 1.3);
     otherwise
         profile.stageCPreferredNames = {'R.vsd','vsd.Cd','group.R_pul_scale', ...
             'group.R_sys_scale','C.SAR','C.PAR','E.LV.EA'};
@@ -128,10 +129,47 @@ end
 
 function bound_scale = make_sparse_bound_scale()
 bound_scale = struct();
-bound_scale.names = {'group.R_sys_scale','R.SVEN','group.R_pul_scale', ...
+bound_scale.names = {'group.R_sys_scale','R.SVEN','C.SAR','group.R_pul_scale', ...
+    'C.PAR','E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV', ...
     'R.vsd','vsd.Cd'};
-bound_scale.lower = [0.50, 0.40, 0.50, 0.25, 0.80];
-bound_scale.upper = [2.50, 2.50, 2.50, 4.00, 1.20];
+% Sparse catheter cases need enough local freedom to preserve a validated
+% pressure-flow basin while adding derived shunt-flow consistency.
+bound_scale.lower = [0.50, 0.40, 0.45, 0.50, 0.30, 0.42, 0.50, 0.50, ...
+    0.50, 0.50, 0.35, 0.25, 0.60];
+bound_scale.upper = [2.50, 2.50, 1.75, 2.50, 1.75, 2.80, 2.80, 2.80, ...
+    2.80, 1.90, 1.90, 4.00, 2.00];
+end
+
+function names = sparse_cath_free_parameters(src, scenario)
+% SPARSE_CATH_FREE_PARAMETERS - evidence-gated sparse fit parameters.
+names = {'group.R_sys_scale','R.SVEN','C.SAR','group.R_pul_scale','C.PAR'};
+
+if strcmp(scenario, 'pre_surgery') && has_finite_field(src, 'QpQs')
+    if isfield(src, 'VSD_mode') && strcmpi(char(src.VSD_mode), 'orifice_bidirectional')
+        names = [names, {'vsd.Cd'}];
+    else
+        names = [names, {'R.vsd'}];
+    end
+end
+
+if has_finite_field(src, 'LVEDV_mL') || has_finite_field(src, 'LVESV_mL') || ...
+        has_finite_field(src, 'EF')
+    names = [names, {'E.LV.EA','E.LV.EB','V0.LV'}];
+end
+if has_finite_field(src, 'RVEDV_mL') || has_finite_field(src, 'RVESV_mL') || ...
+        has_finite_field(src, 'RVEF')
+    names = [names, {'E.RV.EA','E.RV.EB','V0.RV'}];
+end
+
+names = unique(names, 'stable');
+end
+
+function names = sparse_cath_stage_c_names(allowed_names)
+% SPARSE_CATH_STAGE_C_NAMES - ordered stage-C subset from active evidence.
+preferred = {'R.vsd','vsd.Cd','group.R_pul_scale','C.PAR', ...
+    'group.R_sys_scale','R.SVEN','C.SAR','E.LV.EA','E.LV.EB', ...
+    'E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
+names = preferred(ismember(preferred, allowed_names));
 end
 
 function bound_scale = make_full_data_bound_scale()

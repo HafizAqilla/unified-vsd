@@ -98,7 +98,7 @@ pre.LVEDV_mL          = 32;     % [mL]     ~130% of normal; moderate LV dilation
 pre.LVESV_mL          = 11;     % [mL]     derived; EF ≈ (32-11)/32 = 0.66
 pre.RVEDV_mL          = 32;     % [mL]     pressure-loaded by systemic-level PAP; Bernheim effect
 pre.RVESV_mL          = 16;     % [mL]     RV EF ≈ 50% (impaired by pressure overload)
-pre.LVEF              = 0.66;   % [-]      fraction; within hyperdynamic range for volume overload
+pre.EF                = 0.66;   % [-]      fraction; within hyperdynamic range for volume overload
 
 % ---- Cardiac output ---------------------------------------------------
 % Qs = (MAP - RAP) / SVR = (48-5) / 43 = 1.0 L/min

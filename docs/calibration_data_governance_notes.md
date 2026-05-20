@@ -73,6 +73,44 @@ Validation-only:
 
 `LAP_mean` remains reported but is not used for calibration because it is estimated rather than directly measured.
 
+## Ali Zhafran Data-Governance Holdout
+
+Date: 2026-05-20
+
+The Ali Zhafran record is a pre-release/pre-occluder catheterisation record, so
+the pressure and saturation measurements are pre-intervention. However, the
+flow block is not internally consistent enough to use as a calibration anchor.
+
+Directly retained as candidate calibration or validation evidence:
+
+| Field | Source value | Decision |
+|---|---:|---|
+| `PAP_sys_mmHg`, `PAP_dia_mmHg`, `PAP_mean_mmHg` | 21 / 11 / 16 mmHg | retain |
+| `SAP_sys_mmHg`, `SAP_dia_mmHg`, `SAP_mean_mmHg` | 72 / 37 / 49 mmHg | retain |
+| `QpQs` | FR = 1.6 | retain |
+| `VSD_diameter_mm` | RV-side 3.4 mm | retain |
+| `LVEDP_mmHg` | 15 mmHg | retain as LVEDP only |
+
+Held out as raw audit fields, not calibration targets:
+
+| Field | Source value | Reason |
+|---|---:|---|
+| `CO_Lmin` | unavailable after governance | Protocol Qp/Qs block conflicts |
+| `Q_shunt_Lmin` | unavailable after governance | Derived from ambiguous Qp/Qs flow block |
+| `PVR_WU` | unavailable after governance | PARI definition not explicit |
+| `VSD_gradient_mmHg` | unavailable after governance | Protocol gradient row is blank |
+
+The protocol table lists `Qp = 5.718174674 L/min`, `Qs = 3.15 L/min`, and
+`Qp/Qs = 1.6`. These cannot all be true simultaneously because
+`5.718174674 / 3.15 = 1.815`, not 1.6. The separate workbook recomputes
+`Qs = 3.500709860` and `Qp/Qs = 1.633432904`, which is closer to the reported
+FR but still not identical. Because oxygen consumption is reported as 163,
+likely indexed to BSA, the workbook flow values may also represent indexed
+flows rather than absolute L/min.
+
+Therefore Ali is retained as a data-governance/sensitivity case, while the
+primary validation cohort remains Reyna and Razka.
+
 ## Literature Support
 
 The governance logic is based on conservation identities and measurement uncertainty, not on claiming that one modality is automatically wrong.

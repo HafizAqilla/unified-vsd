@@ -80,6 +80,7 @@ metrics.Qvsd_Lmin = Qvsd_Lmin;
 metrics.Qs_ao_gap_Lmin = Qao_Lmin - Qsys_Lmin;
 metrics.Qp_pv_gap_Lmin = Qpv_Lmin - Qpul_Lmin;
 metrics.Qp_minus_Qs_Lmin = Qpul_Lmin - Qsys_Lmin;
+metrics.Q_shunt_Lmin = metrics.Qp_minus_Qs_Lmin;
 
 metrics.SVR  = (metrics.SAP_mean - metrics.RAP_mean) / max(Qsys_Lmin, 1e-6);
 metrics.PVR  = (metrics.PAP_mean - metrics.LAP_mean) / max(Qpul_Lmin, 1e-6);

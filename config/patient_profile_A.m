@@ -85,7 +85,7 @@ pre.LVEDV_mL          = 30;     % [mL]     ~150–210% of normal for BSA 0.22 m�
 pre.LVESV_mL          = 10;     % [mL]     derived; EF ≈ (30-10)/30 = 0.67
 pre.RVEDV_mL          = 25;     % [mL]     ~125% of normal; Bernheim + septal shift
 pre.RVESV_mL          = 12;     % [mL]
-pre.LVEF              = 0.67;   % [-]      67.15 ± 4.85% (fraction, not %)
+pre.EF                = 0.67;   % [-]      67.15 ± 4.85% (fraction, not %)
 
 % ---- Cardiac output ---------------------------------------------------
 %  Qs based on CI ~ 3.5 L/min/m² × BSA 0.22 = 0.77 L/min
