@@ -37,7 +37,7 @@ calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics, caseP
 J0 = objective_calibration(calib.x0, params0, clinical, make_stage_calib(calib, params0, calib.names, calib.metricFields), scenario, pce_surrogate);
 
 params_stage = params0;
-stage_history_cell = cell(1, 5);
+stage_history_cell = cell(1, 6);
 
 [params_stage, stage_history_cell{1}] = optimize_stage(params_stage, clinical, scenario, calib, ...
     calib.stageA.names, calib.stageA.metricFields, do_parallel, pce_surrogate, fastMode, 'A');
@@ -127,6 +127,32 @@ if should_run_plausibility_polish(final_calib_source)
     end
 end
 
+if should_run_validation_gate_polish(final_calib_source)
+    [params_gate, stage_history_cell{6}] = run_validation_gate_polish( ...
+        params_best, clinical, scenario, final_calib_source, fastMode);
+
+    if ~stage_history_cell{6}.skipped && ...
+            isfield(stage_history_cell{6}, 'acceptance') && ...
+            isfield(stage_history_cell{6}.acceptance, 'accept') && ...
+            stage_history_cell{6}.acceptance.accept
+        params_best = params_gate;
+        last_stage = stage_history_cell{6};
+        final_stage_names = stage_history_cell{6}.names;
+        final_stage_metrics = final_calib_source.metricFields;
+        best_stage = 6;
+        fprintf(['[run_calibration] Stage F accepted by validation gate: ', ...
+            'RMSE %.6g -> %.6g, primary_fail %d -> %d.\n'], ...
+            stage_history_cell{6}.acceptance.primary_rmse_before, ...
+            stage_history_cell{6}.acceptance.primary_rmse_after, ...
+            stage_history_cell{6}.acceptance.primary_fail_before, ...
+            stage_history_cell{6}.acceptance.primary_fail_after);
+    elseif ~stage_history_cell{6}.skipped
+        stage_history_cell{6}.skipped = true;
+        fprintf('[run_calibration] Stage F rejected: %s.\n', ...
+            stage_history_cell{6}.acceptance.reason);
+    end
+end
+
 stage_history_cell = trim_empty_stage_history(stage_history_cell);
 
 final_calib = make_stage_calib(final_calib_source, params_best, final_stage_names, final_stage_metrics);
@@ -200,6 +226,12 @@ function tf = should_run_plausibility_polish(calib)
 tf = isfield(calib, 'caseProfile') && isstruct(calib.caseProfile) && ...
     isfield(calib.caseProfile, 'plausibilityPolishEnabled') && ...
     calib.caseProfile.plausibilityPolishEnabled;
+end
+
+function tf = should_run_validation_gate_polish(calib)
+tf = isfield(calib, 'caseProfile') && isstruct(calib.caseProfile) && ...
+    isfield(calib.caseProfile, 'validationGatePolishEnabled') && ...
+    calib.caseProfile.validationGatePolishEnabled;
 end
 
 function calib = apply_plausibility_polish_profile(calib)
@@ -341,7 +373,8 @@ primary_valid = primary_mask & valid;
 if any(primary_valid)
     primary_error_pct = 100 * abs(model_values(primary_valid) - clinical_values(primary_valid)) ./ ...
         max(abs(clinical_values(primary_valid)), 1e-9);
-    summary.primary_fail_count = sum(primary_error_pct > 5);
+    primary_gate_pct = profile_scalar(case_profile, 'acceptancePrimaryErrorPct', 10);
+    summary.primary_fail_count = sum(primary_error_pct > primary_gate_pct);
 else
     summary.primary_fail_count = 0;
 end

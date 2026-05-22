@@ -4,8 +4,8 @@ function J = objective_calibration(x, params0, clinical, calib, scenario, pce_su
 % Tiered calibration objective:
 %   J = J_primary + lambda_secondary * J_secondary + J_reg + J_invalid
 %
-% Primary metrics are normalised to the 5% target.
-% Secondary metrics are normalised to the 10% target.
+% Primary metrics are normalised to the configured patient-acceptance target.
+% Secondary metrics are normalised to the configured secondary target.
 %
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-05-05
@@ -17,9 +17,9 @@ if nargin < 6
 end
 
 params = params0;
-for i = 1:numel(calib.names)
+for param_idx = 1:numel(calib.names)
     params = set_calibration_param_value( ...
-        params, calib.referenceParams, calib.names{i}, x(i), calib.caseProfile);
+        params, calib.referenceParams, calib.names{param_idx}, x(param_idx), calib.caseProfile);
 end
 
 [metrics, sim, validity_penalty] = evaluate_metrics(params, x, clinical, calib, scenario, pce_surrogate);
@@ -44,6 +44,9 @@ for k = 1:numel(calib.metricFields)
     end
     idx = find(strcmp(target_names, mf), 1, 'first');
     if isempty(idx)
+        continue;
+    end
+    if is_validation_only_metric(calib, mf, targets(idx))
         continue;
     end
     y_clin = targets(idx).ClinicalValue;
@@ -90,7 +93,18 @@ if ~isempty(sim) && ~sim.ss_reached
 end
 
 function tf = is_consistency_only_metric(calib, metric_name)
-tf = strcmp(calibration_metric_tier(calib, metric_name), 'consistency_check_only');
+tf = ismember(calibration_metric_tier(calib, metric_name), ...
+    {'consistency_check_only','derived_validation','validation_holdout'});
+end
+
+function tf = is_validation_only_metric(calib, metric_name, target)
+tf = is_consistency_only_metric(calib, metric_name);
+if tf
+    return;
+end
+if isfield(target, 'UseForCalibration')
+    tf = ~target.UseForCalibration;
+end
 end
 
 function tier = calibration_metric_tier(calib, metric_name)
@@ -190,6 +204,7 @@ bundle.Qs_sigma_Lmin = NaN;
 bundle.SAP_mean_sigma_mmHg = NaN;
 bundle.RAP_mean_sigma_mmHg = NaN;
 bundle.SVR_sigma_WU = NaN;
+bundle.SVR_validation_only = true;
 bundle.Qs_floor_Lmin = NaN;
 bundle.Qs_floor_sigma_Lmin = NaN;
 bundle.SVR_ceiling_WU = NaN;
@@ -219,6 +234,7 @@ bundle.Qs_sigma_Lmin = target_sigma(targets, 'CO_Lmin', src.CO_Lmin, 0.15);
 bundle.SAP_mean_sigma_mmHg = target_sigma(targets, 'SAP_mean', src.SAP_mean_mmHg, 0.05);
 bundle.RAP_mean_sigma_mmHg = target_sigma(targets, 'RAP_mean', src.RAP_mean_mmHg, 0.05);
 bundle.SVR_sigma_WU = target_sigma(targets, 'SVR', bundle.SVR_target_WU, 0.15);
+bundle.SVR_validation_only = target_is_validation_only(targets, 'SVR');
 bundle.Qs_floor_Lmin = max(0, bundle.Qs_target_Lmin - bundle.Qs_sigma_Lmin);
 bundle.Qs_floor_sigma_Lmin = max(0.50 * bundle.Qs_sigma_Lmin, 0.05 * bundle.Qs_target_Lmin);
 bundle.SVR_ceiling_WU = bundle.SVR_target_WU + bundle.SVR_sigma_WU;
@@ -265,6 +281,11 @@ co_floor_z = max(0, (bundle.Qs_floor_Lmin - metrics.CO_Lmin) / ...
     max(bundle.Qs_floor_sigma_Lmin, 1e-6));
 svr_ceiling_z = max(0, (metrics.SVR - bundle.SVR_ceiling_WU) / ...
     max(bundle.SVR_ceiling_sigma_WU, 1e-6));
+if bundle.SVR_validation_only
+    svr_z = 0;
+    svr_high_z = 0;
+    svr_ceiling_z = 0;
+end
 
 penalty = penalty + weights.qs * qs_z^2;
 penalty = penalty + weights.sap * sap_z^2;
@@ -278,6 +299,18 @@ penalty = penalty + weights.low_qs_high_svr * ...
 penalty = penalty + weights.low_flow_svr_wall * ...
     co_floor_z^2 * (1 + svr_ceiling_z)^2;
 penalty = penalty + weights.flow_balance * flow_balance_z^2;
+end
+
+function tf = target_is_validation_only(targets, metric_name)
+% TARGET_IS_VALIDATION_ONLY - true when a target is report-only evidence.
+tf = true;
+idx = find(strcmp({targets.Metric}, metric_name), 1, 'first');
+if isempty(idx)
+    return;
+end
+if isfield(targets, 'UseForCalibration') && targets(idx).UseForCalibration
+    tf = false;
+end
 end
 
 function weights = systemic_load_weights(calib)
@@ -549,9 +582,9 @@ if ~isfield(calib, 'caseProfile') || ~isfield(calib.caseProfile, 'volumeFlowGuar
 end
 profile_guard = calib.caseProfile.volumeFlowGuard;
 names = fieldnames(guard);
-for i = 1:numel(names)
-    if isfield(profile_guard, names{i}) && ~isempty(profile_guard.(names{i}))
-        guard.(names{i}) = profile_guard.(names{i});
+for guard_idx = 1:numel(names)
+    if isfield(profile_guard, names{guard_idx}) && ~isempty(profile_guard.(names{guard_idx}))
+        guard.(names{guard_idx}) = profile_guard.(names{guard_idx});
     end
 end
 end

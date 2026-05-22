@@ -414,7 +414,9 @@ report = validation_report( ...
     'ValidationHoldoutMetrics', profile_holdout_metrics(case_profile), ...
     'TargetTiers', profile_target_tiers(case_profile), ...
     'ClinicalConsistencyAudit', profile_clinical_audit(case_profile));
-calibration_status = classify_calibration_run(report, calib_out.parameterPlausibility);
+classification_thresholds = profile_classification_thresholds(case_profile);
+calibration_status = classify_calibration_run( ...
+    report, calib_out.parameterPlausibility, classification_thresholds);
 fprintf('[main_run] Calibration status: %s\n', calibration_status.label);
 fprintf('[main_run] Status summary: %s\n', calibration_status.summary);
 best_candidate = build_candidate_snapshot( ...
@@ -423,9 +425,10 @@ best_candidate = build_candidate_snapshot( ...
 scientific_candidate = build_candidate_snapshot( ...
     'scientific_candidate', params_cal, sim_cal, metrics_cal, validity_cal, ...
     report, calibration_status, calib_out.parameterPlausibility, false, '');
-if should_rollback_calibration(report, calibration_status)
-    rollback_reason = sprintf('status=%s, RMSE baseline=%.4f, calibrated=%.4f', ...
-        calibration_status.label, report.rmse_baseline, report.rmse_cal);
+[rollback_required, rollback_reasons] = should_rollback_calibration( ...
+    report, calibration_status, validity_cal, calib_out.parameterPlausibility);
+if rollback_required
+    rollback_reason = strjoin(rollback_reasons, '; ');
     fprintf('[main_run] Calibration rollback applied: %s\n', rollback_reason);
     calib_out.rollback_applied = true;
     calib_out.rollback_reason = rollback_reason;
@@ -443,7 +446,8 @@ if should_rollback_calibration(report, calibration_status)
         accepted_plausibility = evaluate_parameter_plausibility( ...
             calib_out.x0_active, calib_out.parameterRegistryActive);
     end
-    accepted_status = classify_calibration_run(accepted_report, accepted_plausibility);
+    accepted_status = classify_calibration_run( ...
+        accepted_report, accepted_plausibility, classification_thresholds);
     accepted_status.rollback_applied = true;
     accepted_status.rollback_reason = rollback_reason;
     fprintf('[main_run] Post-rollback status: %s\n', accepted_status.label);
@@ -849,14 +853,68 @@ if isstruct(case_profile) && isfield(case_profile, 'clinicalConsistencyAudit') &
 end
 end
 
-function tf = should_rollback_calibration(report, calibration_status)
-% SHOULD_ROLLBACK_CALIBRATION - protect final artifacts from rejected candidates.
+function thresholds = profile_classification_thresholds(case_profile)
+% PROFILE_CLASSIFICATION_THRESHOLDS - patient acceptance policy for labels.
+thresholds = struct( ...
+    'excellent_error_pct', 5, ...
+    'primary_error_pct', 10, ...
+    'secondary_error_pct', 15, ...
+    'accept_rmse_improvement_frac', 0.20, ...
+    'reject_on_any_fail', true);
+if ~isstruct(case_profile)
+    return;
+end
+thresholds.excellent_error_pct = profile_scalar_or_default( ...
+    case_profile, 'excellentFitErrorPct', thresholds.excellent_error_pct);
+thresholds.primary_error_pct = profile_scalar_or_default( ...
+    case_profile, 'acceptancePrimaryErrorPct', thresholds.primary_error_pct);
+thresholds.secondary_error_pct = profile_scalar_or_default( ...
+    case_profile, 'acceptanceSecondaryErrorPct', thresholds.secondary_error_pct);
+thresholds.accept_rmse_improvement_frac = profile_scalar_or_default( ...
+    case_profile, 'acceptRmseImprovementFrac', thresholds.accept_rmse_improvement_frac);
+end
+
+function value = profile_scalar_or_default(profile, field_name, default_value)
+% PROFILE_SCALAR_OR_DEFAULT - read numeric profile policy with fallback.
+value = default_value;
+if isstruct(profile) && isfield(profile, field_name) && isfinite(profile.(field_name))
+    value = profile.(field_name);
+end
+end
+
+function [tf, reasons] = should_rollback_calibration(report, calibration_status, validity, plausibility_metrics)
+% SHOULD_ROLLBACK_CALIBRATION - rollback only for worse RMSE or hard failures.
+reasons = {};
 rmse_worse = isfield(report, 'rmse_baseline') && isfield(report, 'rmse_cal') && ...
     isfinite(report.rmse_baseline) && isfinite(report.rmse_cal) && ...
     report.rmse_cal > report.rmse_baseline;
-status_reject = isfield(calibration_status, 'label') && ...
-    any(strcmp(calibration_status.label, {'REJECT','OUTPUT_FIT_ONLY'}));
-tf = rmse_worse || status_reject;
+if rmse_worse
+    reasons{end + 1} = sprintf('calibrated RMSE worsened (baseline=%.4f, calibrated=%.4f)', ...
+        report.rmse_baseline, report.rmse_cal);
+end
+
+invalid_physiology = isstruct(validity) && isfield(validity, 'is_valid') && ...
+    ~validity.is_valid;
+if invalid_physiology
+    reasons{end + 1} = 'hard physiological validity gate failed';
+end
+
+hard_plausibility_fail = false;
+n_fail = 0;
+if isstruct(plausibility_metrics) && isfield(plausibility_metrics, 'n_fail') && ...
+        isfinite(plausibility_metrics.n_fail)
+    n_fail = plausibility_metrics.n_fail;
+    hard_plausibility_fail = n_fail > 0;
+elseif isstruct(calibration_status) && isfield(calibration_status, 'n_fail') && ...
+        isfinite(calibration_status.n_fail)
+    n_fail = calibration_status.n_fail;
+    hard_plausibility_fail = n_fail > 0;
+end
+if hard_plausibility_fail
+    reasons{end + 1} = sprintf('parameter plausibility hard failures=%d', n_fail);
+end
+
+tf = ~isempty(reasons);
 end
 
 function run_ctx = init_run_output(root, scenario, clinical)

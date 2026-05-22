@@ -56,58 +56,70 @@ else
     n_fail = n_fail + 1;
 end
 
-%% Test 3: PROMISING_NEAR_MISS
-fprintf('--- Test 3: PROMISING_NEAR_MISS classification ---\n');
+%% Test 3: warnings alone do not reject an otherwise acceptable fit
+fprintf('--- Test 3: Plausibility warnings are report-only ---\n');
+plaus_warn_only = struct('n_warning', 7, 'n_fail', 0, 'warning_fraction', 0.50);
+status_3 = classify_calibration_run(report, plaus_warn_only);
+if strcmp(status_3.label, 'ACCEPT')
+    fprintf('  [PASS] Warnings without hard failures keep acceptable fit -> ACCEPT.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Expected ACCEPT, got %s.\n', status_3.label);
+    n_fail = n_fail + 1;
+end
+
+%% Test 4: PROMISING_NEAR_MISS
+fprintf('--- Test 4: PROMISING_NEAR_MISS classification ---\n');
 report_poor = report;
 report_poor.primary_gate.Pass_5pct(2) = false;
-report_poor.primary_gate.AbsError_pct(2) = 7;
+report_poor.primary_gate.AbsError_pct(2) = 12;
 plaus_near = struct('n_warning', 4, 'n_fail', 0, 'warning_fraction', 0.35);
-status_3 = classify_calibration_run(report_poor, plaus_near);
-if strcmp(status_3.label, 'PROMISING_NEAR_MISS')
+status_4 = classify_calibration_run(report_poor, plaus_near);
+if strcmp(status_4.label, 'PROMISING_NEAR_MISS')
     fprintf('  [PASS] Near-miss fit + strong improvement -> PROMISING_NEAR_MISS.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Expected PROMISING_NEAR_MISS, got %s.\n', status_3.label);
+    fprintf('  [FAIL] Expected PROMISING_NEAR_MISS, got %s.\n', status_4.label);
     n_fail = n_fail + 1;
 end
 
-%% Test 4: PHYSIOLOGICAL_BUT_POOR_FIT
-fprintf('--- Test 4: PHYSIOLOGICAL_BUT_POOR_FIT classification ---\n');
+%% Test 5: PHYSIOLOGICAL_BUT_POOR_FIT
+fprintf('--- Test 5: PHYSIOLOGICAL_BUT_POOR_FIT classification ---\n');
 report_structural = report_poor;
 report_structural.rmse_cal = 0.19;
 report_structural.table_cal.Error_pct(3) = 28;
-status_4 = classify_calibration_run(report_structural, plaus_ok);
-if strcmp(status_4.label, 'PHYSIOLOGICAL_BUT_POOR_FIT')
+status_5 = classify_calibration_run(report_structural, plaus_ok);
+if strcmp(status_5.label, 'PHYSIOLOGICAL_BUT_POOR_FIT')
     fprintf('  [PASS] Poor fit + plausible but weak improvement -> PHYSIOLOGICAL_BUT_POOR_FIT.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Expected PHYSIOLOGICAL_BUT_POOR_FIT, got %s.\n', status_4.label);
+    fprintf('  [FAIL] Expected PHYSIOLOGICAL_BUT_POOR_FIT, got %s.\n', status_5.label);
     n_fail = n_fail + 1;
 end
 
-%% Test 5: REJECT
-fprintf('--- Test 5: REJECT classification ---\n');
-status_5 = classify_calibration_run(report_structural, plaus_warn);
-if strcmp(status_5.label, 'REJECT')
+%% Test 6: REJECT
+fprintf('--- Test 6: REJECT classification ---\n');
+status_6 = classify_calibration_run(report_structural, plaus_warn);
+if strcmp(status_6.label, 'REJECT')
     fprintf('  [PASS] Poor fit + poor plausibility -> REJECT.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Expected REJECT, got %s.\n', status_5.label);
+    fprintf('  [FAIL] Expected REJECT, got %s.\n', status_6.label);
     n_fail = n_fail + 1;
 end
 
-%% Test 6: Large miss remains PHYSIOLOGICAL_BUT_POOR_FIT, not near miss
-fprintf('--- Test 6: Large miss is not near miss ---\n');
+%% Test 7: Large miss remains PHYSIOLOGICAL_BUT_POOR_FIT, not near miss
+fprintf('--- Test 7: Large miss is not near miss ---\n');
 report_large_miss = report;
 report_large_miss.primary_gate.Pass_5pct = [false; true];
 report_large_miss.primary_gate.AbsError_pct = [22; 2];
 report_large_miss.rmse_cal = 0.13;
-status_6 = classify_calibration_run(report_large_miss, plaus_ok);
-if strcmp(status_6.label, 'PHYSIOLOGICAL_BUT_POOR_FIT')
+status_7 = classify_calibration_run(report_large_miss, plaus_ok);
+if strcmp(status_7.label, 'PHYSIOLOGICAL_BUT_POOR_FIT')
     fprintf('  [PASS] Large primary miss stays out of PROMISING_NEAR_MISS.\n');
     n_pass = n_pass + 1;
 else
-    fprintf('  [FAIL] Expected PHYSIOLOGICAL_BUT_POOR_FIT, got %s.\n', status_6.label);
+    fprintf('  [FAIL] Expected PHYSIOLOGICAL_BUT_POOR_FIT, got %s.\n', status_7.label);
     n_fail = n_fail + 1;
 end
 

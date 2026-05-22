@@ -31,6 +31,8 @@ switch scenario
             'LAP_min',      'LAP_dia_mmHg',   'mmHg',  'Left atrial diastolic-like minimum',   false, false, false, 'Low'
             'LAP_mean',     'LAP_mean_mmHg',  'mmHg',  'Left atrial mean pressure',            true,  false, true,  'Moderate'
             'LAP_max',      'LAP_sys_mmHg',   'mmHg',  'Left atrial systolic-like maximum',    false, false, false, 'Low'
+            'LVEDP',        'LVEDP_mmHg',     'mmHg',  'LV end-diastolic pressure at LVEDV',   false, false, true,  'Moderate'
+            'RVEDP',        'RVEDP_mmHg',     'mmHg',  'RV end-diastolic pressure at RVEDV',   false, false, true,  'Moderate'
             'PAP_min',      'PAP_dia_mmHg',   'mmHg',  'PA diastolic pressure',                true,  false, true,  'High'
             'PAP_max',      'PAP_sys_mmHg',   'mmHg',  'PA systolic pressure',                 true,  false, true,  'High'
             'PAP_mean',     'PAP_mean_mmHg',  'mmHg',  'PA mean pressure',                     true,  true,  false, 'High'
@@ -39,8 +41,8 @@ switch scenario
             'SAP_mean',     'SAP_mean_mmHg',  'mmHg',  'Mean arterial pressure',               true,  true,  false, 'High'
             'QpQs',         'QpQs',           '-',     'Pulmonary/systemic flow ratio',        true,  true,  false, 'High'
             'Q_shunt_Lmin', 'Q_shunt_Lmin',   'L/min', 'Net shunt flow derived as Qp minus Qs', true,  false, false, 'Derived'
-            'PVR',          'PVR_WU',         'WU',    'Pulmonary vascular resistance',        true,  true,  false, 'High'
-            'SVR',          'SVR_WU',         'WU',    'Systemic vascular resistance',         true,  false, true,  'High'
+            'PVR',          'PVR_WU',         'WU',    'Derived pulmonary vascular resistance', false, false, false, 'Derived'
+            'SVR',          'SVR_WU',         'WU',    'Derived systemic vascular resistance',  false, false, false, 'Derived'
             'CO_Lmin',      'CO_Lmin',        'L/min', 'Effective systemic cardiac output (Qs)', true, false, true, 'High'
             'VSD_frac_pct', 'VSD_frac_pct',   '%',     'VSD shunt fraction of Qp',             false, false, false, 'Derived'
             'LVEDV',        'LVEDV_mL',       'mL',    'LV end-diastolic volume',              true,  false, true,  'Moderate'
@@ -60,6 +62,8 @@ switch scenario
             'LAP_min',      'LAP_dia_mmHg',  'mmHg',  'Left atrial diastolic-like minimum',   false, false, false, 'Low'
             'LAP_mean',     'LAP_mean_mmHg', 'mmHg',  'Left atrial mean pressure',            false, false, true,  'Moderate'
             'LAP_max',      'LAP_sys_mmHg',  'mmHg',  'Left atrial systolic-like maximum',    false, false, false, 'Low'
+            'LVEDP',        'LVEDP_mmHg',    'mmHg',  'LV end-diastolic pressure at LVEDV',   false, false, true,  'Moderate'
+            'RVEDP',        'RVEDP_mmHg',    'mmHg',  'RV end-diastolic pressure at RVEDV',   false, false, true,  'Moderate'
             'PAP_min',      'PAP_dia_mmHg',  'mmHg',  'PA diastolic pressure',                false, false, true,  'High'
             'PAP_max',      'PAP_sys_mmHg',  'mmHg',  'PA systolic pressure',                 false, false, true,  'High'
             'PAP_mean',     'PAP_mean_mmHg', 'mmHg',  'PA mean pressure',                     true,  false, true,  'High'
@@ -67,8 +71,8 @@ switch scenario
             'SAP_max',      'SAP_sys_mmHg',  'mmHg',  'Systemic arterial systolic pressure',  true,  false, true,  'Moderate'
             'SAP_mean',     'MAP_mmHg',      'mmHg',  'Mean arterial pressure',               true,  true,  false, 'High'
             'QpQs',         'QpQs',          '-',     'Qp/Qs ratio after VSD closure',        true,  true,  false, 'High'
-            'PVR',          'PVR_WU',        'WU',    'Pulmonary vascular resistance',        true,  true,  false, 'High'
-            'SVR',          'SVR_WU',        'WU',    'Systemic vascular resistance',         true,  false, true,  'High'
+            'PVR',          'PVR_WU',        'WU',    'Derived pulmonary vascular resistance', false, false, false, 'Derived'
+            'SVR',          'SVR_WU',        'WU',    'Derived systemic vascular resistance',  false, false, false, 'Derived'
             'CO_Lmin',      'CO_Lmin',       'L/min', 'Effective systemic cardiac output (Qs)', true, false, true, 'High'
             'VSD_frac_pct', 'VSD_frac_pct',  '%',     'Residual VSD shunt fraction of Qp',    false, false, false, 'Derived'
             'LVEDV',        'LVEDV_mL',      'mL',    'LV end-diastolic volume',              true,  false, true,  'Moderate'
@@ -97,6 +101,17 @@ for i = 1:size(rows, 1)
     targets(i).Comparator        = rows{i, 1};
     if isfield(src, targets(i).ClinicalField)
         targets(i).ClinicalValue = src.(targets(i).ClinicalField);
+    elseif strcmp(targets(i).Metric, 'LVEF') && isfield(src, 'LVEF')
+        targets(i).ClinicalValue = src.LVEF;
+    end
+    if ~isfinite(targets(i).ClinicalValue)
+        [derived_value, derived_note] = derive_clinical_target_value( ...
+            targets(i).Metric, src);
+        if isfinite(derived_value)
+            targets(i).ClinicalValue = derived_value;
+            targets(i).UncertaintyNote = sprintf('%s %s', ...
+                targets(i).UncertaintyNote, derived_note);
+        end
     end
 end
 
@@ -105,6 +120,47 @@ targets = apply_source_declared_uncertainty(targets, scenario, clinical);
 
 end
 
+
+function [value, note] = derive_clinical_target_value(metric_name, src)
+% DERIVE_CLINICAL_TARGET_VALUE - compute report-only clinical comparators.
+value = NaN;
+note = '';
+switch metric_name
+    case 'PVR'
+        pap_mean = finite_field(src, 'PAP_mean_mmHg');      % [mmHg]
+        lap_mean = finite_field(src, 'LAP_mean_mmHg');      % [mmHg]
+        if ~isfinite(lap_mean)
+            lap_mean = finite_field(src, 'PWP_mean_mmHg');  % [mmHg]
+        end
+        qs_lmin = finite_field(src, 'CO_Lmin');             % [L/min]
+        qpqs = finite_field(src, 'QpQs');                   % [-]
+        qp_lmin = qs_lmin * qpqs;                           % [L/min]
+        if all(isfinite([pap_mean, lap_mean, qp_lmin])) && qp_lmin > 0
+            value = (pap_mean - lap_mean) / qp_lmin;        % [WU]
+            note = 'Clinical PVR derived as (PAP_mean - LAP_or_PWP_mean) / (CO_Lmin * QpQs).';
+        end
+    case 'SVR'
+        sap_mean = finite_field(src, 'SAP_mean_mmHg');      % [mmHg]
+        if ~isfinite(sap_mean)
+            sap_mean = finite_field(src, 'MAP_mmHg');       % [mmHg]
+        end
+        rap_mean = finite_field(src, 'RAP_mean_mmHg');      % [mmHg]
+        qs_lmin = finite_field(src, 'CO_Lmin');             % [L/min]
+        if all(isfinite([sap_mean, rap_mean, qs_lmin])) && qs_lmin > 0
+            value = (sap_mean - rap_mean) / qs_lmin;        % [WU]
+            note = 'Clinical SVR derived as (SAP_or_MAP_mean - RAP_mean) / CO_Lmin.';
+        end
+end
+end
+
+function value = finite_field(src, field_name)
+% FINITE_FIELD - read a scalar numeric clinical field or return NaN.
+value = NaN;
+if isstruct(src) && isfield(src, field_name) && isnumeric(src.(field_name)) && ...
+        isscalar(src.(field_name)) && isfinite(src.(field_name))
+    value = src.(field_name);
+end
+end
 
 function target = empty_target()
 target = struct( ...

@@ -38,6 +38,7 @@ metrics.RAP_max  = max(Pc.RA);
 metrics.LAP_mean = mean_t(Pc.LA);
 metrics.LAP_min  = min(Pc.LA);
 metrics.LAP_max  = max(Pc.LA);
+metrics.PWP_mean = mean_t(Pc.PVEN);
 
 metrics.PAP_min  = min(Pc.PAR);
 metrics.PAP_max  = max(Pc.PAR);
@@ -90,10 +91,12 @@ V_LV_c = XV(time_mask, sidx.V_LV);
 V_RV_c = XV(time_mask, sidx.V_RV);
 V_LA_c = XV(time_mask, sidx.V_LA);
 
-metrics.LVEDV = max(V_LV_c);
+[metrics.LVEDV, idx_ed_lv] = max(V_LV_c);
 metrics.LVESV = min(V_LV_c);
-metrics.RVEDV = max(V_RV_c);
+[metrics.RVEDV, idx_ed_rv] = max(V_RV_c);
 metrics.RVESV = min(V_RV_c);
+metrics.LVEDP = Pc.LV(idx_ed_lv);
+metrics.RVEDP = Pc.RV(idx_ed_rv);
 
 metrics.LVEF = (metrics.LVEDV - metrics.LVESV) / max(metrics.LVEDV, 1e-6);
 metrics.RVEF = (metrics.RVEDV - metrics.RVESV) / max(metrics.RVEDV, 1e-6);
@@ -105,6 +108,8 @@ metrics.SVR_from_Qao = (metrics.SAP_mean - metrics.RAP_mean) / max(Qao_Lmin, 1e-
 metrics.PVR_from_Qpv = (metrics.PAP_mean - metrics.LAP_mean) / max(Qpv_Lmin, 1e-6);
 
 metrics.Q_shunt_mean_mLs = mean_t(Qc.VSD);
+metrics.Q_AV_mean = mean_t(Qc.AV);
+metrics.Q_PVv_mean = mean_t(Qc.PVv);
 metrics.VSD_frac_pct = 100 * metrics.Q_shunt_mean_mLs / max(abs(metrics.Qp_mean_mLs), 1e-6);
 % CO_Lmin is reported as effective systemic output (Qs). In unrepaired VSD,
 % LV stroke output includes recirculated shunt volume and overstates the
