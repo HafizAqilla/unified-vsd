@@ -90,9 +90,33 @@ else
     n_fail = n_fail + 1;
 end
 
-%% Test 4: GSA-guided primary selector is deterministic and bounded
+%% Test 4: PVR/SVR are derived validation-only targets
+idx_pvr = find(strcmp(target_names, 'PVR'), 1, 'first');
+idx_svr = find(strcmp(target_names, 'SVR'), 1, 'first');
+tiers = build_target_tiers(clinical, 'post_surgery');
+tier_tbl = tiers.table;
+pvr_tier_idx = find(strcmp(tier_tbl.Metric, 'PVR'), 1, 'first');
+svr_tier_idx = find(strcmp(tier_tbl.Metric, 'SVR'), 1, 'first');
+if ~targets(idx_pvr).UseForCalibration && ~targets(idx_svr).UseForCalibration && ...
+        strcmp(targets(idx_pvr).Reliability, 'Derived') && ...
+        strcmp(targets(idx_svr).Reliability, 'Derived') && ...
+        strcmp(tier_tbl.Tier{pvr_tier_idx}, 'derived_validation') && ...
+        strcmp(tier_tbl.Tier{svr_tier_idx}, 'derived_validation') && ...
+        ~tier_tbl.IncludedInCalibration(pvr_tier_idx) && ...
+        ~tier_tbl.IncludedInCalibration(svr_tier_idx) && ...
+        ~tier_tbl.IncludedInPrimaryRMSE(pvr_tier_idx) && ...
+        ~tier_tbl.IncludedInPrimaryRMSE(svr_tier_idx)
+    fprintf('  [PASS] PVR/SVR are derived validation-only targets.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] PVR/SVR target governance is not derived validation-only.\n');
+    n_fail = n_fail + 1;
+end
+
+%% Test 5: GSA-guided primary selector is deterministic and bounded
 [primary_metrics, selection_table] = select_primary_metrics(clinical, [], 'post_surgery');
-if numel(primary_metrics) <= 5 && all(ismember(primary_metrics, selection_table.Metric))
+if numel(primary_metrics) <= 5 && all(ismember(primary_metrics, selection_table.Metric)) && ...
+        ~any(ismember(primary_metrics, {'PVR','SVR'}))
     fprintf('  [PASS] select_primary_metrics returns a bounded reproducible set.\n');
     n_pass = n_pass + 1;
 else

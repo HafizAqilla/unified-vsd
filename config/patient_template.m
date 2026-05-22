@@ -71,6 +71,10 @@ pre.SVR_WU            = NaN;   % [WU]     systemic vascular resistance
 pre.RAP_mean_mmHg     = NaN;   % [mmHg]   right atrial mean pressure (cath)
 pre.LAP_mean_mmHg     = NaN;   % [mmHg]   left atrial mean (or PCWP)
 
+% ---- Ventricular filling pressures -----------------------------------
+pre.LVEDP_mmHg        = NaN;   % [mmHg]   LV end-diastolic pressure (cath)
+pre.RVEDP_mmHg        = NaN;   % [mmHg]   RV end-diastolic pressure (cath)
+
 % ---- Ventricular volumes and function (echo / MRI) -------------------
 pre.LVEDV_mL          = NaN;   % [mL]     LV end-diastolic volume
 pre.LVESV_mL          = NaN;   % [mL]     LV end-systolic volume
@@ -109,6 +113,10 @@ post.SVR_WU           = NaN;   % [WU]
 % ---- Atrial pressures ------------------------------------------------
 post.RAP_mean_mmHg    = NaN;
 post.LAP_mean_mmHg    = NaN;
+
+% ---- Ventricular filling pressures -----------------------------------
+post.LVEDP_mmHg       = NaN;
+post.RVEDP_mmHg       = NaN;
 
 % ---- Ventricular volumes and function (normalised post-surgery) ------
 post.LVEDV_mL         = NaN;

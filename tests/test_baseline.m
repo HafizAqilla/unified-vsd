@@ -211,9 +211,8 @@ Q_AV_c   = dP_AV_c .* (g_AV_c * inv_Ro_c + (1 - g_AV_c) * inv_Rc_c);  % [mL/s]
 SW_LV = -trapz(V_LV_c, P_LV_c);   % [mmHg·mL]  — should be 3000–12000 for healthy adult
 
 % (b) LVEDP proxy — low-pressure diastolic LV pressure.
-%     The Keisya baseline uses a longer LV relaxation fraction, so maximum
-%     LV volume can occur close to the pressure upstroke. The minimum LV
-%     pressure over the final cycle is a more robust diastolic sanity check.
+%     This baseline-shape check intentionally uses the minimum LV pressure,
+%     while compute_clinical_indices reports LVEDP at max LV volume.
 LVEDP = min(P_LV_c);   % [mmHg]
 
 % (c) LVESP — pressure at end-systole defined by peak LV elastance during

@@ -8,9 +8,10 @@ function status = classify_calibration_run(report, plausibility_metrics, thresho
 %   report                - validation_report output struct              [-]
 %   plausibility_metrics  - output of evaluate_parameter_plausibility    [-]
 %   thresholds            - optional thresholds struct with fields:
-%       .primary_error_pct     default 5                                [%]
-%       .secondary_error_pct   default 10                               [%]
-%       .max_warning_fraction  default 0.20                             [-]
+%       .excellent_error_pct   default 5                                [%]
+%       .primary_error_pct     default 10                               [%]
+%       .secondary_error_pct   default 15                               [%]
+%       .max_warning_fraction  default 0.20 (reported, not rejecting)   [-]
 %       .reject_on_any_fail    default true                             [-]
 %
 % OUTPUTS:
@@ -44,17 +45,23 @@ end
 status = struct();
 status.thresholds = thresholds;
 
+[primary_excellent_ok, n_primary_excellent_fail] = evaluate_primary_fit(report, thresholds.excellent_error_pct);
 [primary_fit_ok, n_primary_fail] = evaluate_primary_fit(report, thresholds.primary_error_pct);
 [secondary_fit_ok, n_secondary_fail] = evaluate_secondary_fit(report, thresholds.secondary_error_pct);
 
+status.primary_excellent_ok = primary_excellent_ok;
 status.primary_fit_ok = primary_fit_ok;
 status.secondary_fit_ok = secondary_fit_ok;
 status.fit_ok = primary_fit_ok && secondary_fit_ok;
+status.n_primary_excellent_fail = n_primary_excellent_fail;
 status.n_primary_fail = n_primary_fail;
 status.n_secondary_fail = n_secondary_fail;
 status.max_primary_abs_error = compute_max_abs_error(report, 'primary');
 status.max_secondary_abs_error = compute_max_abs_error(report, 'secondary');
 status.rmse_improvement_frac = compute_rmse_improvement(report);
+status.rmse_not_worse = compute_rmse_not_worse(report);
+status.strong_rmse_improvement = status.rmse_improvement_frac >= ...
+    thresholds.accept_rmse_improvement_frac;
 
 status.n_warning = 0;
 status.n_fail = 0;
@@ -74,10 +81,10 @@ if thresholds.reject_on_any_fail
 else
     no_plausibility_fail = true;
 end
-status.plausibility_ok = no_plausibility_fail && ...
-    status.warning_fraction <= thresholds.max_warning_fraction;
+status.plausibility_ok = no_plausibility_fail;
+status.plausibility_warning_ok = status.warning_fraction <= thresholds.max_warning_fraction;
 
-if status.fit_ok && status.plausibility_ok
+if status.fit_ok && status.plausibility_ok && status.rmse_not_worse
     status.label = 'ACCEPT';
 elseif is_promising_near_miss(status, thresholds)
     status.label = 'PROMISING_NEAR_MISS';
@@ -89,10 +96,12 @@ else
     status.label = 'REJECT';
 end
 
-status.summary = sprintf(['%s | primary_fail=%d | secondary_fail=%d | ', ...
-    'plausibility_warning=%d | plausibility_fail=%d'], ...
-    status.label, status.n_primary_fail, status.n_secondary_fail, ...
-    status.n_warning, status.n_fail);
+status.summary = sprintf(['%s | excellent5_fail=%d | primary10_fail=%d | ', ...
+    'secondary15_fail=%d | plausibility_warning=%d | plausibility_fail=%d | ', ...
+    'RMSE_improvement=%.1f%%'], ...
+    status.label, status.n_primary_excellent_fail, status.n_primary_fail, ...
+    status.n_secondary_fail, status.n_warning, status.n_fail, ...
+    100 * status.rmse_improvement_frac);
 end
 
 function [fit_ok, n_fail] = evaluate_primary_fit(report, threshold_pct)
@@ -145,16 +154,17 @@ end
 
 function thresholds = default_thresholds()
 thresholds = struct( ...
-    'primary_error_pct', 5, ...
-    'secondary_error_pct', 10, ...
+    'excellent_error_pct', 5, ...
+    'primary_error_pct', 10, ...
+    'secondary_error_pct', 15, ...
     'max_warning_fraction', 0.20, ...
     'reject_on_any_fail', true, ...
-    'promising_max_warning_fraction', 0.40, ...
+    'accept_rmse_improvement_frac', 0.20, ...
     'promising_rmse_improvement_frac', 0.20, ...
     'promising_max_primary_fail', 3, ...
     'promising_max_secondary_fail', 6, ...
-    'promising_max_primary_error_pct', 20, ...
-    'promising_max_secondary_error_pct', 35);
+    'promising_max_primary_error_pct', 15, ...
+    'promising_max_secondary_error_pct', 25);
 end
 
 function merged = merge_thresholds(defaults, overrides)
@@ -174,7 +184,6 @@ end
 no_plausibility_fail = (status.n_fail == 0);
 
 tf = no_plausibility_fail && ...
-    status.warning_fraction <= thresholds.promising_max_warning_fraction && ...
     status.rmse_improvement_frac >= thresholds.promising_rmse_improvement_frac && ...
     status.n_primary_fail <= thresholds.promising_max_primary_fail && ...
     status.n_secondary_fail <= thresholds.promising_max_secondary_fail && ...
@@ -233,4 +242,15 @@ if ~isfinite(report.rmse_baseline) || ~isfinite(report.rmse_cal) || report.rmse_
     return;
 end
 improvement_frac = (report.rmse_baseline - report.rmse_cal) / report.rmse_baseline;
+end
+
+function tf = compute_rmse_not_worse(report)
+tf = false;
+if ~isstruct(report) || ~isfield(report, 'rmse_baseline') || ~isfield(report, 'rmse_cal')
+    return;
+end
+if ~isfinite(report.rmse_baseline) || ~isfinite(report.rmse_cal)
+    return;
+end
+tf = report.rmse_cal <= report.rmse_baseline + 1e-9;
 end
