@@ -96,6 +96,8 @@ for idx = 1:n_params
 
     [lb, ub, bound_anchor, bound_type, bound_source, confidence_level, bound_note] = ...
         resolve_bounds(name, group_info, baseline_scaled, seeded_value, scenario, case_profile);
+    [lb, ub, reference_note] = ensure_scaled_reference_inside_bounds( ...
+        lb, ub, baseline_scaled, seeded_value, name);
     [lb, ub, widened_note] = ensure_seed_inside_bounds(lb, ub, seeded_value, name);
 
     baseline_adult_col(idx) = baseline_adult;
@@ -110,6 +112,7 @@ for idx = 1:n_params
     confidence_col{idx} = confidence_level;
 
     note_parts{end + 1} = bound_note;
+    note_parts{end + 1} = reference_note;
     note_parts{end + 1} = widened_note;
     notes_col{idx} = join_nonempty(note_parts, ' ');
 end
@@ -333,6 +336,31 @@ else
 end
 end
 
+function [lb, ub, note_text] = ensure_scaled_reference_inside_bounds(lb, ub, baseline_scaled, seeded_value, name)
+% ENSURE_SCALED_REFERENCE_INSIDE_BOUNDS - keep allometric prior feasible.
+note_text = '';
+if ~isfinite(baseline_scaled) || baseline_scaled <= 0
+    return;
+end
+
+if isfinite(seeded_value) && seeded_value > 0 && ...
+        abs(log(seeded_value / baseline_scaled)) < log(1.05)
+    return;
+end
+
+span = max(ub - lb, 1e-9);
+margin = max(0.05 * abs(baseline_scaled), 0.02 * span);
+if baseline_scaled < lb
+    lb = max(baseline_scaled - margin, eps);
+    note_text = sprintf(['Registry lower bound widened to keep the BSA-scaled ', ...
+        'reference feasible for %s when clinical seeding is uncertain.'], name);
+elseif baseline_scaled > ub
+    ub = baseline_scaled + margin;
+    note_text = sprintf(['Registry upper bound widened to keep the BSA-scaled ', ...
+        'reference feasible for %s when clinical seeding is uncertain.'], name);
+end
+end
+
 function [lb, ub, note_text] = ensure_seed_inside_bounds(lb, ub, seeded_value, name)
 note_text = '';
 if ~isfinite(seeded_value)
@@ -341,6 +369,9 @@ end
 
 span = max(ub - lb, 1e-9);
 margin = max(0.05 * abs(seeded_value), 0.02 * span);
+if startsWith(name, 'V0.')
+    margin = max(margin, 0.40 * abs(seeded_value));
+end
 
 if seeded_value < lb
     lb = max(seeded_value - margin, eps);
@@ -410,8 +441,10 @@ if contains(name, '.RV.')
     lower_mult = 0.55;
     upper_mult = 2.60;
 elseif contains(name, '.LA.') || contains(name, '.RA.')
-    lower_mult = 0.50;
+    lower_mult = 0.20;
     upper_mult = 2.50;
+    note_text = ['Atrial elastance prior is wider because sparse catheter ', ...
+        'records usually provide only mean filling pressures.'];
 elseif endsWith(name, '.EB')
     lower_mult = 0.60;
     upper_mult = 2.50;

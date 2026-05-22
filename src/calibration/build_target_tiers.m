@@ -11,13 +11,14 @@ function target_config = build_target_tiers(clinical, scenario, audit, config)
 %   config    - optional target-tier policy struct                       [-]
 %
 % OUTPUTS:
-%   target_config - struct with hard/soft/consistency-only target lists,
+%   target_config - struct with hard/soft/report-only target lists,
 %                   weights, inclusion flags, and an audit table         [-]
 %
 % ASSUMPTIONS:
 %   - Targets excluded from calibration remain visible in validation.
-%   - Consistency-only targets are excluded from primary RMSE but included
-%     in full RMSE for transparent reporting.
+%   - Consistency-only, derived-validation, and validation-holdout targets
+%     are excluded from primary RMSE but included in full RMSE for
+%     transparent reporting.
 %
 % REFERENCES:
 %   [1] docs/clinical_data_dictionary.md
@@ -49,7 +50,10 @@ available_metrics = metric_names(available);                % [cellstr]
 hard = intersect(config.hard, available_metrics, 'stable');
 soft = intersect(config.soft, available_metrics, 'stable');
 consistency_only = intersect(config.consistency_only, available_metrics, 'stable');
+derived_validation = intersect(config.derived_validation, available_metrics, 'stable');
+validation_holdout = intersect(config.validation_holdout, available_metrics, 'stable');
 consistency_reasons = struct();
+holdout_reasons = struct();
 
 if isfield(audit, 'recommended_target_tier_changes')
     changes = audit.recommended_target_tier_changes;
@@ -75,13 +79,35 @@ if all(ismember({'LVEDV','LVESV','LVEF'}, available_metrics))
         'LVESV; excluded from fitting to avoid double-counting echo volumes.'];
 end
 
+% In sparse catheterisation records without echo volume anchors, direct
+% ventricular EDPs are clinically visible but weakly identifiable in this
+% lumped model. Report them as holdout rows instead of letting them dominate
+% a pressure-flow calibration.
+if ismember('LVEDP', available_metrics) && ...
+        ~any(ismember({'LVEDV','LVESV'}, available_metrics))
+    validation_holdout = unique([validation_holdout, {'LVEDP'}], 'stable');
+    holdout_reasons.LVEDP = ['LVEDP is reported as validation holdout because ', ...
+        'no LV volume anchor is available to identify diastolic stiffness/preload.'];
+end
+if ismember('RVEDP', available_metrics) && ...
+        ~any(ismember({'RVEDV','RVESV'}, available_metrics))
+    validation_holdout = unique([validation_holdout, {'RVEDP'}], 'stable');
+    holdout_reasons.RVEDP = ['RVEDP is reported as validation holdout because ', ...
+        'no RV volume anchor is available to identify diastolic stiffness/preload.'];
+end
+
 hard = setdiff(hard, consistency_only, 'stable');
+hard = setdiff(hard, derived_validation, 'stable');
+hard = setdiff(hard, validation_holdout, 'stable');
 soft = setdiff(soft, consistency_only, 'stable');
+soft = setdiff(soft, derived_validation, 'stable');
+soft = setdiff(soft, validation_holdout, 'stable');
 soft = setdiff(soft, hard, 'stable');
 
 included_in_calibration = unique([hard, soft], 'stable');
-included_in_primary_rmse = setdiff(available_metrics, consistency_only, 'stable');
-excluded_from_primary_rmse = consistency_only;
+included_in_primary_rmse = setdiff(available_metrics, ...
+    unique([consistency_only, derived_validation, validation_holdout], 'stable'), 'stable');
+excluded_from_primary_rmse = unique([consistency_only, derived_validation, validation_holdout], 'stable');
 
 weights = struct();
 for idx = 1:numel(hard)
@@ -103,14 +129,18 @@ target_config.policy = config.policy_name;
 target_config.hard = hard;
 target_config.soft = soft;
 target_config.consistency_only = consistency_only;
+target_config.derived_validation = derived_validation;
+target_config.validation_holdout = validation_holdout;
 target_config.included_in_calibration = included_in_calibration;
 target_config.included_in_primary_rmse = included_in_primary_rmse;
 target_config.excluded_from_primary_rmse = excluded_from_primary_rmse;
 target_config.weights = weights;
 target_config.audit_summary = audit.summary;
 target_config.consistency_reasons = consistency_reasons;
+target_config.holdout_reasons = holdout_reasons;
 target_config.table = build_tier_table(targets, hard, soft, ...
-    consistency_only, audit, consistency_reasons);
+    consistency_only, derived_validation, validation_holdout, ...
+    audit, consistency_reasons, holdout_reasons);
 end
 
 function config = default_target_tier_config()
@@ -118,8 +148,10 @@ config = struct();
 config.policy_name = 'flow_volume_consistency_governance_v1';
 config.hard = {'CO_Lmin','QpQs','PAP_mean','SAP_mean','RAP_mean', ...
     'LVEDV','LVESV','LVEF'};
-config.soft = {'Q_shunt_Lmin','SAP_max','SAP_min','SVR','RVESV'};
+config.soft = {'Q_shunt_Lmin','SAP_max','SAP_min','RVESV'};
 config.consistency_only = {};
+config.derived_validation = {'PVR','SVR'};
+config.validation_holdout = {};
 config.hard_weight_multiplier = 1.00;
 config.soft_weight_multiplier = 0.45;
 config.metric_weight_multipliers = struct( ...
@@ -134,11 +166,11 @@ config.metric_weight_multipliers = struct( ...
     'LVEF', 0.85, ...
     'SAP_max', 0.45, ...
     'SAP_min', 0.40, ...
-    'SVR', 0.55, ...
     'RVESV', 0.45);
 end
 
-function tier_table = build_tier_table(targets, hard, soft, consistency_only, audit, consistency_reasons)
+function tier_table = build_tier_table(targets, hard, soft, consistency_only, ...
+    derived_validation, validation_holdout, audit, consistency_reasons, holdout_reasons)
 n_targets = numel(targets);
 metric_col = cell(n_targets, 1);
 tier_col = cell(n_targets, 1);
@@ -158,6 +190,18 @@ for idx = 1:n_targets
         included_cal_col(idx) = false;
         included_primary_rmse_col(idx) = false;
         [flag_col{idx}, reason_col{idx}] = consistency_flag(metric_name, audit, consistency_reasons);
+    elseif ismember(metric_name, derived_validation)
+        tier_col{idx} = 'derived_validation';
+        included_cal_col(idx) = false;
+        included_primary_rmse_col(idx) = false;
+        flag_col{idx} = 'derived_validation';
+        reason_col{idx} = 'Derived from source pressures/flows; retained for validation only.';
+    elseif ismember(metric_name, validation_holdout)
+        tier_col{idx} = 'validation_holdout';
+        included_cal_col(idx) = false;
+        included_primary_rmse_col(idx) = false;
+        flag_col{idx} = 'validation_holdout';
+        reason_col{idx} = holdout_reason(metric_name, holdout_reasons);
     elseif ismember(metric_name, hard)
         tier_col{idx} = 'hard';
         included_cal_col(idx) = true;
@@ -181,6 +225,13 @@ tier_table = table(metric_col, tier_col, included_cal_col, ...
     included_primary_rmse_col, flag_col, reason_col, ...
     'VariableNames', {'Metric','Tier','IncludedInCalibration', ...
     'IncludedInPrimaryRMSE','Flag','Reason'});
+end
+
+function reason = holdout_reason(metric_name, holdout_reasons)
+reason = 'Target is retained as transparent validation holdout.';
+if isstruct(holdout_reasons) && isfield(holdout_reasons, metric_name)
+    reason = holdout_reasons.(metric_name);
+end
 end
 
 function [flag, reason] = consistency_flag(metric_name, audit, consistency_reasons)

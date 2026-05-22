@@ -279,7 +279,7 @@ for idx = 1:height(tier_tbl)
         continue;
     end
     switch tier_tbl.Tier{idx}
-        case 'consistency_check_only'
+        case {'consistency_check_only','derived_validation','validation_holdout'}
             weights.(metric_name) = 0;
     end
 end

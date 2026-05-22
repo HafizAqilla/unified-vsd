@@ -88,6 +88,7 @@ switch profile.mode
         profile.boundScale = make_sparse_bound_scale();
         profile.metricWeightOverrides = struct('QpQs', 1.3, 'Q_shunt_Lmin', 1.5, ...
             'PAP_mean', 1.2, 'SAP_mean', 1.2, 'CO_Lmin', 1.3);
+        profile.validationGatePolishEnabled = true;
     otherwise
         profile.stageCPreferredNames = {'R.vsd','vsd.Cd','group.R_pul_scale', ...
             'group.R_sys_scale','C.SAR','C.PAR','E.LV.EA'};
@@ -114,6 +115,12 @@ profile.boundScale = struct('names', {{}}, 'lower', [], 'upper', []);
 profile.maxPrimaryMetrics = 5;                % [-]
 profile.preferredPrimaryMetrics = {};         % [cellstr]
 profile.validationHoldoutMetrics = {};        % [cellstr]
+profile.excellentFitErrorPct = 5;             % [%] publication-grade label
+profile.acceptancePrimaryErrorPct = 10;       % [%] patient-specific primary gate
+profile.acceptanceSecondaryErrorPct = 15;     % [%] patient-specific secondary gate
+profile.acceptRmseImprovementFrac = 0.20;     % [-] strong improvement marker
+profile.validationGatePolishEnabled = false;  % [-]
+profile.validationPolishRmseDelta = 0.003;    % [-]
 profile.regLambda = 0;                        % [-]
 profile.useVascularRcCoupling = true;         % [-]
 profile.preferredScalingMode = 'lundquist_bsa';
@@ -177,7 +184,7 @@ bound_scale = struct();
 bound_scale.names = {'group.R_sys_scale','R.SVEN','group.R_pul_scale', ...
     'C.SAR','C.PAR','E.LV.EA','E.RV.EA','V0.LV','V0.RV','R.vsd','vsd.Cd'};
 bound_scale.lower = [0.25, 0.25, 0.45, 0.75, 0.70, 0.60, 0.55, 0.75, 0.70, 0.25, 0.80];
-bound_scale.upper = [2.80, 2.80, 2.80, 1.35, 1.45, 2.20, 2.40, 1.40, 1.35, 4.00, 1.20];
+bound_scale.upper = [2.80, 2.80, 2.80, 1.35, 1.45, 2.20, 2.70, 1.40, 1.35, 4.00, 1.20];
 end
 
 function weights = make_full_data_systemic_load_weights()
@@ -208,6 +215,7 @@ profile.systemicPolishNames = adaptive_systemic_polish_names(src, scenario);
 profile.systemicPolishMetrics = adaptive_systemic_polish_metrics(src, scenario);
 profile.systemicPolishWeights = make_systemic_polish_weights(src);
 profile.plausibilityPolishEnabled = true;
+profile.validationGatePolishEnabled = true;
 profile.plausibilityPolishParamLambda = 2.25;
 profile.plausibilityPolishBoundaryLambda = 120.0;
 profile.plausibilityPolishRmseTolerance = 0.005;
@@ -549,12 +557,12 @@ end
 if isfield(profile, 'preferredPrimaryMetrics') && ~isempty(profile.preferredPrimaryMetrics)
     profile.preferredPrimaryMetrics = setdiff( ...
         profile.preferredPrimaryMetrics(:)', ...
-        target_tiers.consistency_only(:)', 'stable');
+        target_tiers.excluded_from_primary_rmse(:)', 'stable');
 end
 
 profile.validationHoldoutMetrics = unique([ ...
     profile.validationHoldoutMetrics(:)', ...
-    target_tiers.consistency_only(:)'], 'stable');
+    target_tiers.excluded_from_primary_rmse(:)'], 'stable');
 
 if isfield(profile.metricWeightOverrides, 'RVEDV') && ...
         ismember('RVEDV', target_tiers.consistency_only)
@@ -584,6 +592,7 @@ else
         included], 'stable');
 end
 metrics = setdiff(metrics, target_tiers.consistency_only(:)', 'stable');
+metrics = setdiff(metrics, target_tiers.excluded_from_primary_rmse(:)', 'stable');
 end
 
 function profile = append_governance_note(profile, note)

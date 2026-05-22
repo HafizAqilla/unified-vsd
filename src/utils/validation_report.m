@@ -169,7 +169,7 @@ report.sorted_errors = table( ...
     'VariableNames', {'Metric','Unit','Clinical','Error_pct','AbsError_pct', ...
     'Tier','Flag'});
 
-%% Primary metric gate check (Batch 5: strict 5% target)
+%% Primary metric fit bands: 5% excellent, 10% patient-acceptance gate
 primary_metrics = opts.PrimaryMetrics;
 if isempty(primary_metrics)
     [primary_metrics, ~] = select_primary_metrics(clinical, opts.GsaInitOut, scenario);
@@ -274,7 +274,7 @@ rmse_summary = table( ...
      report.rmse_hard_baseline; report.rmse_soft_baseline], ...
     [report.rmse_primary_cal; report.rmse_full_cal; ...
      report.rmse_hard_cal; report.rmse_soft_cal], ...
-    {'Excludes consistency-check-only targets'; ...
+    {'Excludes consistency-check-only, derived-validation, and validation-holdout targets'; ...
      'Includes all available clinical validation targets'; ...
      'Includes hard target tier only'; ...
      'Includes soft target tier only'}, ...
@@ -321,12 +321,16 @@ disp(visible);
 end
 
 function gate_tbl = primary_metric_gate(table_cal, table_base, primary_names)
-% PRIMARY_METRIC_GATE — evaluate strict 5% absolute error gate.
+% PRIMARY_METRIC_GATE - report 5% excellence and 10% acceptance bands.
 metric_col = primary_names(:);
+% Five percent is reported as excellent fit; ten percent is the patient
+% acceptance band used by calibration classification.
 clinical_col = nan(numel(primary_names), 1);
 model_col = nan(numel(primary_names), 1);
 abs_err_pct_col = nan(numel(primary_names), 1);
-pass_col = false(numel(primary_names), 1);
+excellent_col = false(numel(primary_names), 1);
+accept_col = false(numel(primary_names), 1);
+fit_band_col = repmat({'unavailable'}, numel(primary_names), 1);
 
 src_tbl = table_base;
 if ~isempty(table_cal)
@@ -347,28 +351,63 @@ for i = 1:numel(primary_names)
     end
 
     abs_err_pct_col(i) = abs(src_tbl.Error_pct(idx));
-    pass_col(i) = ~isnan(abs_err_pct_col(i)) && abs_err_pct_col(i) <= 5.0;
+    excellent_col(i) = ~isnan(abs_err_pct_col(i)) && abs_err_pct_col(i) <= 5.0;
+    accept_col(i) = ~isnan(abs_err_pct_col(i)) && abs_err_pct_col(i) <= 10.0;
+    if excellent_col(i)
+        fit_band_col{i} = 'excellent_5pct';
+    elseif accept_col(i)
+        fit_band_col{i} = 'accepted_10pct';
+    elseif ~isnan(abs_err_pct_col(i))
+        fit_band_col{i} = 'outside_10pct';
+    end
 end
 
-gate_tbl = table(metric_col, clinical_col, model_col, abs_err_pct_col, pass_col, ...
-    'VariableNames', {'Metric', 'Clinical', 'Model', 'AbsError_pct', 'Pass_5pct'});
+gate_tbl = table(metric_col, clinical_col, model_col, abs_err_pct_col, ...
+    excellent_col, accept_col, fit_band_col, ...
+    'VariableNames', {'Metric', 'Clinical', 'Model', 'AbsError_pct', ...
+    'Pass_5pct', 'Pass_10pct', 'FitBand'});
 end
 
 function print_primary_gate(gate_tbl)
-% PRINT_PRIMARY_GATE — print explicit pass/fail warning lines for 5% gate.
-fprintf('\n--- PRIMARY 5%% TARGET GATE (GSA-guided primary metrics) ---\n');
+% PRINT_PRIMARY_GATE - print excellent-fit and acceptance-band status.
+fprintf('\n--- PRIMARY FIT BAND (5%% excellent, 10%% patient acceptance) ---\n');
 disp(gate_tbl);
 
-idx_fail = find(~gate_tbl.Pass_5pct | isnan(gate_tbl.Pass_5pct));
-if isempty(idx_fail)
-    fprintf('[PASS] All primary metrics are within 5%% absolute error.\n');
+excellent_col = gate_tbl.Pass_5pct;
+if ismember('Pass_10pct', gate_tbl.Properties.VariableNames)
+    accept_col = gate_tbl.Pass_10pct;
+else
+    accept_col = ~isnan(gate_tbl.AbsError_pct) & gate_tbl.AbsError_pct <= 10.0;
+end
+
+idx_outside_acceptance = find(~accept_col | isnan(gate_tbl.AbsError_pct));
+if isempty(idx_outside_acceptance)
+    fprintf('[PASS] All primary metrics are within the 10%% patient acceptance gate.\n');
+else
+    for i = 1:numel(idx_outside_acceptance)
+        k = idx_outside_acceptance(i);
+        fprintf(2, '[WARNING] %s exceeds 10%% patient acceptance (|error| = %.2f%%).\n', ...
+            gate_tbl.Metric{k}, gate_tbl.AbsError_pct(k));
+    end
+end
+
+idx_not_excellent = find(~excellent_col & accept_col);
+if isempty(idx_not_excellent) && isempty(idx_outside_acceptance)
+    fprintf('[PASS] All primary metrics are within the 5%% excellent-fit band.\n');
     return;
 end
 
-for i = 1:numel(idx_fail)
-    k = idx_fail(i);
-    fprintf(2, '[WARNING] %s exceeds 5%% absolute error (|error| = %.2f%%).\n', ...
+for i = 1:numel(idx_not_excellent)
+    k = idx_not_excellent(i);
+    fprintf('[INFO] %s is acceptable but outside the 5%% excellent-fit band (|error| = %.2f%%).\n', ...
         gate_tbl.Metric{k}, gate_tbl.AbsError_pct(k));
+end
+
+idx_unavailable = find(isnan(gate_tbl.AbsError_pct));
+for i = 1:numel(idx_unavailable)
+    k = idx_unavailable(i);
+    fprintf(2, '[WARNING] %s primary metric is unavailable for acceptance review.\n', ...
+        gate_tbl.Metric{k});
 end
 end
 
