@@ -1,128 +1,357 @@
 function params = apply_scaling(params_ref, patient)
 % APPLY_SCALING
 % -----------------------------------------------------------------------
-% Backward-compatible wrapper that applies physiological scaling,
-% pediatric maturation, and initial-condition construction in sequence.
+% Patient-specific allometric scaling of cardiovascular model parameters.
+%
+% Scales the adult reference parameter set (Bozkurt2019/Colebank2025
+% baseline, ~70 kg healthy adult male) to a paediatric patient using
+% the weight-based allometric power law of Zhang et al. (2019):
+%
+%   X_child = X_adult * (W_child / W_adult)^beta
+%
+% where W is body weight [kg] and beta is a parameter-specific exponent.
+%
+% INPUTS:
+%   params_ref  - adult reference struct from default_parameters()
+%   patient     - struct with fields:
+%                   .age_years   patient age          [years]
+%                   .weight_kg   body weight          [kg]
+%                   .height_cm   standing height      [cm]
+%                   .sex         'M' or 'F'           (reserved)
+%
+% OUTPUTS:
+%   params      - scaled parameter struct, ready for system_rhs.m
+%
+% -----------------------------------------------------------------------
+% LAYER A — ZHANG PHYSIOLOGICAL PARAMETER SCALING (Zhang et al. 2019)
+% -----------------------------------------------------------------------
+%   Primary scaling variable: body weight W [kg]
+%   Scaling ratio:            w = W_patient / W_ref
+%
+%   Zhang exponents used:
+%     HR              ~ w^(-0.30)    heart rate
+%     E_LV, E_LA      ~ w^(-0.50)    LV/LA elastance (systemic-side)
+%     E_RV, E_RA      ~ w^(-0.75)    RV/RA elastance (pulmonary-side)
+%     V0              ~ w^(+0.80)    unstressed volumes (all compartments)
+%     R_systemic      ~ w^(-0.475)   systemic vascular resistance
+%     R_pulmonary     ~ w^(-0.70)    pulmonary vascular resistance
+%     C               ~ w^(+1.00)    vascular compliance (all)
+%     R_valve_open    ~ w^(-0.50)    valve open resistance (Zhang 2019)
+%
+%   NOT SCALED (with justification):
+%     R.vsd        — pathological; assigned per-patient by params_from_clinical.m
+%     Rvalve.closed — numerical guard; must remain large for diode logic
+%     epsilon_valve — numerical smoothing parameter, not a physiological quantity
+%     L.*          — inertances; no Zhang exponent available (see Note 1)
+%
+% -----------------------------------------------------------------------
+% LAYER B — INITIALIZATION / IC CORRECTION  (numerical stabilization)
+% -----------------------------------------------------------------------
+%   Purpose: ensure physiologically reachable initial conditions and
+%   enforce total circulating blood volume conservation.
+%   SEPARATE from Zhang physiological scaling.
+%
+%   Steps:
+%   (1) BV_patient estimated via Lean Body Mass (LBM):
+%         LBM  = 0.407 × BW + 26.7 × H − 19.2   [kg]  (H in metres)
+%         BV   = LBM × (BV/LBM ratio)            [mL]
+%         BV/LBM: male = 82.0 mL/kg, female = 84.2 mL/kg
+%         Source: Nadler et al. (1962) / Feldschuh & Enson (1977).
+%         Valid for males and prepubertal females (Tanner stage 1).
+%         Falls back to flat 82 mL/kg × BW for neonates (age < 1 yr)
+%         where Tanner-based LBM formula is not validated.
+%   (2) IC volumes built from size-independent nominal filling pressures:
+%         V_ic = V0_zhang + P_nom * C_zhang
+%   (3) V0.SVEN adjusted so that sum(V_ic) = BV_patient.
+%         [Overrides the Zhang V0.SVEN from Layer A. Rationale: SVEN is
+%          the dominant venous reservoir; blood conservation here is
+%          critical for the correct systemic pressure-flow steady state.
+%          All other V0 values retain their Zhang-scaled values.]
+%   (4) Flow states initialised by CO_adult * w  [mL/s].
+%
+% -----------------------------------------------------------------------
+% NOTE 1 — INERTANCE TREATMENT (modeling assumption):
+%   Zhang et al. (2019) provides no explicit inertance exponent.
+%   L.SAR, L.SVEN, L.PAR, L.PVEN are LEFT AT ADULT REFERENCE VALUES.
+%   Inertance contributes minimally to pressure-flow dynamics at
+%   physiological HRs (L·omega << R), so this is conservative and safe.
+%   Revisit if high-frequency waveform accuracy is required.
+%
+% REFERENCES:
+%   [1] Zhang X et al. (2019). Allometric scaling of cardiovascular
+%       model parameters across body sizes. [Confirm full citation.]
+%   [2] Bozkurt S (2019). Math Biosci Eng 16(5):3943-3962. Tables 1-2.
+%   [3] Colebank MJ et al. (2025). ASAIO J. Table 1 (male reference).
+%   [4] Valenti (2023). Thesis: 0-D cardiovascular model, topology.
+%   [5] Guyton AC (1991). Textbook of Medical Physiology, §15.
+%   [6] Feldschuh J & Enson Y (1977). Prediction of the normal blood volume.
+%       Circulation 56(4):605-612. (BV/LBM ratios: 82.0 ml/kg male,
+%       84.2 ml/kg female; LBM formula for males/Tanner-1 females.)
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-04-28
-% VERSION:  3.0
+% DATE:     2026-05-22
+% VERSION:  3.1  (Zhang 2019 weight-based allometric framework — monolithic)
 % -----------------------------------------------------------------------
 
-scaling_mode = resolve_scaling_mode(patient);
-params = apply_physiological_scaling(params_ref, patient, scaling_mode);
+%% =====================================================================
+%  1. WEIGHT RATIO  — Zhang et al. 2019 primary scaling variable
+%% =====================================================================
+W_ref = 70;   % [kg]  Adult reference weight — Bozkurt2019/Colebank2025 baseline
+              %       (~70 kg healthy adult male, HR=75 bpm, CO=6 L/min)
+w = patient.weight_kg / W_ref;   % [-]  dimensionless weight ratio
+fprintf('[apply_scaling] W_patient=%.2f kg | W_ref=%.1f kg | w=%.4f\n', ...
+   patient.weight_kg, W_ref, w);
 
-if isfield(patient, 'age_days') && ~isnan(patient.age_days)
-    age_days = patient.age_days;
-else
-    age_days = 365.25 * patient.age_years;
-end
+%% =====================================================================
+%  2. Copy reference params — no field is scaled twice within Layer A
+%% =====================================================================
+params = params_ref;
+params.scaling.W_ref     = W_ref;
+params.scaling.W_patient = patient.weight_kg;
+params.scaling.w         = w;
+params.scaling.patient   = patient;
+params.scaling.mode      = 'zhang';       % single scaling mode — Zhang 2019
+params.scaling.requested_mode = 'zhang';  % backward-compat field
 
-maturation_mode = 'normal';
-if isfield(patient, 'maturation_mode') && ~isempty(patient.maturation_mode)
-    maturation_mode = patient.maturation_mode;
-end
-params = apply_maturation(params, age_days, maturation_mode);
+%% =====================================================================
+%  Zhang exponent table  (Zhang et al. 2019)
+%  Named constants — never use magic numbers in scaling expressions.
+%% =====================================================================
+beta_HR      = -0.300;   % Heart rate                              — Zhang 2019
+beta_E_LV    = -0.500;   % LV/LA elastance (systemic-side)         — Zhang 2019
+beta_E_RV    = -0.750;   % RV/RA elastance (pulmonary-side)        — Zhang 2019
+beta_V0      =  0.800;   % Unstressed volumes                      — Zhang 2019
+beta_R_sys   = -0.475;   % Systemic vascular resistance            — Zhang 2019
+beta_R_pul   = -0.700;   % Pulmonary vascular resistance           — Zhang 2019
+beta_C       =  1.000;   % Vascular compliance (all)               — Zhang 2019
+beta_R_valve = -0.500;   % Valve open resistance                   — Zhang 2019
 
-% V0 separation: chamber V0 supports chamber mechanics; vascular V0 supports preload.
-% Reconcile vascular V0 (especially systemic venous V0) with blood volume before IC build.
-params = reconcile_vascular_v0(params, patient, []);
-params.ic.V = build_initial_conditions(params, patient);
-params.scaling.age_days = age_days;
-params.scaling.maturation_mode = maturation_mode;
-params.scaling.requested_mode = scaling_mode;
+%% ====================================================================
+%  LAYER A — ZHANG PHYSIOLOGICAL PARAMETER SCALING
+%% =====================================================================
 
-fprintf('[apply_scaling] weight=%.1f kg | age=%.0f days | mode=%s+%s\n', ...
-    patient.weight_kg, age_days, scaling_mode, maturation_mode);
+%-- A1. Heart rate  HR ~ w^(-0.30)  [Zhang 2019]
+params.HR = params_ref.HR * w^beta_HR;
 
-end
+%-- A2. Cardiac elastances  (active EA and passive EB)
+%   LV and LA — systemic-pressure side: beta = -0.50  [Zhang 2019]
+params.E.LV.EA = params_ref.E.LV.EA * w^beta_E_LV;
+params.E.LV.EB = params_ref.E.LV.EB * w^beta_E_LV;
+params.E.LA.EA = params_ref.E.LA.EA * w^beta_E_LV;
+params.E.LA.EB = params_ref.E.LA.EB * w^beta_E_LV;
+%   RV and RA — pulmonary-pressure side: beta = -0.75  [Zhang 2019]
+params.E.RV.EA = params_ref.E.RV.EA * w^beta_E_RV;
+params.E.RV.EB = params_ref.E.RV.EB * w^beta_E_RV;
+params.E.RA.EA = params_ref.E.RA.EA * w^beta_E_RV;
+params.E.RA.EB = params_ref.E.RA.EB * w^beta_E_RV;
 
-% RECONCILE_VASCULAR_V0 — reconcile vascular V0 with BV target [mL]
-function params = reconcile_vascular_v0(params, patient, clinical)
-if nargin < 3
-    clinical = [];
-end
+%-- A3. Unstressed volumes  V0 ~ w^(+0.80)  [Zhang 2019]
+%   NOTE: V0.SVEN is the dominant venous reservoir. It will be further
+%   adjusted by the blood conservation step in Layer B (Section B4).
+%   All other V0 compartments retain these Zhang-scaled values unchanged.
+params.V0.LV   = params_ref.V0.LV   * w^beta_V0;
+params.V0.RV   = params_ref.V0.RV   * w^beta_V0;
+params.V0.LA   = params_ref.V0.LA   * w^beta_V0;
+params.V0.RA   = params_ref.V0.RA   * w^beta_V0;
+params.V0.SAR  = params_ref.V0.SAR  * w^beta_V0;
+params.V0.SC   = params_ref.V0.SC   * w^beta_V0;
+params.V0.SVEN = params_ref.V0.SVEN * w^beta_V0;   % provisional — adjusted in B4
+params.V0.PAR  = params_ref.V0.PAR  * w^beta_V0;
+params.V0.PVEN = params_ref.V0.PVEN * w^beta_V0;
+if isfield(params_ref.V0,'PCOX'), params.V0.PCOX = params_ref.V0.PCOX * w^beta_V0; end
+if isfield(params_ref.V0,'PCNO'), params.V0.PCNO = params_ref.V0.PCNO * w^beta_V0; end
 
-BV_patient = patient.weight_kg * blood_volume_per_kg(patient.age_years);
+%-- A4. Systemic resistances  R ~ w^(-0.475)  [Zhang 2019]
+params.R.SAR  = params_ref.R.SAR  * w^beta_R_sys;
+params.R.SC   = params_ref.R.SC   * w^beta_R_sys;
+params.R.SVEN = params_ref.R.SVEN * w^beta_R_sys;
+% R.vsd — NOT scaled: pathological, assigned per-patient by params_from_clinical.m
 
-[src, scenario] = resolve_clinical_source(clinical, 'pre_surgery');
+%-- A5. Pulmonary resistances  R ~ w^(-0.70)  [Zhang 2019]
+params.R.PAR  = params_ref.R.PAR  * w^beta_R_pul;
+params.R.PCOX = params_ref.R.PCOX * w^beta_R_pul;
+% PCNO branch is disabled in default_parameters.m (R.PCNO=1e6, C.PCNO=1e-8).
+% Scaling applied for structural consistency; no hemodynamic effect because
+% the branch carries virtually zero flow at any realistic R.PCNO.
+params.R.PCNO = params_ref.R.PCNO * w^beta_R_pul;
+params.R.PVEN = params_ref.R.PVEN * w^beta_R_pul;
 
-P_nom_SAR = first_valid(src, {'SAP_mean_mmHg', 'MAP_mmHg'}, 65);
-P_nom_SC = max(0.5 * P_nom_SAR, 15);
-P_nom_SVEN = first_valid(src, {'RAP_mean_mmHg'}, 2);
-P_nom_PAR = first_valid(src, {'PAP_mean_mmHg'}, 15);
-P_nom_PVEN = first_valid(src, {'LAP_mean_mmHg', 'LVEDP_mmHg'}, 6);
-P_nom_LV_ED = first_valid(src, {'LVEDP_mmHg', 'LAP_mean_mmHg'}, 8);
-P_nom_RV_ED = first_valid(src, {'RVEDP_mmHg', 'RAP_mean_mmHg'}, 4);
-P_nom_LA_ED = first_valid(src, {'LAP_mean_mmHg'}, 6);
-P_nom_RA_ED = first_valid(src, {'RAP_mean_mmHg'}, 4);
+%-- A6. Vascular compliances  C ~ w^(+1.0)  [Zhang 2019]
+params.C.SAR  = params_ref.C.SAR  * w^beta_C;
+params.C.SC   = params_ref.C.SC   * w^beta_C;
+params.C.SVEN = params_ref.C.SVEN * w^beta_C;
+params.C.PAR  = params_ref.C.PAR  * w^beta_C;
+params.C.PCOX = params_ref.C.PCOX * w^beta_C;
+params.C.PCNO = params_ref.C.PCNO * w^beta_C;   % disabled branch — scaling harmless
+params.C.PVEN = params_ref.C.PVEN * w^beta_C;
+% Atrial compliance legacy fields (derived from EB in default_parameters.m)
+if isfield(params_ref.C,'RA'), params.C.RA = params_ref.C.RA * w^beta_C; end
+if isfield(params_ref.C,'LA'), params.C.LA = params_ref.C.LA * w^beta_C; end
 
-V_RA = params.V0.RA + P_nom_RA_ED / max(params.E.RA.EB, 1e-6);
-V_RV = params.V0.RV + P_nom_RV_ED / max(params.E.RV.EB, 1e-6);
-V_LA = params.V0.LA + P_nom_LA_ED / max(params.E.LA.EB, 1e-6);
-V_LV = params.V0.LV + P_nom_LV_ED / max(params.E.LV.EB, 1e-6);
-V_SAR = params.V0.SAR + P_nom_SAR * params.C.SAR;
-V_SC = params.V0.SC + P_nom_SC * params.C.SC;
-V_PAR = params.V0.PAR + P_nom_PAR * params.C.PAR;
-V_PVEN = params.V0.PVEN + P_nom_PVEN * params.C.PVEN;
+%-- A7. Valve open resistance  [Zhang 2019]
+%   beta_R_valve = -0.50
+%   Rvalve.closed — NOT scaled: numerical guard (large R for closed state)
+params.Rvalve.open   = params_ref.Rvalve.open * w^beta_R_valve;
+params.Rvalve.closed = params_ref.Rvalve.closed;   % numerical guard — unchanged
 
-V_other = V_RA + V_RV + V_LA + V_LV + V_SAR + V_SC + V_PAR + V_PVEN;
-V0_sven_required = BV_patient - V_other - P_nom_SVEN * params.C.SVEN;
+%-- A8. Inertances — NOT scaled  (modeling assumption; see header Note 1)
+%   L.SAR, L.SVEN, L.PAR, L.PVEN remain at the adult reference values.
 
-V0_sven_min = max(0.01 * BV_patient, 1.0);
-V0_sven_max = 0.85 * BV_patient;
-V0_sven_applied = min(max(V0_sven_required, V0_sven_min), V0_sven_max);
-params.V0.SVEN = V0_sven_applied;
+%-- A9. epsilon_valve / epsilon_vsd — NOT scaled  (numerical continuity parameters)
+%   params.epsilon_valve and params.epsilon_vsd unchanged.
 
-params.scaling.BV_patient = BV_patient;
-params.scaling.V0_SVEN_required = V0_sven_required;
-params.scaling.V0_SVEN_applied = V0_sven_applied;
-params.scaling.V0_SVEN_bounds = [V0_sven_min V0_sven_max];
-params.scaling.V0_SVEN_scenario = scenario;
-params.scaling.V0_SVEN_reconciled = true;
-end
+fprintf('[apply_scaling] Layer A done: HR=%.1f bpm | R.SAR=%.4f | R.PAR=%.5f | C.SVEN=%.3f\n', ...
+   params.HR, params.R.SAR, params.R.PAR, params.C.SVEN);
 
-function BV_per_kg = blood_volume_per_kg(age_years)
+%% =====================================================================
+%  LAYER B — INITIALIZATION / IC CORRECTION
+%  Numerically motivated. Not derived from Zhang et al.
+%  Constructs physiologically consistent ICs and enforces blood
+%  volume conservation by adjusting V0.SVEN only.
+%% =====================================================================
+
+%% B1. Blood volume budget  (LBM-based method)
+%   Source: Feldschuh & Enson (1977), Circulation 56(4):605-612.
+%   LBM formula: Tanner-stage-1 (males & prepubertal females)
+%     LBM = 0.407 * BW + 26.7 * H - 19.2   [kg]  (H in metres)
+%   BV/LBM ratios:
+%     male   = 82.0 mL/kg  (mean; ±7.1 mL/kg)
+%     female = 84.2 mL/kg  (mean; ±14.7 mL/kg)
+%   Neonatal fallback (age < 1 yr): LBM formula not validated at this age;
+%     revert to flat 82 mL/kg × BW (Linderkamp et al. 1977).
+age_years = patient.age_years;
 if age_years < 1
-    BV_per_kg = 82;
+    % Neonatal: LBM-based formula not validated — use flat weight formula
+    BV_patient = patient.weight_kg * 82;   % [mL]  Linderkamp et al. 1977
+    fprintf('[apply_scaling] BV (neonatal fallback): %.0f mL (82 mL/kg × %.1f kg)\n', ...
+        BV_patient, patient.weight_kg);
 else
-    BV_per_kg = 70;
-end
-end
-
-function [src, scenario] = resolve_clinical_source(clinical, scenario)
-src = struct();
-if isempty(clinical) || ~isstruct(clinical)
-    return;
-end
-if isfield(clinical, scenario)
-    src = clinical.(scenario);
-elseif strcmp(scenario, 'pre_surgery') && isfield(clinical, 'pre_surgery')
-    src = clinical.pre_surgery;
-elseif strcmp(scenario, 'post_surgery') && isfield(clinical, 'post_surgery')
-    src = clinical.post_surgery;
-end
-end
-
-function value = first_valid(src, field_names, fallback)
-value = fallback;
-for k = 1:numel(field_names)
-    fn = field_names{k};
-    if isfield(src, fn) && ~isnan(src.(fn))
-        value = src.(fn);
-        return;
+    % Compute LBM from Tanner-1 formula (H in metres)
+    H_m  = patient.height_cm / 100;                            % [cm] → [m]
+    LBM  = 0.407 * patient.weight_kg + 26.7 * H_m - 19.2;    % [kg]  LBM
+    % Sex-specific BV/LBM ratio
+    if strcmpi(patient.sex, 'F')
+        BV_per_LBM = 84.2;   % [mL/kg LBM]  female — Feldschuh & Enson (1977)
+    else
+        BV_per_LBM = 82.0;   % [mL/kg LBM]  male   — Feldschuh & Enson (1977)
     end
-end
+    BV_patient = LBM * BV_per_LBM;                             % [mL]
+    fprintf('[apply_scaling] LBM=%.2f kg | BV/LBM=%.1f mL/kg | BV_patient=%.0f mL\n', ...
+        LBM, BV_per_LBM, BV_patient);
 end
 
-% RESOLVE_SCALING_MODE - choose patient-declared or environment scaling mode.
-function scaling_mode = resolve_scaling_mode(patient)
-scaling_mode = getenv('UNIFIED_VSD_SCALING_MODE');
-if isfield(patient, 'scaling_mode') && ~isempty(patient.scaling_mode)
-    scaling_mode = patient.scaling_mode;
+%% B2. Nominal filling pressures  (size-independent physiological targets)
+%   These are not scaled quantities; they represent normal resting values.
+%   Reference: standard clinical cardiology / physiology textbooks.
+P_nom_SAR   = 93;   % [mmHg]  MAP (mean arterial pressure)
+P_nom_SC    = 15;   % [mmHg]  systemic arteriolar / capillary pressure
+P_nom_SVEN  =  2;   % [mmHg]  CVP (central venous pressure)
+P_nom_PAR   = 15;   % [mmHg]  pulmonary artery diastolic pressure
+P_nom_PVEN  =  6;   % [mmHg]  pulmonary venous pressure (≈ LAP)
+P_nom_PC    =  8;   % [mmHg]  pulmonary capillary pressure (pressure state)
+P_nom_LV_ED =  8;   % [mmHg]  LV end-diastolic pressure (LVEDP)
+P_nom_RV_ED =  4;   % [mmHg]  RV end-diastolic pressure (RVEDP)
+P_nom_LA_ED =  6;   % [mmHg]  left atrial pressure (LAP)
+P_nom_RA_ED =  4;   % [mmHg]  right atrial pressure (RAP)
+
+%% B3. Build IC vector from nominal pressures and Zhang-scaled parameters
+sidx = params.idx;
+ic_p = zeros(14, 1);
+
+% Vascular volume states: V_ic = V0_zhang + P_nom * C_zhang
+ic_p(sidx.V_SAR)  = params.V0.SAR  + P_nom_SAR  * params.C.SAR;
+ic_p(sidx.V_SC)   = params.V0.SC   + P_nom_SC   * params.C.SC;
+ic_p(sidx.V_SVEN) = params.V0.SVEN + P_nom_SVEN * params.C.SVEN;  % provisional
+ic_p(sidx.V_PAR)  = params.V0.PAR  + P_nom_PAR  * params.C.PAR;
+ic_p(sidx.V_PVEN) = params.V0.PVEN + P_nom_PVEN * params.C.PVEN;
+ic_p(sidx.P_PC)   = P_nom_PC;   % direct pressure state [mmHg]
+
+% Cardiac chamber volumes: P = E_EB*(V-V0) → V = V0 + P/E_EB
+ic_p(sidx.V_LV) = params.V0.LV + P_nom_LV_ED / params.E.LV.EB;
+ic_p(sidx.V_RV) = params.V0.RV + P_nom_RV_ED / params.E.RV.EB;
+ic_p(sidx.V_LA) = params.V0.LA + P_nom_LA_ED / params.E.LA.EB;
+ic_p(sidx.V_RA) = params.V0.RA + P_nom_RA_ED / params.E.RA.EB;
+
+% Flow states: scale adult reference CO by weight ratio (linear, conservative)
+%   CO_adult = 100 mL/s (= 6.0 L/min; Colebank2025 baseline, 75 bpm, SV=80 mL)
+%   Scaling by w (linear weight ratio) ensures physiologically bounded Q_init.
+%   This is an IC approximation only — the ODE converges within 1-2 cycles.
+CO_adult_ref_mLs = 100;               % [mL/s]  adult reference cardiac output
+Q_init = CO_adult_ref_mLs * w;        % [mL/s]  patient scaled CO estimate
+ic_p(sidx.Q_SAR)  = Q_init;
+ic_p(sidx.Q_SVEN) = Q_init;
+ic_p(sidx.Q_PAR)  = Q_init;
+ic_p(sidx.Q_PVEN) = Q_init;
+fprintf('[apply_scaling] Q_init=%.1f mL/s  (CO_est=%.2f L/min)\n', ...
+   Q_init, Q_init * 60/1000);
+
+%% B4. Blood conservation: adjust V0.SVEN so that sum(V_ic) = BV_patient
+%
+%   RATIONALE FOR V0.SVEN OVERRIDE:
+%     SVEN holds ~60-70% of circulating blood volume. If its Zhang-scaled
+%     V0.SVEN causes the sum of all initial volumes to deviate from
+%     BV_patient, the systemic venous pressure will be incorrect at t=0.
+%     By adjusting V0.SVEN alone (holding P_nom_SVEN = 2 mmHg fixed),
+%     blood conservation is enforced without distorting any other
+%     compartment's pressure or volume at initialisation.
+%
+%     All other V0 fields retain their Zhang-scaled values from Layer A.
+%     The Zhang V0.SVEN (pre-override) is stored in params.scaling for
+%     diagnostics and reproducibility.
+params.scaling.V0_SVEN_zhang = params.V0.SVEN;   % store Layer A value
+
+vol_idx = [sidx.V_RA  sidx.V_RV   sidx.V_LA   sidx.V_LV ...
+          sidx.V_SAR sidx.V_SC   sidx.V_SVEN  sidx.V_PAR sidx.V_PVEN];
+BV_no_SVEN    = sum(ic_p(vol_idx)) - ic_p(sidx.V_SVEN);   % all except SVEN
+V_SVEN_target = BV_patient - BV_no_SVEN;
+
+if V_SVEN_target < params.V0.SVEN * 0.3
+   warning('apply_scaling:BVbudget', ...
+       ['BV_patient (%.0f mL) leaves very little room for V_SVEN ' ...
+        '(target=%.0f mL, Zhang V0.SVEN=%.0f mL). ' ...
+        'Clamping to 30%% of Zhang V0.SVEN. ' ...
+        'Patient-specific calibration is strongly recommended.'], ...
+       BV_patient, V_SVEN_target, params.V0.SVEN);
+   V_SVEN_target = max(V_SVEN_target, params.V0.SVEN * 0.3);
 end
-if isempty(scaling_mode)
-    scaling_mode = 'lundquist_bsa';
-end
-scaling_mode = lower(strtrim(char(scaling_mode)));
-end
+
+% Adjust V0.SVEN to maintain P_nom_SVEN at the corrected SVEN volume:
+%   V_SVEN_target = V0.SVEN_adjusted + P_nom_SVEN * C.SVEN
+params.V0.SVEN    = V_SVEN_target - P_nom_SVEN * params.C.SVEN;
+ic_p(sidx.V_SVEN) = V_SVEN_target;
+
+params.ic.V    = ic_p(:)';   % row vector (ode15s accepts row or column)
+params.scaling.BV_patient       = BV_patient;
+params.scaling.V0_SVEN_adjusted = params.V0.SVEN;
+
+%% =====================================================================
+%  D. ABSOLUTE TIMING FIELDS  (required by elastance_model.m)
+%     Fractional timing params (stored in default_parameters.m) are
+%     converted to absolute seconds using the Zhang-scaled HR.
+%     Timing fractions are dimensionless and size-independent by design.
+%% =====================================================================
+T_HB = 60 / params.HR;   % [s]  cardiac cycle period from scaled HR
+params.Tc_LV   = params.Tc_LV_frac   * T_HB;
+params.Tr_LV   = params.Tr_LV_frac   * T_HB;
+params.Tc_RV   = params.Tc_RV_frac   * T_HB;
+params.Tr_RV   = params.Tr_RV_frac   * T_HB;
+params.t_ac_LA = params.t_ac_LA_frac * T_HB;
+params.Tc_LA   = params.Tc_LA_frac   * T_HB;
+params.t_ar_LA = params.t_ac_LA + params.Tc_LA;
+params.Tr_LA   = params.Tr_LA_frac   * T_HB;
+params.t_ac_RA = params.t_ac_RA_frac * T_HB;
+params.Tc_RA   = params.Tc_RA_frac   * T_HB;
+params.t_ar_RA = params.t_ac_RA + params.Tc_RA;
+params.Tr_RA   = params.Tr_RA_frac   * T_HB;
+
+%% =====================================================================
+%  Final diagnostics
+%% =====================================================================
+fprintf('[apply_scaling] Final: HR=%.1f bpm | T_HB=%.3f s | BV_patient=%.0f mL\n', ...
+   params.HR, T_HB, BV_patient);
+fprintf('[apply_scaling] V_ic:  V_LV=%.1f  V_RV=%.1f  V_SAR=%.1f  V_SVEN=%.1f mL\n', ...
+   ic_p(sidx.V_LV), ic_p(sidx.V_RV), ic_p(sidx.V_SAR), ic_p(sidx.V_SVEN));
+fprintf('[apply_scaling] V0.SVEN: Zhang=%.1f mL --> BV-adjusted=%.1f mL\n', ...
+   params.scaling.V0_SVEN_zhang, params.V0.SVEN);
+
+end  % apply_scaling

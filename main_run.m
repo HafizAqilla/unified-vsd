@@ -71,6 +71,19 @@ DO_FAST_CALIBRATION = false; % Full run: Stage 1 + Stage 2 restarts
 DO_PARALLEL_FMINCON = false; % Serial by default; parallel remains opt-in via env
 USE_PCE_IN_CALIBRATION = false; % recovery default: direct ODE calibration (PCE optional)
 
+% VERBOSE: controls how much is printed to the command window.
+%   false — clean output matching MATLAB/VSD/main_run.m style:
+%           step headers, key results, param table, GSA tables, Done.
+%   true  — full diagnostic output (case profile, consistency summaries,
+%           plausibility, rollback, all save paths).
+%   NOTE: ALL .mat saves (run_package, candidates, diagnostics, GSA, etc.)
+%         execute identically regardless of VERBOSE. Only display changes.
+VERBOSE = false;
+verbose_env = getenv('UNIFIED_VSD_VERBOSE');
+if ~isempty(verbose_env)
+    VERBOSE = any(strcmpi(strtrim(verbose_env), {'1', 'true', 'yes', 'on'}));
+end
+
 % MASK_FILE: optional path to a previously saved params_calibrated_*.mat
 % that contains an optMask computed from a prior patient's PCE GSA.
 % Use this to skip Step 4 (initial PCE GSA) when running a second patient
@@ -91,6 +104,8 @@ MASK_FILE = '';   % '' = full GSA; path string = reuse saved mask (irrelevant wh
 do_plots_env = getenv('UNIFIED_VSD_DO_PLOTS');
 if ~isempty(do_plots_env)
     DO_PLOTS = any(strcmpi(strtrim(do_plots_env), {'1', 'true', 'yes', 'on'}));
+elseif isfield(clinical, 'do_plots')
+    DO_PLOTS = clinical.do_plots;
 end
 
 
@@ -100,6 +115,8 @@ end
 do_overlay_env = getenv('UNIFIED_VSD_DO_OVERLAY');
 if ~isempty(do_overlay_env)
     DO_OVERLAY = any(strcmpi(strtrim(do_overlay_env), {'1', 'true', 'yes', 'on'}));
+elseif isfield(clinical, 'do_overlay')
+    DO_OVERLAY = clinical.do_overlay;
 end
 
 % Optional runtime override from environment variable:
@@ -108,6 +125,22 @@ end
 do_gsa_env = getenv('UNIFIED_VSD_DO_GSA');
 if ~isempty(do_gsa_env)
     DO_GSA = any(strcmpi(strtrim(do_gsa_env), {'1', 'true', 'yes', 'on'}));
+elseif isfield(clinical, 'do_gsa')
+    DO_GSA = clinical.do_gsa;
+end
+
+% Force GSA off if calibration is skipped
+do_calib = true;
+do_calib_env = getenv('UNIFIED_VSD_DO_CALIBRATION');
+if ~isempty(do_calib_env)
+    do_calib = any(strcmpi(strtrim(do_calib_env), {'1', 'true', 'yes', 'on'}));
+elseif isfield(clinical, 'do_calibration')
+    do_calib = clinical.do_calibration;
+end
+
+if ~do_calib
+    DO_GSA = false;
+    fprintf('[main_run] Calibration is skipped (do_calibration = false). Enforcing DO_GSA = false for rapid execution.\n');
 end
 
 do_fmincon_par_env = getenv('UNIFIED_VSD_FMINCON_PARALLEL');
@@ -177,16 +210,20 @@ fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...
     clinical.common.weight_kg, clinical.common.height_cm, clinical.common.age_years);
 case_profile = build_case_calibration_profile(clinical, scenario);
-fprintf('[main_run] Calibration case mode: %s (%s)\n', ...
-    case_profile.mode, case_profile.description);
-if isfield(case_profile, 'clinicalConsistencyAudit') && ...
-        isfield(case_profile.clinicalConsistencyAudit, 'summary')
-    fprintf('[main_run] %s\n', case_profile.clinicalConsistencyAudit.summary);
+if VERBOSE
+    fprintf('[main_run] Calibration case mode: %s (%s)\n', ...
+        case_profile.mode, case_profile.description);
+    if isfield(case_profile, 'clinicalConsistencyAudit') && ...
+            isfield(case_profile.clinicalConsistencyAudit, 'summary')
+        fprintf('[main_run] %s\n', case_profile.clinicalConsistencyAudit.summary);
+    end
 end
 
 run_ctx = init_run_output(canonical_root, scenario, clinical);
 run_cleanup = onCleanup(@() cleanup_run_output(run_ctx)); %#ok<NASGU>
-fprintf('[main_run] Run folder: %s\n', run_ctx.root);
+if VERBOSE
+    fprintf('[main_run] Run folder: %s\n', run_ctx.root);
+end
 
 run_timer = tic;   % wall-clock timer for the full pipeline
 
@@ -257,7 +294,9 @@ sim_base     = integrate_system(params0);
 metrics_base = compute_clinical_indices(sim_base, params0);
 validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario, clinical);
 fprintf('[main_run] Baseline complete.\n');
-print_systemic_consistency_summary(metrics_base, clinical, scenario, 'Baseline');
+if VERBOSE
+    print_systemic_consistency_summary(metrics_base, clinical, scenario, 'Baseline');
+end
 
 %% =====================================================================
 %  STEP 4 — Initial PCE GSA
@@ -348,40 +387,83 @@ active_names = calib_names_all(optMask);
 fprintf('[main_run] Active set: %s\n', strjoin(active_names, ', '));
 
 [primary_metrics, primary_selection_table] = select_primary_metrics(clinical, gsa_init_out, scenario, case_profile);
-fprintf('[main_run] Case-profile primary metrics: %s\n', strjoin(primary_metrics, ', '));
-disp(primary_selection_table(primary_selection_table.Selected, :));
+if VERBOSE
+    fprintf('[main_run] Case-profile primary metrics: %s\n', strjoin(primary_metrics, ', '));
+    disp(primary_selection_table(primary_selection_table.Selected, :));
+end
 
 %% =====================================================================
 %  STEP 6 — Calibration (masked)
+%  Gated by do_calib (read from clinical.do_calibration or the env var
+%  UNIFIED_VSD_DO_CALIBRATION).  When false, the forward-simulation
+%  baseline result is promoted to the calibrated result and a no-op
+%  calib_out stub is built so all downstream steps run unchanged.
 %% =====================================================================
 fprintf('\n=== [Step 6/10] Masked calibration — fmincon (%.1fs elapsed) ===\n', toc(run_timer));
-if USE_PCE_IN_CALIBRATION && exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out, primary_metrics, case_profile, registry_context);
+if do_calib
+    if USE_PCE_IN_CALIBRATION && exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
+        [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out, primary_metrics, case_profile, registry_context);
+    else
+        [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, [], primary_metrics, case_profile, registry_context);
+    end
+    sim_cal      = integrate_system(params_cal);
+    metrics_cal  = compute_clinical_indices(sim_cal, params_cal);
+    validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario, clinical);
+    fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
+    if VERBOSE
+        print_systemic_consistency_summary(metrics_cal, clinical, scenario, 'Calibrated');
+    end
 else
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, [], primary_metrics, case_profile, registry_context);
+    fprintf('[main_run] Calibration SKIPPED (do_calibration = false) — baseline result promoted.\n');
+    params_cal   = params0;
+    sim_cal      = sim_base;
+    metrics_cal  = metrics_base;
+    validity_cal = validity_base;
+
+    % Minimal no-op stub — satisfies all downstream field accesses.
+    n_active     = nnz(optMask);
+    calib_out    = struct();
+    calib_out.names              = calib_names_all(optMask);
+    calib_out.x0                 = nan(n_active, 1);
+    calib_out.xbest              = nan(n_active, 1);
+    calib_out.fbest              = NaN;
+    calib_out.J0                 = NaN;
+    calib_out.improvement        = 0;
+    calib_out.best_stage         = 'skipped';
+    calib_out.best_restart       = 0;
+    calib_out.rollback_applied   = false;
+    calib_out.rollback_reason    = '';
+    calib_out.parameterPlausibility = struct( ...
+        'table', table(), 'n_ok', 0, 'n_warning', 0, 'n_fail', 0);
 end
 
-sim_cal     = integrate_system(params_cal);
-metrics_cal = compute_clinical_indices(sim_cal, params_cal);
-validity_cal = evaluate_simulation_validity(sim_cal, params_cal, metrics_cal, scenario, clinical);
-fprintf('[main_run] Calibration complete. Best J = %.6f\n', calib_out.fbest);
-print_systemic_consistency_summary(metrics_cal, clinical, scenario, 'Calibrated');
-
-% Calibration parameter summary table (active subset only)
+% Calibration parameter summary table (active subset only) — always shown
 fprintf('\n--- Calibrated parameter changes (active subset) ---\n');
 param_tbl = table(calib_out.names(:), calib_out.x0(:), calib_out.xbest(:), ...
     (calib_out.xbest(:) - calib_out.x0(:)) ./ abs(calib_out.x0(:)) * 100, ...
     'VariableNames', {'Parameter', 'Initial', 'Calibrated', 'Change_pct'});
 disp(param_tbl);
-if isfield(calib_out, 'parameterPlausibility') && isfield(calib_out.parameterPlausibility, 'table')
-    plaus_tbl = calib_out.parameterPlausibility.table;
-    fprintf('\n--- Parameter plausibility (active subset) ---\n');
-    disp(plaus_tbl(:, {'Parameter','BaselineScaled','FittedValue', ...
-        'RatioToBaseline','WithinBounds','PlausibilityFlag'}));
-    fprintf('[main_run] Plausibility summary: %d OK | %d WARNING | %d FAIL\n', ...
-        calib_out.parameterPlausibility.n_ok, ...
-        calib_out.parameterPlausibility.n_warning, ...
-        calib_out.parameterPlausibility.n_fail);
+if VERBOSE
+    if isfield(calib_out, 'parameterPlausibility') && isfield(calib_out.parameterPlausibility, 'table')
+        plaus_tbl = calib_out.parameterPlausibility.table;
+        fprintf('\n--- Parameter plausibility (active subset) ---\n');
+        disp(plaus_tbl(:, {'Parameter','BaselineScaled','FittedValue', ...
+            'RatioToBaseline','WithinBounds','PlausibilityFlag'}));
+        fprintf('[main_run] Plausibility summary: %d OK | %d WARNING | %d FAIL\n', ...
+            calib_out.parameterPlausibility.n_ok, ...
+            calib_out.parameterPlausibility.n_warning, ...
+            calib_out.parameterPlausibility.n_fail);
+    end
+end
+
+% ---- Early save: persist params_cal before the long post-processing steps ----
+% Matches the safety-save pattern in MATLAB/VSD/main_run.m (Step 6 early save).
+% If Steps 7-11 crash, this file ensures calibrated parameters are not lost.
+if strcmp(scenario, 'pre_surgery')
+    early_save_file = fullfile(run_ctx.tables_dir, ...
+        sprintf('params_calibrated_pre_surgery_early_%s.mat', run_ctx.timestamp));
+    save(early_save_file, 'params_cal', 'calib_out', 'optMask', 'sobol_ST_threshold');
+    fprintf('[main_run] Early parameter save (post-calibration):\n          %s\n', early_save_file);
 end
 
 %% =====================================================================
@@ -415,8 +497,10 @@ report = validation_report( ...
     'TargetTiers', profile_target_tiers(case_profile), ...
     'ClinicalConsistencyAudit', profile_clinical_audit(case_profile));
 calibration_status = classify_calibration_run(report, calib_out.parameterPlausibility);
-fprintf('[main_run] Calibration status: %s\n', calibration_status.label);
-fprintf('[main_run] Status summary: %s\n', calibration_status.summary);
+if VERBOSE
+    fprintf('[main_run] Calibration status: %s\n', calibration_status.label);
+    fprintf('[main_run] Status summary: %s\n', calibration_status.summary);
+end
 best_candidate = build_candidate_snapshot( ...
     'best_candidate', params_cal, sim_cal, metrics_cal, validity_cal, ...
     report, calibration_status, calib_out.parameterPlausibility, false, '');
@@ -426,7 +510,11 @@ scientific_candidate = build_candidate_snapshot( ...
 if should_rollback_calibration(report, calibration_status)
     rollback_reason = sprintf('status=%s, RMSE baseline=%.4f, calibrated=%.4f', ...
         calibration_status.label, report.rmse_baseline, report.rmse_cal);
-    fprintf('[main_run] Calibration rollback applied: %s\n', rollback_reason);
+    if VERBOSE
+        fprintf('[main_run] Calibration rollback applied: %s\n', rollback_reason);
+    else
+        fprintf('[main_run] Calibration rollback applied (status=%s).\n', calibration_status.label);
+    end
     calib_out.rollback_applied = true;
     calib_out.rollback_reason = rollback_reason;
     accepted_report = validation_report( ...
@@ -446,7 +534,9 @@ if should_rollback_calibration(report, calibration_status)
     accepted_status = classify_calibration_run(accepted_report, accepted_plausibility);
     accepted_status.rollback_applied = true;
     accepted_status.rollback_reason = rollback_reason;
-    fprintf('[main_run] Post-rollback status: %s\n', accepted_status.label);
+    if VERBOSE
+        fprintf('[main_run] Post-rollback status: %s\n', accepted_status.label);
+    end
     accepted_candidate = build_candidate_snapshot( ...
         'accepted_candidate', params0, sim_base, metrics_base, validity_base, ...
         accepted_report, accepted_status, accepted_plausibility, true, rollback_reason);
@@ -614,26 +704,34 @@ save(params_package_file, 'params_cal', 'calib_out', 'report', 'optMask', ...
      'scientific_candidate', ...
      'accepted_candidate', 'age_validity', 'baseline_provenance', ...
      'scaling_comparison');
-fprintf('\n[main_run] Calibrated parameters saved to:\n          %s\n', params_package_file);
+if VERBOSE
+    fprintf('\n[main_run] Calibrated parameters saved to:\n          %s\n', params_package_file);
+end
 
 best_candidate_file = fullfile(run_ctx.mat_dir, sprintf('params_best_candidate_%s.mat', scenario));
 save(best_candidate_file, 'best_candidate', 'calib_out', 'optMask', ...
     'sobol_ST_threshold', 'primary_metrics', 'primary_selection_table', ...
     'case_profile', 'age_validity', 'baseline_provenance', 'scaling_comparison');
-fprintf('[main_run] Best candidate package saved to:\n          %s\n', best_candidate_file);
+if VERBOSE
+    fprintf('[main_run] Best candidate package saved to:\n          %s\n', best_candidate_file);
+end
 
 scientific_candidate_file = fullfile(run_ctx.mat_dir, sprintf('params_scientific_candidate_%s.mat', scenario));
 save(scientific_candidate_file, 'scientific_candidate', 'calib_out', ...
     'optMask', 'sobol_ST_threshold', 'primary_metrics', ...
     'primary_selection_table', 'case_profile', 'age_validity', ...
     'baseline_provenance', 'scaling_comparison');
-fprintf('[main_run] Scientific candidate package saved to:\n          %s\n', scientific_candidate_file);
+if VERBOSE
+    fprintf('[main_run] Scientific candidate package saved to:\n          %s\n', scientific_candidate_file);
+end
 
 accepted_candidate_file = fullfile(run_ctx.mat_dir, sprintf('params_accepted_candidate_%s.mat', scenario));
 save(accepted_candidate_file, 'accepted_candidate', 'report', 'calibration_status', ...
     'optMask', 'sobol_ST_threshold', 'primary_metrics', 'primary_selection_table', ...
     'case_profile', 'age_validity', 'baseline_provenance', 'scaling_comparison');
-fprintf('[main_run] Accepted candidate package saved to:\n          %s\n', accepted_candidate_file);
+if VERBOSE
+    fprintf('[main_run] Accepted candidate package saved to:\n          %s\n', accepted_candidate_file);
+end
 
 write_validation_exports(report, run_ctx.tables_dir, scenario);
 plausibility_export_source = calib_out;
@@ -697,7 +795,9 @@ run_package.paths = run_ctx;
 run_package_file = fullfile(run_ctx.mat_dir, ...
     sprintf('run_package_%s_%s.mat', scenario, timestamp));
 save(run_package_file, 'run_package', '-v7.3');
-fprintf('[main_run] Full run package saved to:\n          %s\n', run_package_file);
+if VERBOSE
+    fprintf('[main_run] Full run package saved to:\n          %s\n', run_package_file);
+end
 
 if strcmp(scenario, 'pre_surgery')
     % Export a dedicated handoff package so the calibrated pre-op state can
@@ -757,8 +857,10 @@ if strcmp(scenario, 'pre_surgery')
     seed_fname_latest = fullfile(run_ctx.mat_dir, 'pre_to_post_seed_latest.mat');
     save(seed_fname_timestamped, 'pre_to_post_seed');
     save(seed_fname_latest, 'pre_to_post_seed');
-    fprintf('[main_run] Pre-to-post seed package saved to:\n          %s\n          %s\n', ...
-        seed_fname_timestamped, seed_fname_latest);
+    if VERBOSE
+        fprintf('[main_run] Pre-to-post seed package saved to:\n          %s\n          %s\n', ...
+            seed_fname_timestamped, seed_fname_latest);
+    end
 end
 
 write_run_manifest(run_ctx, scenario, timestamp, clinical, patient.scaling_mode, case_profile, calibration_status, DO_GSA, DO_PLOTS, ...

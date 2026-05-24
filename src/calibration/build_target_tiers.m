@@ -40,6 +40,12 @@ else
     config = merge_struct(default_target_tier_config(), config);
 end
 
+if strcmp(scenario, 'post_surgery')
+    % Demote volume targets from hard to soft for post-surgery to reduce their influence
+    config.hard = setdiff(config.hard, {'LVEDV','LVESV','LVEF'}, 'stable');
+    config.soft = unique([config.soft, {'LVEDV','LVESV','LVEF'}], 'stable');
+end
+
 targets = get_calibration_targets(scenario, clinical);      % [-]
 metric_names = {targets.Metric};                            % [cellstr]
 clinical_values = [targets.ClinicalValue];                  % [mixed units]

@@ -20,6 +20,53 @@ if nargin < 7, primaryMetrics = {}; end
 if nargin < 8 || isempty(caseProfile), caseProfile = struct(); end
 if nargin < 9 || isempty(registryContext), registryContext = struct(); end
 
+% Check for user override to skip calibration
+do_calib = true;
+do_calib_env = getenv('UNIFIED_VSD_DO_CALIBRATION');
+if ~isempty(do_calib_env)
+    do_calib = any(strcmpi(strtrim(do_calib_env), {'1', 'true', 'yes', 'on'}));
+elseif isfield(clinical, 'do_calibration')
+    do_calib = clinical.do_calibration;
+end
+
+if ~do_calib
+    fprintf('[run_calibration] Calibration skipped by user toggle (do_calibration = false).\n');
+    params_best = params0;
+    
+    calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics, caseProfile, registryContext);
+    J0 = objective_calibration(calib.x0, params0, clinical, make_stage_calib(calib, params0, calib.names, calib.metricFields), scenario, pce_surrogate);
+    
+    calib_out = struct();
+    calib_out.names = {};
+    calib_out.names_all = calib.names_all;
+    calib_out.mask = calib.mask;
+    calib_out.x0 = [];
+    calib_out.xbest = [];
+    calib_out.x0_all = calib.x0_all;
+    calib_out.xbest_all = calib.x0_all;
+    calib_out.x0_active = calib.x0;
+    calib_out.xbest_active = calib.x0;
+    calib_out.J0 = J0;
+    calib_out.fbest = J0;
+    calib_out.lb = [];
+    calib_out.ub = [];
+    calib_out.scenario = scenario;
+    calib_out.primaryMetrics = calib.primaryMetrics;
+    calib_out.caseProfile = calib.caseProfile;
+    calib_out.parameterRegistry = calib.parameterRegistry;
+    calib_out.parameterRegistryActive = calib.parameterRegistryActive;
+    calib_out.parameterPlausibility = evaluate_parameter_plausibility(calib.x0, calib.parameterRegistryActive);
+    calib_out.improvement = 0;
+    calib_out.best_stage = 0;
+    calib_out.best_restart = 0;
+    calib_out.stage_history = {};
+    calib_out.exitflag = 1;
+    calib_out.output = struct('message', 'Calibration skipped by user toggle.');
+    calib_out.objective_breakdown = build_objective_breakdown(params0, clinical, scenario, calib);
+    calib_out.use_parallel = false;
+    return;
+end
+
 if exist('fmincon', 'file') ~= 2
     error('run_calibration:missingFmincon', ...
         'fmincon is not available. Install Optimization Toolbox to run calibration.');

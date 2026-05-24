@@ -1,91 +1,99 @@
 % RUN_PATIENT_CASE
 % -----------------------------------------------------------------------
-% Operational entry point for real patient datasets.
+% Patient entry point — Reyna
+% Simulation and calibration setup for Reyna VSD patient.
+%
+% Follows the same simple style as MATLAB/VSD/run_patient_case.m:
+%   1. Clear workspace
+%   2. Fill in patient clinical data inline
+%   3. Call main_run
 %
 % USAGE:
 %   Run from the MATLAB command window:
 %        >> run run_patient_case
-%   Or:
-%        >> delete(gcp('nocreate')); clear functions; run run_patient_case
 %
 % OUTPUTS:
-%   - Console validation table: simulated vs. clinical
-%   - results/tables/calib_diagnostics_pre_surgery_<timestamp>.mat
-%   - results/tables/params_calibrated_pre_surgery.mat
+%   All outputs are saved automatically by main_run under results/.
+%   Console log is written to results/console_reyna_pre_surgery.txt.
 %
 % AUTHOR:   Unified VSD Model
-% DATE:     2026-04-13
-% VERSION:  1.2
+% DATE:     2026-05-22
+% VERSION:  2.1  (inline patient data — matches MATLAB/VSD/run_patient_case.m style)
 % -----------------------------------------------------------------------
 
-%% ---- housekeeping ------------------------------------------------------
-% Kill stale parallel pool so workers reload fresh .m files after any edits.
-delete(gcp('nocreate'));
-clear functions                  % flush main-process function cache
-clearvars -except;
+%% ---- Housekeeping ------------------------------------------------------
+clear; clc;
 
-% Build clean path: project root only, strip all shadow/worktree dirs.
-% This prevents MATLAB from resolving .m files from stale
-% .claude/worktrees copies that may be earlier on the path.
+% Build a clean MATLAB path: project root only, strip shadow/worktree dirs.
 root = fileparts(mfilename('fullpath'));
-restoredefaultpath();            % wipe entire path back to MATLAB builtins
+restoredefaultpath();
 root_paths = strsplit(genpath(root), pathsep);
 is_shadow = contains(root_paths, [filesep '.clone' filesep], 'IgnoreCase', true) | ...
             contains(root_paths, [filesep '.claude' filesep], 'IgnoreCase', true) | ...
             contains(root_paths, [filesep '.git'   filesep], 'IgnoreCase', true);
 addpath(strjoin(root_paths(~is_shadow), pathsep));
 
-% Note: parallel pool is created on-demand by fmincon if needed.
-% addAttachedFiles() in run_calibration.m ensures workers always load the
-% correct objective_calibration.m regardless of path resolution order.
-% Calibration is currently set to serial (UseParallel=false) to avoid
-% worker path/cache mismatch issues.
+% Ensure results directory exists
+results_dir = fullfile(root, 'results');
+if ~exist(results_dir, 'dir'), mkdir(results_dir); end
 
-%% =====================================================================
-%  PATIENT DEMOGRAPHICS  — Load from patient profile
-%% =====================================================================
+% =========================================================================
+%  PATIENT — REYNA
+% =========================================================================
+clinical = patient_template();   % initialise all fields to NaN
 
-% Enable GSA so the pipeline runs both pre- and post-calibration Sobol.
-setenv('UNIFIED_VSD_DO_GSA', '1');
+% ---- Demographics -------------------------------------------------------
+clinical.common.patient_name = 'reyna';
+clinical.common.age_years    = 3 + (2 / 12); % [years]  3 years 2 months
+clinical.common.weight_kg    = 14.0;          % [kg]     Keisya revision 2026-05-11
+clinical.common.height_cm    = 98.0;          % [cm]     Keisya revision 2026-05-11
+clinical.common.sex          = 0;             % 0 = female  — AGENTS.md §3.10
+clinical.common.BSA          = 0.6173;        % [m²]  Mosteller: sqrt(14.0*98.0/3600)
+clinical.common.HR           = 119;           % [bpm]
 
-% Patient roster — add or remove entries here to control which patients run.
-patient_fns = {
-    % @patient_reyna
-    @patient_profile_Razka
-};
-patient_labels = {
-    
-    % 'reyna'
-    'razka'
-};
+% ---- VSD defect ---------------------------------------------------------
+clinical.pre_surgery.VSD_diameter_mm   = 3.025;  % [mm]    mean RV-side (2.35+3.7)/2
+clinical.pre_surgery.VSD_gradient_mmHg = 69;     % [mmHg]  peak: LV 94 - RV 25
+clinical.pre_surgery.QpQs              = 1.194;  % [-]
+clinical.pre_surgery.Q_shunt_Lmin      = 0.664;  % [L/min] Qp - Qs = 4.087 - 3.423
 
-%% =====================================================================
-%  RUN PIPELINE — iterates over all patients in roster above
-%% =====================================================================
-for p = 1:numel(patient_fns)
-    label   = patient_labels{p};
-    clinical = patient_fns{p}();
+% ---- Pulmonary pressures (catheter) -------------------------------------
+clinical.pre_surgery.PAP_sys_mmHg   = 20;    % [mmHg]
+clinical.pre_surgery.PAP_dia_mmHg   = 10;    % [mmHg]
+clinical.pre_surgery.PAP_mean_mmHg  = 15;    % [mmHg]
+clinical.pre_surgery.PVR_WU         = NaN;   % [WU]    not calculated in protocol
 
-    fprintf('\n===== run_patient_case: patient=%s =====\n', label);
-    fprintf('  Patient: %.1f kg | age %.1f mo | %.0f cm | sex=%d\n', ...
-        clinical.common.weight_kg, clinical.common.age_years * 12, ...
-        clinical.common.height_cm, clinical.common.sex);
+% ---- Systemic pressures (RFA catheter) ----------------------------------
+clinical.pre_surgery.SAP_sys_mmHg   = 100;   % [mmHg]  RFA catheter systolic
+clinical.pre_surgery.SAP_dia_mmHg   = 57;    % [mmHg]  RFA catheter diastolic
+clinical.pre_surgery.SAP_mean_mmHg  = 71.3;  % [mmHg]  57 + (100-57)/3
+clinical.pre_surgery.SVR_WU         = 19.37; % [WU]    (71.3-5) / 3.423
 
-    results_dir = fullfile(root, 'results');
-    if ~exist(results_dir, 'dir'), mkdir(results_dir); end
-    diary(fullfile(results_dir, sprintf('console_%s_pre_surgery.txt', label)));
-    main_run('pre_surgery', clinical);
-    diary off
+% ---- Atrial pressures ---------------------------------------------------
+clinical.pre_surgery.RAP_mean_mmHg  = 5;     % [mmHg]
+clinical.pre_surgery.LAP_mean_mmHg  = 8;     % [mmHg]  estimated (no PCWP)
 
-    % Rename calibrated params so next patient does not overwrite.
-    src = fullfile(root, 'results', 'tables', 'params_calibrated_pre_surgery.mat');
-    dst = fullfile(root, 'results', 'tables', sprintf('params_calibrated_pre_surgery_%s.mat', label));
-    if isfile(src)
-        movefile(src, dst);
-        fprintf('[run_patient_case] Saved calibrated params to: %s\n', dst);
-    end
+% ---- Ventricular pressures & filling ------------------------------------
+clinical.pre_surgery.LVEDP_mmHg     = 8;     % [mmHg]  estimated; no direct measurement
+clinical.pre_surgery.LVP_sys_mmHg   = NaN;   % [mmHg]
+clinical.pre_surgery.RVP_sys_mmHg   = NaN;   % [mmHg]
 
-    fprintf('\n===== run_patient_case: done patient=%s =====\n', label);
-end
+% ---- Echo volumes (Teichholz from M-mode, LVEDD=32 mm, LVESD=23.6 mm) --
+clinical.pre_surgery.LVEDV_mL   = 41.0;   % [mL]   (7/5.6) * 3.2^3
+clinical.pre_surgery.LVESV_mL   = 19.3;   % [mL]   (7/4.76) * 2.36^3
+clinical.pre_surgery.RVEDV_mL   = 30.5;   % [mL]   protocol row 28
+clinical.pre_surgery.RVESV_mL   = 12.0;   % [mL]   protocol row 29
+clinical.pre_surgery.LVEF       = 0.528;  % [-]    (41.0-19.3)/41.0
 
-fprintf('\n===== run_patient_case: all patients complete =====\n');
+% ---- Cardiac output (Qs, Fick catheter) ---------------------------------
+clinical.pre_surgery.CO_Lmin    = 3.423;  % [L/min]  systemic Fick (rows 21-23)
+
+% ---- Run ----------------------------------------------------------------
+fprintf('Starting simulation for patient: %s (%.1f kg, %.2f yr)\n', ...
+    clinical.common.patient_name, clinical.common.weight_kg, clinical.common.age_years);
+
+diary(fullfile(results_dir, sprintf('console_%s_pre_surgery.txt', clinical.common.patient_name)));
+main_run('pre_surgery', clinical);
+diary off
+
+fprintf('\nDone. Results saved under: %s\n', results_dir);

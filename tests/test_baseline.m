@@ -67,7 +67,7 @@ try
     sim = integrate_system(params);
     fprintf('  Simulation: PASSED\n');
 catch ME
-    fprintf('  Simulation: FAILED \u2014 %s\n', ME.message);
+    fprintf('  Simulation: FAILED -- %s\n', ME.message);
     return;
 end
 
