@@ -41,15 +41,7 @@ if any(strcmpi(PROFILE, {'A', 'both'}))
     main_run('pre_surgery', clinical_A);
 end
 
-%% ---- Profile B — High-Pressure Infant ----------------------------------
-if any(strcmpi(PROFILE, {'B', 'both'}))
-    fprintf('\n========================================\n');
-    fprintf('  PROFILE B — High-Pressure Infant\n');
-    fprintf('  4.5 kg | 2.0 mo | Qp/Qs 1.79 | PAP mean 43 mmHg\n');
-    fprintf('========================================\n');
-
-    clinical_B = patient_profile_B();
-    main_run('pre_surgery', clinical_B);
-end
+%% ---- Profile B — High-Pressure Infant (removed 2026-05-24: orphaned config)
+% Use patient_template() to create new synthetic benchmark profiles.
 
 fprintf('\n[run_virtual_patients] Done.\n');
