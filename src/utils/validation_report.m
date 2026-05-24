@@ -143,6 +143,14 @@ report.target_tiers = target_tiers;
 report.target_tier_table = target_tiers.table;
 report.clinical_consistency_audit = clinical_audit;
 report.clinical_data_rank = audit_clinical_data_availability(clinical, scenario);
+report.clinical_validation_targets_baseline = clinical_validation_rows(report.table_baseline);
+if ~isempty(report.table_cal)
+    report.clinical_validation_targets_calibrated = clinical_validation_rows(report.table_cal);
+    report.model_derived_metric_findings = model_derived_metric_rows(report.table_cal);
+else
+    report.clinical_validation_targets_calibrated = table();
+    report.model_derived_metric_findings = model_derived_metric_rows(report.table_baseline);
+end
 
 %% Per-metric delta table (baseline → calibrated)
 % Delta_pct < 0 means the error shrank (improvement).
@@ -279,6 +287,69 @@ rmse_summary = table( ...
      'Includes hard target tier only'; ...
      'Includes soft target tier only'}, ...
     'VariableNames', {'RMSE_Type','Baseline','Calibrated','Definition'});
+end
+
+function rows = clinical_validation_rows(source_tbl)
+% CLINICAL_VALIDATION_ROWS - metrics with patient-data comparators.
+if isempty(source_tbl)
+    rows = table();
+    return;
+end
+mask = isfinite(source_tbl.Clinical);
+rows = source_tbl(mask, :);
+if isempty(rows)
+    return;
+end
+rows.ReportRole = repmat({'clinical_validation_target'}, height(rows), 1);
+rows.Interpretation = validation_interpretation(rows);
+end
+
+function rows = model_derived_metric_rows(source_tbl)
+% MODEL_DERIVED_METRIC_ROWS - model outputs without patient comparator.
+if isempty(source_tbl)
+    rows = table();
+    return;
+end
+value_col = select_model_value_column(source_tbl);
+if isempty(value_col)
+    rows = table();
+    return;
+end
+mask = ~isfinite(source_tbl.Clinical) & isfinite(source_tbl.(value_col));
+rows = source_tbl(mask, :);
+if isempty(rows)
+    return;
+end
+rows.ReportRole = repmat({'model_derived_metric_finding'}, height(rows), 1);
+rows.Interpretation = repmat({ ...
+    'Model output with no finite patient comparator; use for physiologic interpretation, not RMSE validation.'}, ...
+    height(rows), 1);
+end
+
+function value_col = select_model_value_column(source_tbl)
+value_col = '';
+if ismember('Calibrated', source_tbl.Properties.VariableNames)
+    value_col = 'Calibrated';
+elseif ismember('Baseline', source_tbl.Properties.VariableNames)
+    value_col = 'Baseline';
+end
+end
+
+function notes = validation_interpretation(rows)
+notes = cell(height(rows), 1);
+for idx = 1:height(rows)
+    tier = rows.Tier{idx};
+    switch tier
+        case {'hard', 'soft'}
+            notes{idx} = 'Used in calibration and comparable to patient data.';
+        case 'consistency_check_only'
+            notes{idx} = 'Patient data available but inconsistent or low-identifiability; reported for transparency, excluded from calibration and governed RMSE.';
+        case {'derived_validation', 'validation_holdout', 'validation_only'}
+            notes{idx} = 'Patient-derived comparator available; reported for validation/disclosure, not calibration fitting.';
+        otherwise
+            notes{idx} = 'Patient comparator available; check target tier before using for acceptance.';
+    end
+end
 end
 
 function print_clinical_consistency_audit(audit)

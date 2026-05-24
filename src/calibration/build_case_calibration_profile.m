@@ -127,6 +127,9 @@ profile.allowedFreeParameters = recipe.active_parameters;
 profile.initialParameterValues = recipe.initial_parameter_values;
 profile.acceptInitialSeedIfPass = recipe.accept_initial_seed_if_pass;
 profile.acceptInitialSeedRmseMax = recipe.accept_initial_seed_rmse_max;
+if isfield(recipe, 'accept_initial_seed_scaling_modes')
+    profile.acceptInitialSeedScalingModes = recipe.accept_initial_seed_scaling_modes;
+end
 profile.stageCPreferredNames = recipe.stage_c_parameters;
 profile.boundScale = recipe.bound_scale;
 profile.metricWeightOverrides = recipe.metric_weight_overrides;

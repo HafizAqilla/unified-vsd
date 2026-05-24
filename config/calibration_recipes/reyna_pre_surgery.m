@@ -70,14 +70,20 @@ recipe.initial_parameter_values.values = [0.457982333986, 0.172102628970, ...
     1.228992521310, 1.427896255390, 3.036185781620, 0.520742612671];
 recipe.initial_parameter_values.source = ...
     'results/runs/20260521_214941_reyna_pre_surgery accepted_candidate';
+recipe.initial_parameter_values.scaling_modes = {'lundquist_bsa'};
+recipe.initial_parameter_values.representation = ...
+    'calibration_vector_relative_to_lundquist_bsa_reference';
 recipe.accept_initial_seed_if_pass = true;
 recipe.accept_initial_seed_rmse_max = 0.095;
+recipe.accept_initial_seed_scaling_modes = {'lundquist_bsa'};
 
 recipe.fixed_parameter_values = struct();
 recipe.fixed_parameter_values.names = {'V0.SVEN'};
 recipe.fixed_parameter_values.values = 421.1753037549494;
 recipe.fixed_parameter_values.source = ...
     'results/runs/20260521_214941_reyna_pre_surgery accepted_candidate';
+recipe.fixed_parameter_values.scaling_modes = {'lundquist_bsa'};
+recipe.fixed_parameter_values.representation = 'absolute_physical_parameter';
 
 recipe.initial_conditions = struct();
 recipe.initial_conditions.V = [11.9210; 46.3451; 15.0976; 41.0000; ...
@@ -85,6 +91,8 @@ recipe.initial_conditions.V = [11.9210; 46.3451; 15.0976; 41.0000; ...
     57.0500; 11.5000; 39.2530; 57.0500];
 recipe.initial_conditions.source = ...
     'results/runs/20260521_214941_reyna_pre_surgery accepted_candidate';
+recipe.initial_conditions.scaling_modes = {'lundquist_bsa'};
+recipe.initial_conditions.representation = 'absolute_state_vector';
 
 recipe.bound_scale = struct();
 recipe.bound_scale.names = {'group.R_sys_scale','R.SVEN','group.R_pul_scale', ...

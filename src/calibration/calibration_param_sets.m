@@ -36,6 +36,8 @@ calib.regLambda = 0;
 calib.paramPlausibilityLambda = 0.5;
 calib.boundaryPlausibilityLambda = 20.0;
 calib.caseProfile = caseProfile;
+calib.initialSeedApplied = false;
+calib.initialSeedScalingMode = '';
 if isfield(caseProfile, 'targetTiers')
     calib.targetTiers = caseProfile.targetTiers;
 else
@@ -199,6 +201,10 @@ initial_values = case_profile.initialParameterValues;
 if ~isfield(initial_values, 'names') || ~isfield(initial_values, 'values')
     return;
 end
+scaling_mode = resolve_calibration_scaling_mode(calib);
+if ~applies_to_scaling_mode(initial_values, scaling_mode)
+    return;
+end
 names = initial_values.names(:);
 values = initial_values.values(:);
 if numel(names) ~= numel(values)
@@ -221,6 +227,64 @@ for idx = 1:numel(names)
     end
     calib.x0_all(target_idx) = value;
     calib.parameterRegistry.seeded_value(target_idx) = value;
+end
+calib.initialSeedApplied = true;
+calib.initialSeedScalingMode = scaling_mode;
+end
+
+function scaling_mode = resolve_calibration_scaling_mode(calib)
+scaling_mode = '';
+if isfield(calib, 'registryContext') && isstruct(calib.registryContext)
+    if isfield(calib.registryContext, 'params_scaled') && ...
+            isstruct(calib.registryContext.params_scaled) && ...
+            isfield(calib.registryContext.params_scaled, 'scaling')
+        scaling_mode = first_nonempty_scaling_mode( ...
+            calib.registryContext.params_scaled.scaling);
+    end
+end
+if isempty(scaling_mode) && isfield(calib, 'referenceParams') && ...
+        isstruct(calib.referenceParams) && isfield(calib.referenceParams, 'scaling')
+    scaling_mode = first_nonempty_scaling_mode(calib.referenceParams.scaling);
+end
+scaling_mode = normalize_scaling_mode(scaling_mode);
+end
+
+function scaling_mode = first_nonempty_scaling_mode(scaling)
+scaling_mode = '';
+if isstruct(scaling) && isfield(scaling, 'mode') && ~isempty(scaling.mode)
+    scaling_mode = char(scaling.mode);
+elseif isstruct(scaling) && isfield(scaling, 'requested_mode') && ...
+        ~isempty(scaling.requested_mode)
+    scaling_mode = char(scaling.requested_mode);
+end
+end
+
+function tf = applies_to_scaling_mode(recipe_block, scaling_mode)
+if ~isfield(recipe_block, 'scaling_modes') || isempty(recipe_block.scaling_modes)
+    tf = true;
+    return;
+end
+allowed_modes = normalize_scaling_mode_cell(recipe_block.scaling_modes);
+tf = ismember(normalize_scaling_mode(scaling_mode), allowed_modes);
+end
+
+function modes = normalize_scaling_mode_cell(values)
+if ischar(values)
+    values = {values};
+elseif isstring(values)
+    values = cellstr(values);
+end
+modes = cell(size(values));
+for idx = 1:numel(values)
+    modes{idx} = normalize_scaling_mode(values{idx});
+end
+end
+
+function mode = normalize_scaling_mode(mode)
+mode = lower(strtrim(char(string(mode))));
+switch mode
+    case {'lundquist', 'lundqvist', 'bsa'}
+        mode = 'lundquist_bsa';
 end
 end
 
