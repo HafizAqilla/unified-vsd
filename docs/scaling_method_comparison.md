@@ -123,3 +123,24 @@ Reason: Zhang has slightly better parameter-warning count, but Lundquist gives t
 - The current Lundquist implementation uses a BSA law that is dimensionally simple and traceable, but the exact source exponent mapping should be reviewed against the Lundquist paper text before making a thesis-level claim.
 - The Zhang implementation uses weight-based exponents from the project scaling logic. Its inertance is not scaled, so a direct method comparison is not perfectly symmetrical.
 - Neither scaling method resolves the clinical RV stroke-volume inconsistency. That is a data-governance issue, not a scaling issue.
+
+## 2026-05-24 Update — Zhang Paper Compliance & Recipe-Stable Baseline
+
+### Changes Applied
+
+- **Zhang `eRv_op` corrected to -0.50** per Zhang 2019 Table 1 (was -0.90). The previous value over-shrunk open-valve resistance by ~2x for pediatric patients. For Reyna (w ≈ 0.2): factor changed from 0.2^-0.9 ≈ 4.43 → 0.2^-0.5 ≈ 2.24.
+- **Inertance L scaling added for Zhang mode** with `eL = -1.0`, matching the Lundquist mechanical-similarity argument. This was not in Zhang 2019 Table 1; adopted for symmetry with Lundquist.
+- **Patient demographics locked to Keisya 2026-05-11 revision** (14.0 kg, 98.0 cm, BSA 0.6173) via the explicit recipe system in `config/calibration_recipes/reyna_pre_surgery.m`.
+- **Active calibration parameter set restored to 14-parameter sparse_cath equivalence** through the recipe system, preventing the 6-parameter collapse seen in 2026-05-23 runs.
+- **Regression coverage added:** `test_reyna_hemodynamic_active_set.m`, `test_reyna_rmse_regression.m`, and `test_scaling_mode_parity.m`.
+
+### Impact
+
+- Lundquist BSA remains the default scaling mode for continuity.
+- Zhang is now a fully validated comparator with paper-compliant exponents.
+- Scaling-mode parity is enforced: both modes must achieve single-digit RMSE (< 0.10).
+- The recipe system (`reyna_pre_surgery`) ensures calibration profile decisions are explicit and auditable, not inferred from NaN field patterns.
+
+### Default Recommendation (Unchanged)
+
+Keep `lundquist_bsa` as the default. Zhang is retained as a validated comparator for thesis-level scaling sensitivity analysis.
