@@ -91,6 +91,38 @@ else
     n_fail = n_fail + 1;
 end
 
+%% Test 5: Zhang Rvalve open exponent matches Zhang 2019 Table 1 (K_vo = -0.5).
+fprintf('--- Test 5: Zhang Rvalve open exponent ---\n');
+w_expected = 0.5;
+patient_ref = patient;
+patient_ref.weight_kg = 35;  % w = 35/70 = 0.5
+params_w05 = apply_physiological_scaling(params_ref, patient_ref, 'zhang');
+expected_rvalve_factor = 0.5^-0.50;  % w^eRv_op with eRv_op = -0.5
+actual_factor = params_w05.Rvalve.open / params_ref.Rvalve.open;
+if abs(actual_factor - expected_rvalve_factor) / expected_rvalve_factor < 1e-10 && ...
+        abs(params_w05.scaling.zhang_exponents.Rvalve_open + 0.50) < 1e-12
+    fprintf('  [PASS] Zhang Rvalve open exponent correct (-0.50); factor ~ %.4f.\n', actual_factor);
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Zhang Rvalve open exponent mismatch. Expected factor %.4f, got %.4f.\n', ...
+        expected_rvalve_factor, actual_factor);
+    n_fail = n_fail + 1;
+end
+
+%% Test 6: Zhang inertance L scaling applied (eL = -1.0).
+fprintf('--- Test 6: Zhang inertance L scaling ---\n');
+expected_L_factor = 0.5^-1.0;  % w^eL with eL = -1.0
+actual_L_factor = params_w05.L.SAR / params_ref.L.SAR;
+if abs(actual_L_factor - expected_L_factor) / expected_L_factor < 1e-10 && ...
+        abs(params_w05.scaling.zhang_exponents.L + 1.00) < 1e-12
+    fprintf('  [PASS] Zhang L scaling correct (-1.00); L_SAR factor ~ %.4f.\n', actual_L_factor);
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Zhang L scaling mismatch. Expected factor %.4f, got %.4f.\n', ...
+        expected_L_factor, actual_L_factor);
+    n_fail = n_fail + 1;
+end
+
 fprintf('\n==========================================\n');
 fprintf('  RESULT: %d PASSED, %d FAILED\n', n_pass, n_fail);
 if n_fail == 0

@@ -151,7 +151,8 @@ eV0    = +0.80;
 eR_sys = -0.475;
 eR_pul = -0.70;
 eC     = +1.00;
-eRv_op = -0.90;
+eL     = -1.00;   % inertance scaling adopted from Lundquist mechanical-similarity argument; not in Zhang 2019 Table 1
+eRv_op = -0.50;   % Zhang 2019 Table 1: K_vo = -0.5 for valve opening/closing rate coefficients
 
 params.HR = params_ref.HR * w^eHR;
 
@@ -194,6 +195,12 @@ params.C.PVEN = params_ref.C.PVEN * w^eC;
 if isfield(params_ref.C, 'RA'), params.C.RA = params_ref.C.RA * w^eC; end
 if isfield(params_ref.C, 'LA'), params.C.LA = params_ref.C.LA * w^eC; end
 
+% L scaling adopted from Lundquist mechanical-similarity argument; not in Zhang 2019 Table 1
+params.L.SAR = params_ref.L.SAR * w^eL;
+params.L.SVEN = params_ref.L.SVEN * w^eL;
+params.L.PAR = params_ref.L.PAR * w^eL;
+params.L.PVEN = params_ref.L.PVEN * w^eL;
+
 params.Rvalve.open   = params_ref.Rvalve.open * w^eRv_op;
 params.Rvalve.closed = params_ref.Rvalve.closed;
 
@@ -201,7 +208,7 @@ T_HB = 60 / params.HR;
 params = recompute_timing(params, T_HB);
 params.scaling.zhang_exponents = struct( ...
     'HR', eHR, 'E_lv', eE_lv, 'E_rv', eE_rv, 'V0', eV0, ...
-    'R_sys', eR_sys, 'R_pul', eR_pul, 'C', eC, 'Rvalve_open', eRv_op);
+    'R_sys', eR_sys, 'R_pul', eR_pul, 'C', eC, 'L', eL, 'Rvalve_open', eRv_op);
 end
 
 function params = recompute_timing(params, T_HB)
