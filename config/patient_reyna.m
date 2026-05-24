@@ -34,10 +34,10 @@ clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
 %  COMMON — patient demographics, measured for any scenario
 %% =====================================================================
 clinical.common.age_years  = 3.17;    % [years] 3 years 2 months [cite: 80]
-clinical.common.weight_kg  = 13.4;    % [kg] protocol row 4
-clinical.common.height_cm  = 95.0;    % [cm] protocol row 3
+clinical.common.weight_kg  = 14.0;    % [kg] Keisya 2026-05-11 revision
+clinical.common.height_cm  = 98.0;    % [cm] Keisya 2026-05-11 revision
 clinical.common.sex        = 0;       % 0 = female, 1 = male — AGENTS.md §3.10
-clinical.common.BSA        = 0.588;   % [m^2] protocol row 5
+clinical.common.BSA        = 0.6173419726; % [m^2] Keisya 2026-05-11 revision, Mosteller: sqrt(98*14/3600)
 clinical.common.HR         = 119;     % [bpm] [cite: 81]
 
 %% =====================================================================
