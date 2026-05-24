@@ -23,7 +23,7 @@ The Zhang option is weight-based. In the current implementation it scales:
 | vascular resistance | body weight ratio, separate systemic and pulmonary exponents |
 | vascular compliance | body weight ratio |
 | valve open resistance | body weight ratio |
-| inertance | not scaled |
+| inertance | body weight ratio (`eL = -1.0`, project comparator extension) |
 | pressure targets | not scaled |
 | flow targets | not scaled |
 
@@ -60,7 +60,7 @@ For Reyna (`weight = 13.4 kg`, `height = 95 cm`, `BSA = 0.588 m2`):
 | LV elastance factor | 2.286 | 2.942 |
 | RV elastance factor | 3.455 | 5.047 |
 | LV/RV V0 factor | 0.266 | 0.340 |
-| inertance factor | not scaled | 2.942 |
+| inertance factor | historically not scaled; now weight-scaled with `eL = -1.0` | 2.942 |
 
 ## Bounded Pipeline Comparison
 
@@ -123,3 +123,25 @@ Reason: Zhang has slightly better parameter-warning count, but Lundquist gives t
 - The current Lundquist implementation uses a BSA law that is dimensionally simple and traceable, but the exact source exponent mapping should be reviewed against the Lundquist paper text before making a thesis-level claim.
 - The Zhang implementation uses weight-based exponents from the project scaling logic. Its inertance is not scaled, so a direct method comparison is not perfectly symmetrical.
 - Neither scaling method resolves the clinical RV stroke-volume inconsistency. That is a data-governance issue, not a scaling issue.
+
+## 2026-05-24 Update — Zhang Paper Compliance & Recipe-Stable Baseline
+
+### Changes Applied
+
+- **Zhang `eRv_op` corrected to -0.50** per Zhang 2019 Table 1 (was -0.90). The previous value over-shrunk open-valve resistance by ~2x for pediatric patients. For Reyna (w ≈ 0.2): factor changed from 0.2^-0.9 ≈ 4.43 → 0.2^-0.5 ≈ 2.24.
+- **Inertance L scaling added for Zhang mode** with `eL = -1.0`, matching the Lundquist mechanical-similarity argument. This was not in Zhang 2019 Table 1; adopted for symmetry with Lundquist.
+- **Patient demographics locked to Keisya 2026-05-11 revision** (14.0 kg, 98.0 cm, BSA 0.6173) via the explicit recipe system in `config/calibration_recipes/reyna_pre_surgery.m`.
+- **Active calibration parameter set restored to 14-parameter sparse_cath equivalence** through the recipe system, preventing the 6-parameter collapse seen in 2026-05-23 runs.
+- **Regression coverage added:** `test_reyna_hemodynamic_active_set.m`, `test_reyna_rmse_regression.m`, and the heavy `test_scaling_mode_parity.m` comparison check.
+- **Seed separation added after the first Zhang run:** the accepted Reyna disease seed, fixed `V0.SVEN`, and accepted initial-condition vector from the Lundquist evidence package are now explicitly gated to `lundquist_bsa`. Zhang uses the same Reyna recipe/governance but starts from its own Zhang-scaled baseline plus normal clinical seeding.
+
+### Impact
+
+- Lundquist BSA remains the default scaling mode and accepted Reyna production path.
+- Zhang is retained as an independent comparator with paper-aligned exponents and the same Reyna target/governance recipe.
+- Zhang should be judged from a fresh same-governance run after seed separation; it is no longer expected to inherit the Lundquist-calibrated disease seed or to pass by recipe drift.
+- The recipe system (`reyna_pre_surgery`) ensures calibration profile decisions are explicit and auditable, not inferred from NaN field patterns.
+
+### Default Recommendation (Unchanged)
+
+Keep `lundquist_bsa` as the default. Zhang is retained as a same-governance comparator for thesis-level scaling sensitivity analysis; report its refreshed RMSE/status explicitly after rerun rather than assuming parity with Lundquist.

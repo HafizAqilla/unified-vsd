@@ -36,6 +36,8 @@ calib.regLambda = 0;
 calib.paramPlausibilityLambda = 0.5;
 calib.boundaryPlausibilityLambda = 20.0;
 calib.caseProfile = caseProfile;
+calib.initialSeedApplied = false;
+calib.initialSeedScalingMode = '';
 if isfield(caseProfile, 'targetTiers')
     calib.targetTiers = caseProfile.targetTiers;
 else
@@ -163,6 +165,7 @@ calib.parameterRegistry = build_registry(params0, scenario, caseProfile, calib.n
 validate_bounds(calib.parameterRegistry, scenario);
 [calib.x0_all, calib.lb_all, calib.ub_all, calib.names_all, calib.parameterRegistry] = ...
     build_calibration_vector(calib.parameterRegistry, calib.names_all);
+calib = apply_case_profile_initial_values(calib, caseProfile);
 
 if isempty(optMask)
     optMask = true(numel(calib.names_all), 1);
@@ -187,6 +190,102 @@ calib.lb = calib.lb_all(calib.mask);
 calib.ub = calib.ub_all(calib.mask);
 calib.parameterRegistryActive = calib.parameterRegistry(calib.mask, :);
 
+end
+
+function calib = apply_case_profile_initial_values(calib, case_profile)
+if ~isfield(case_profile, 'initialParameterValues') || ...
+        ~isstruct(case_profile.initialParameterValues)
+    return;
+end
+initial_values = case_profile.initialParameterValues;
+if ~isfield(initial_values, 'names') || ~isfield(initial_values, 'values')
+    return;
+end
+scaling_mode = resolve_calibration_scaling_mode(calib);
+if ~applies_to_scaling_mode(initial_values, scaling_mode)
+    return;
+end
+names = initial_values.names(:);
+values = initial_values.values(:);
+if numel(names) ~= numel(values)
+    error('calibration_param_sets:invalidInitialValues', ...
+        'Initial-parameter recipe names and values must have the same length.');
+end
+
+for idx = 1:numel(names)
+    name = char(names{idx});
+    value = values(idx);
+    target_idx = find(strcmp(calib.names_all, name), 1, 'first');
+    if isempty(target_idx)
+        error('calibration_param_sets:unknownInitialParameter', ...
+            'Initial-parameter recipe references unknown parameter %s.', name);
+    end
+    if value < calib.lb_all(target_idx) || value > calib.ub_all(target_idx)
+        error('calibration_param_sets:initialValueOutsideBounds', ...
+            'Initial-parameter recipe value %.12g for %s is outside bounds [%.12g, %.12g].', ...
+            value, name, calib.lb_all(target_idx), calib.ub_all(target_idx));
+    end
+    calib.x0_all(target_idx) = value;
+    calib.parameterRegistry.seeded_value(target_idx) = value;
+end
+calib.initialSeedApplied = true;
+calib.initialSeedScalingMode = scaling_mode;
+end
+
+function scaling_mode = resolve_calibration_scaling_mode(calib)
+scaling_mode = '';
+if isfield(calib, 'registryContext') && isstruct(calib.registryContext)
+    if isfield(calib.registryContext, 'params_scaled') && ...
+            isstruct(calib.registryContext.params_scaled) && ...
+            isfield(calib.registryContext.params_scaled, 'scaling')
+        scaling_mode = first_nonempty_scaling_mode( ...
+            calib.registryContext.params_scaled.scaling);
+    end
+end
+if isempty(scaling_mode) && isfield(calib, 'referenceParams') && ...
+        isstruct(calib.referenceParams) && isfield(calib.referenceParams, 'scaling')
+    scaling_mode = first_nonempty_scaling_mode(calib.referenceParams.scaling);
+end
+scaling_mode = normalize_scaling_mode(scaling_mode);
+end
+
+function scaling_mode = first_nonempty_scaling_mode(scaling)
+scaling_mode = '';
+if isstruct(scaling) && isfield(scaling, 'mode') && ~isempty(scaling.mode)
+    scaling_mode = char(scaling.mode);
+elseif isstruct(scaling) && isfield(scaling, 'requested_mode') && ...
+        ~isempty(scaling.requested_mode)
+    scaling_mode = char(scaling.requested_mode);
+end
+end
+
+function tf = applies_to_scaling_mode(recipe_block, scaling_mode)
+if ~isfield(recipe_block, 'scaling_modes') || isempty(recipe_block.scaling_modes)
+    tf = true;
+    return;
+end
+allowed_modes = normalize_scaling_mode_cell(recipe_block.scaling_modes);
+tf = ismember(normalize_scaling_mode(scaling_mode), allowed_modes);
+end
+
+function modes = normalize_scaling_mode_cell(values)
+if ischar(values)
+    values = {values};
+elseif isstring(values)
+    values = cellstr(values);
+end
+modes = cell(size(values));
+for idx = 1:numel(values)
+    modes{idx} = normalize_scaling_mode(values{idx});
+end
+end
+
+function mode = normalize_scaling_mode(mode)
+mode = lower(strtrim(char(string(mode))));
+switch mode
+    case {'lundquist', 'lundqvist', 'bsa'}
+        mode = 'lundquist_bsa';
+end
 end
 
 function calib = apply_case_profile_coupling(calib, case_profile)

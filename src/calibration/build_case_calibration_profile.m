@@ -35,6 +35,11 @@ if nargin < 1 || isempty(clinical)
     clinical = patient_template();
 end
 
+[recipe, recipe_found] = load_calibration_recipe(clinical, scenario);
+if recipe_found
+    clinical = apply_calibration_recipe_to_clinical(clinical, scenario, recipe);
+end
+
 case_id = resolve_case_id(clinical);          % [char]
 src = clinical.(scenario);                    % [-]
 has_CO = has_finite_field(src, 'CO_Lmin');    % [-]
@@ -49,7 +54,9 @@ is_synthetic = contains(lower(case_id), 'patient_profile') || ...
     contains(lower(case_id), 'synthetic');    % [-]
 
 profile = base_profile(case_id, scenario);
-if is_synthetic
+if recipe_found
+    profile = apply_recipe_governance(profile, recipe);
+elseif is_synthetic
     profile.mode = 'synthetic_benchmark';
     profile.description = 'Synthetic benchmark; useful for stress testing, not patient-specific inference.';
 elseif has_pressures && has_QpQs && ...
@@ -96,8 +103,83 @@ switch profile.mode
         profile.systemicLoadWeights = make_full_data_systemic_load_weights();
 end
 
-profile = apply_target_tier_governance(profile, clinical, scenario);
+if recipe_found
+    recipe_config = make_recipe_target_tier_config(recipe);
+    profile = apply_target_tier_governance(profile, clinical, scenario, recipe_config);
+else
+    profile = apply_target_tier_governance(profile, clinical, scenario);
+end
 profile = apply_age_validity_prior_adjustment(profile, clinical);
+end
+
+function profile = apply_recipe_governance(profile, recipe)
+% APPLY_RECIPE_GOVERNANCE - use explicit patient-scenario recipe contract.
+profile.mode = recipe.profile_mode;
+profile.description = recipe.description;
+profile.recipe = recipe;
+profile.recipe_id = recipe.id;
+profile.recipe_version = recipe.version;
+profile.maxPrimaryMetrics = numel(recipe.primary_metrics);
+profile.preferredPrimaryMetrics = recipe.primary_metrics;
+profile.allowedMetricFields = unique([recipe.primary_metrics(:)', ...
+    recipe.soft_metrics(:)'], 'stable');
+profile.allowedFreeParameters = recipe.active_parameters;
+profile.initialParameterValues = recipe.initial_parameter_values;
+profile.acceptInitialSeedIfPass = recipe.accept_initial_seed_if_pass;
+profile.acceptInitialSeedRmseMax = recipe.accept_initial_seed_rmse_max;
+if isfield(recipe, 'accept_initial_seed_scaling_modes')
+    profile.acceptInitialSeedScalingModes = recipe.accept_initial_seed_scaling_modes;
+end
+profile.stageCPreferredNames = recipe.stage_c_parameters;
+profile.boundScale = recipe.bound_scale;
+profile.metricWeightOverrides = recipe.metric_weight_overrides;
+profile.validationHoldoutMetrics = recipe.validation_holdout;
+profile.preferredScalingMode = recipe.preferred_scaling_mode;
+profile.systemicLoadWeights = reyna_systemic_load_weights();
+profile.systemicPolishEnabled = true;
+profile.systemicPolishNames = recipe.systemic_polish_parameters;
+profile.systemicPolishMetrics = recipe.systemic_polish_metrics;
+profile.systemicPolishWeights = reyna_systemic_polish_weights();
+profile.plausibilityPolishEnabled = true;
+profile.validationGatePolishEnabled = true;
+profile.plausibilityPolishParamLambda = 2.25;
+profile.plausibilityPolishBoundaryLambda = 120.0;
+profile.plausibilityPolishRmseTolerance = 0.005;
+profile.plausibilityPolishSystemicPairTolerance = 0.05;
+profile.excellentFitErrorPct = recipe.acceptance.excellent_gate_pct;
+profile.acceptancePrimaryRmseMax = recipe.acceptance.primary_rmse_max;
+profile.acceptancePrimaryErrorPct = recipe.acceptance.primary_gate_pct;
+profile.acceptanceSecondaryErrorPct = recipe.acceptance.secondary_gate_pct;
+profile.targetGovernance = sprintf(['recipe=%s@%s; explicit pressure-flow ', ...
+    'targets; chamber rows retained only under target-tier governance'], ...
+    recipe.id, recipe.version);
+end
+
+function config = make_recipe_target_tier_config(recipe)
+% MAKE_RECIPE_TARGET_TIER_CONFIG - target-tier config from recipe.
+config = struct();
+config.policy_name = sprintf('%s_recipe_tiers_%s', recipe.id, recipe.version);
+config.hard = recipe.primary_metrics;
+config.soft = recipe.soft_metrics;
+config.consistency_only = recipe.consistency_only;
+config.derived_validation = recipe.derived_validation;
+config.validation_holdout = recipe.validation_holdout;
+config.primary_rmse_holdout = recipe.primary_rmse_holdout;
+config.hard_weight_multiplier = 1.00;
+config.soft_weight_multiplier = 0.45;
+config.metric_weight_multipliers = struct( ...
+    'CO_Lmin', 1.10, ...
+    'QpQs', 1.00, ...
+    'Q_shunt_Lmin', 1.20, ...
+    'PAP_mean', 0.90, ...
+    'SAP_mean', 1.05, ...
+    'RAP_mean', 0.90, ...
+    'LVEDV', 0.80, ...
+    'LVESV', 0.85, ...
+    'LVEF', 0.85, ...
+    'SAP_max', 0.45, ...
+    'SAP_min', 0.40, ...
+    'RVESV', 0.45);
 end
 
 function profile = base_profile(case_id, scenario)
@@ -539,10 +621,13 @@ if has_finite_field(src, 'CO_uncertainty_Lmin')
 end
 end
 
-function profile = apply_target_tier_governance(profile, clinical, scenario)
+function profile = apply_target_tier_governance(profile, clinical, scenario, tier_config)
 % APPLY_TARGET_TIER_GOVERNANCE - make target inclusion auditable.
+if nargin < 4
+    tier_config = [];
+end
 audit = audit_clinical_consistency(clinical, scenario);
-target_tiers = build_target_tiers(clinical, scenario, audit);
+target_tiers = build_target_tiers(clinical, scenario, audit, tier_config);
 
 profile.clinicalConsistencyAudit = audit;
 profile.targetTiers = target_tiers;

@@ -173,12 +173,22 @@ end
 validatestring(scenario, {'pre_surgery', 'post_surgery'}, ...
     'main_run', 'scenario');
 
+[calibration_recipe, recipe_found] = load_calibration_recipe(clinical, scenario);
+if recipe_found
+    clinical = apply_calibration_recipe_to_clinical( ...
+        clinical, scenario, calibration_recipe);
+end
+
 fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...
     clinical.common.weight_kg, clinical.common.height_cm, clinical.common.age_years);
 case_profile = build_case_calibration_profile(clinical, scenario);
 fprintf('[main_run] Calibration case mode: %s (%s)\n', ...
     case_profile.mode, case_profile.description);
+if isfield(case_profile, 'recipe_id')
+    fprintf('[main_run] Calibration recipe: %s@%s\n', ...
+        case_profile.recipe_id, case_profile.recipe_version);
+end
 if isfield(case_profile, 'clinicalConsistencyAudit') && ...
         isfield(case_profile.clinicalConsistencyAudit, 'summary')
     fprintf('[main_run] %s\n', case_profile.clinicalConsistencyAudit.summary);
@@ -248,6 +258,10 @@ end
 %% =====================================================================
 fprintf('\n=== [Step 2/10] Mapping clinical measurements (%.1fs elapsed) ===\n', toc(run_timer));
 params0 = params_from_clinical(params0, clinical, scenario, params_reference_for_clinical, case_profile);
+if recipe_found
+    params0 = apply_calibration_recipe_to_params( ...
+        params0, params_reference_for_clinical, calibration_recipe, case_profile);
+end
 
 %% =====================================================================
 %  STEP 3 — Baseline simulation
@@ -1020,6 +1034,21 @@ if ~isempty(report.table_cal)
     writetable(report.table_cal, fullfile(tables_dir, ...
         sprintf('validation_calibrated_%s.csv', scenario)));
 end
+if isfield(report, 'clinical_validation_targets_baseline') && ...
+        ~isempty(report.clinical_validation_targets_baseline)
+    writetable(report.clinical_validation_targets_baseline, fullfile(tables_dir, ...
+        sprintf('validation_clinical_targets_baseline_%s.csv', scenario)));
+end
+if isfield(report, 'clinical_validation_targets_calibrated') && ...
+        ~isempty(report.clinical_validation_targets_calibrated)
+    writetable(report.clinical_validation_targets_calibrated, fullfile(tables_dir, ...
+        sprintf('validation_clinical_targets_calibrated_%s.csv', scenario)));
+end
+if isfield(report, 'model_derived_metric_findings') && ...
+        ~isempty(report.model_derived_metric_findings)
+    writetable(report.model_derived_metric_findings, fullfile(tables_dir, ...
+        sprintf('model_derived_metric_findings_%s.csv', scenario)));
+end
 writetable(report.table_delta, fullfile(tables_dir, ...
     sprintf('validation_delta_%s.csv', scenario)));
 writetable(report.sorted_errors, fullfile(tables_dir, ...
@@ -1067,6 +1096,14 @@ end
 
 writetable(calib_out.parameterPlausibility.table, fullfile(tables_dir, ...
     sprintf('parameter_plausibility_%s.csv', scenario)));
+model_parameter_findings = calib_out.parameterPlausibility.table;
+model_parameter_findings.ReportRole = repmat( ...
+    {'model_derived_parameter_finding'}, height(model_parameter_findings), 1);
+model_parameter_findings.Interpretation = repmat({ ...
+    'Calibrated/model parameter; compare to literature or plausibility bounds, not direct patient clinical validation.'}, ...
+    height(model_parameter_findings), 1);
+writetable(model_parameter_findings, fullfile(tables_dir, ...
+    sprintf('model_derived_parameter_findings_%s.csv', scenario)));
 end
 
 function write_parameter_registry_exports(calib_out, tables_dir, scenario)
@@ -1212,6 +1249,12 @@ fprintf(fid, 'PatientLabel: %s\n', run_ctx.patient_label);
 fprintf(fid, 'ScalingMode: %s\n', scaling_mode);
 fprintf(fid, 'CalibrationCaseMode: %s\n', case_profile.mode);
 fprintf(fid, 'CalibrationCaseDescription: %s\n', case_profile.description);
+if isfield(case_profile, 'recipe_id')
+    fprintf(fid, 'CalibrationRecipeId: %s\n', case_profile.recipe_id);
+end
+if isfield(case_profile, 'recipe_version')
+    fprintf(fid, 'CalibrationRecipeVersion: %s\n', case_profile.recipe_version);
+end
 if isfield(case_profile, 'targetGovernance')
     fprintf(fid, 'TargetGovernance: %s\n', case_profile.targetGovernance);
 end

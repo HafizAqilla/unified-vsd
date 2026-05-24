@@ -16,8 +16,11 @@ fprintf('==========================================\n');
 fprintf('  UNIFIED VSD MODEL - Target Governance Test\n');
 fprintf('==========================================\n\n');
 
-clinical = patient_reyna();
 scenario = 'pre_surgery';
+clinical = patient_reyna();
+[recipe, recipe_found] = load_calibration_recipe(clinical, scenario);
+assert(recipe_found, 'Reyna pre-surgery recipe should be available for governance regression test.');
+clinical = apply_calibration_recipe_to_clinical(clinical, scenario, recipe);
 audit = audit_clinical_consistency(clinical, scenario);
 tiers = build_target_tiers(clinical, scenario, audit);
 

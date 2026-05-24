@@ -4,8 +4,9 @@
 
 Maps clinical record terminology to MATLAB variable names in the unified VSD model.
 All values derive from `patient_template.m`; filled examples are in
-`config/patient_profile_A.m` (Profile A: 1.6-month, 3.7 kg infant) and
-`config/patient_profile_B.m`.
+`config/patient_profile_A.m` and the named patient profile files under
+`config/patient_*.m`. The old synthetic `patient_profile_B.m` fixture was
+removed on 2026-05-24 because it was no longer part of the active cohort.
 
 **Raw clinical data and model outputs are strictly separate namespaces** —
 never assign clinical values directly to model output variables (AGENTS.md §3.11).

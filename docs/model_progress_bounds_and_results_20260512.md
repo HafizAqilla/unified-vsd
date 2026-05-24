@@ -65,12 +65,12 @@ Why it matters:
 - Razka is useful for testing the sparse real-data path
 - Razka is not the right case to test the Reyna CO-volume cleanup directly
 
-### 3. Profile A and Profile B
+### 3. Profile A and Retired Profile B
 
 Primary sources:
 
 - `config/patient_profile_A.m`
-- `config/patient_profile_B.m`
+- `config/patient_profile_B.m` was a historical synthetic benchmark and was retired from the active config set on 2026-05-24.
 - synthetic benchmark comments embedded in those files
 
 Key characteristics:

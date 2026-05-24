@@ -107,6 +107,32 @@ else
     n_fail = n_fail + 1;
 end
 
+%% Test 4: baseline provenance table is complete and auditable
+provenance = build_baseline_provenance();
+required_sources = {'bozkurt2019_adult_foundation', ...
+    'valenti2023_table3_3_keisya_baseline', ...
+    'zhang2019_keisya_baseline', ...
+    'keisya_baseline_sheet_consistency_correction'};
+confidence_present = ~any(cellfun(@(c) isempty(c) || strcmp(c, 'unspecified'), ...
+    provenance.ConfidenceLevel));
+source_tags_present = all(ismember(required_sources, provenance.FoundationSource));
+if height(provenance) == 38 && source_tags_present && confidence_present
+    fprintf('  [PASS] Provenance table is complete (38 rows) with required source tags and confidence levels.\n');
+    n_pass = n_pass + 1;
+else
+    if height(provenance) ~= 38
+        fprintf('  [FAIL] Provenance table has %d rows (expected 38).\n', height(provenance));
+    end
+    if ~source_tags_present
+        missing = required_sources(~ismember(required_sources, provenance.FoundationSource));
+        fprintf('  [FAIL] Provenance table missing source tags: %s\n', strjoin(missing, ', '));
+    end
+    if ~confidence_present
+        fprintf('  [FAIL] Provenance table has rows with missing or unspecified confidence levels.\n');
+    end
+    n_fail = n_fail + 1;
+end
+
 %% Summary
 fprintf('\n=====================================================\n');
 fprintf('  RESULT: %d PASSED, %d FAILED\n', n_pass, n_fail);
