@@ -173,12 +173,22 @@ end
 validatestring(scenario, {'pre_surgery', 'post_surgery'}, ...
     'main_run', 'scenario');
 
+[calibration_recipe, recipe_found] = load_calibration_recipe(clinical, scenario);
+if recipe_found
+    clinical = apply_calibration_recipe_to_clinical( ...
+        clinical, scenario, calibration_recipe);
+end
+
 fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...
     clinical.common.weight_kg, clinical.common.height_cm, clinical.common.age_years);
 case_profile = build_case_calibration_profile(clinical, scenario);
 fprintf('[main_run] Calibration case mode: %s (%s)\n', ...
     case_profile.mode, case_profile.description);
+if isfield(case_profile, 'recipe_id')
+    fprintf('[main_run] Calibration recipe: %s@%s\n', ...
+        case_profile.recipe_id, case_profile.recipe_version);
+end
 if isfield(case_profile, 'clinicalConsistencyAudit') && ...
         isfield(case_profile.clinicalConsistencyAudit, 'summary')
     fprintf('[main_run] %s\n', case_profile.clinicalConsistencyAudit.summary);
@@ -248,6 +258,10 @@ end
 %% =====================================================================
 fprintf('\n=== [Step 2/10] Mapping clinical measurements (%.1fs elapsed) ===\n', toc(run_timer));
 params0 = params_from_clinical(params0, clinical, scenario, params_reference_for_clinical, case_profile);
+if recipe_found
+    params0 = apply_calibration_recipe_to_params( ...
+        params0, params_reference_for_clinical, calibration_recipe, case_profile);
+end
 
 %% =====================================================================
 %  STEP 3 — Baseline simulation
@@ -1212,6 +1226,12 @@ fprintf(fid, 'PatientLabel: %s\n', run_ctx.patient_label);
 fprintf(fid, 'ScalingMode: %s\n', scaling_mode);
 fprintf(fid, 'CalibrationCaseMode: %s\n', case_profile.mode);
 fprintf(fid, 'CalibrationCaseDescription: %s\n', case_profile.description);
+if isfield(case_profile, 'recipe_id')
+    fprintf(fid, 'CalibrationRecipeId: %s\n', case_profile.recipe_id);
+end
+if isfield(case_profile, 'recipe_version')
+    fprintf(fid, 'CalibrationRecipeVersion: %s\n', case_profile.recipe_version);
+end
 if isfield(case_profile, 'targetGovernance')
     fprintf(fid, 'TargetGovernance: %s\n', case_profile.targetGovernance);
 end

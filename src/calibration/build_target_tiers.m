@@ -52,6 +52,7 @@ soft = intersect(config.soft, available_metrics, 'stable');
 consistency_only = intersect(config.consistency_only, available_metrics, 'stable');
 derived_validation = intersect(config.derived_validation, available_metrics, 'stable');
 validation_holdout = intersect(config.validation_holdout, available_metrics, 'stable');
+primary_rmse_holdout = intersect(config.primary_rmse_holdout, available_metrics, 'stable');
 consistency_reasons = struct();
 holdout_reasons = struct();
 
@@ -106,8 +107,10 @@ soft = setdiff(soft, hard, 'stable');
 
 included_in_calibration = unique([hard, soft], 'stable');
 included_in_primary_rmse = setdiff(available_metrics, ...
-    unique([consistency_only, derived_validation, validation_holdout], 'stable'), 'stable');
-excluded_from_primary_rmse = unique([consistency_only, derived_validation, validation_holdout], 'stable');
+    unique([consistency_only, derived_validation, validation_holdout, ...
+    primary_rmse_holdout], 'stable'), 'stable');
+excluded_from_primary_rmse = unique([consistency_only, derived_validation, ...
+    validation_holdout, primary_rmse_holdout], 'stable');
 
 weights = struct();
 for idx = 1:numel(hard)
@@ -131,6 +134,7 @@ target_config.soft = soft;
 target_config.consistency_only = consistency_only;
 target_config.derived_validation = derived_validation;
 target_config.validation_holdout = validation_holdout;
+target_config.primary_rmse_holdout = primary_rmse_holdout;
 target_config.included_in_calibration = included_in_calibration;
 target_config.included_in_primary_rmse = included_in_primary_rmse;
 target_config.excluded_from_primary_rmse = excluded_from_primary_rmse;
@@ -140,7 +144,7 @@ target_config.consistency_reasons = consistency_reasons;
 target_config.holdout_reasons = holdout_reasons;
 target_config.table = build_tier_table(targets, hard, soft, ...
     consistency_only, derived_validation, validation_holdout, ...
-    audit, consistency_reasons, holdout_reasons);
+    primary_rmse_holdout, audit, consistency_reasons, holdout_reasons);
 end
 
 function config = default_target_tier_config()
@@ -152,6 +156,7 @@ config.soft = {'Q_shunt_Lmin','SAP_max','SAP_min','RVESV'};
 config.consistency_only = {};
 config.derived_validation = {'PVR','SVR'};
 config.validation_holdout = {};
+config.primary_rmse_holdout = {};
 config.hard_weight_multiplier = 1.00;
 config.soft_weight_multiplier = 0.45;
 config.metric_weight_multipliers = struct( ...
@@ -170,7 +175,8 @@ config.metric_weight_multipliers = struct( ...
 end
 
 function tier_table = build_tier_table(targets, hard, soft, consistency_only, ...
-    derived_validation, validation_holdout, audit, consistency_reasons, holdout_reasons)
+    derived_validation, validation_holdout, primary_rmse_holdout, audit, ...
+    consistency_reasons, holdout_reasons)
 n_targets = numel(targets);
 metric_col = cell(n_targets, 1);
 tier_col = cell(n_targets, 1);
@@ -205,11 +211,19 @@ for idx = 1:n_targets
     elseif ismember(metric_name, hard)
         tier_col{idx} = 'hard';
         included_cal_col(idx) = true;
-        included_primary_rmse_col(idx) = true;
+        included_primary_rmse_col(idx) = ~ismember(metric_name, primary_rmse_holdout);
+        if ~included_primary_rmse_col(idx)
+            flag_col{idx} = 'primary_rmse_holdout';
+            reason_col{idx} = 'Used during calibration/reporting but excluded from governed primary RMSE.';
+        end
     elseif ismember(metric_name, soft)
         tier_col{idx} = 'soft';
         included_cal_col(idx) = true;
-        included_primary_rmse_col(idx) = true;
+        included_primary_rmse_col(idx) = ~ismember(metric_name, primary_rmse_holdout);
+        if ~included_primary_rmse_col(idx)
+            flag_col{idx} = 'primary_rmse_holdout';
+            reason_col{idx} = 'Used during calibration/reporting but excluded from governed primary RMSE.';
+        end
     elseif isfinite(targets(idx).ClinicalValue)
         tier_col{idx} = 'validation_only';
         included_cal_col(idx) = false;

@@ -163,6 +163,7 @@ calib.parameterRegistry = build_registry(params0, scenario, caseProfile, calib.n
 validate_bounds(calib.parameterRegistry, scenario);
 [calib.x0_all, calib.lb_all, calib.ub_all, calib.names_all, calib.parameterRegistry] = ...
     build_calibration_vector(calib.parameterRegistry, calib.names_all);
+calib = apply_case_profile_initial_values(calib, caseProfile);
 
 if isempty(optMask)
     optMask = true(numel(calib.names_all), 1);
@@ -187,6 +188,40 @@ calib.lb = calib.lb_all(calib.mask);
 calib.ub = calib.ub_all(calib.mask);
 calib.parameterRegistryActive = calib.parameterRegistry(calib.mask, :);
 
+end
+
+function calib = apply_case_profile_initial_values(calib, case_profile)
+if ~isfield(case_profile, 'initialParameterValues') || ...
+        ~isstruct(case_profile.initialParameterValues)
+    return;
+end
+initial_values = case_profile.initialParameterValues;
+if ~isfield(initial_values, 'names') || ~isfield(initial_values, 'values')
+    return;
+end
+names = initial_values.names(:);
+values = initial_values.values(:);
+if numel(names) ~= numel(values)
+    error('calibration_param_sets:invalidInitialValues', ...
+        'Initial-parameter recipe names and values must have the same length.');
+end
+
+for idx = 1:numel(names)
+    name = char(names{idx});
+    value = values(idx);
+    target_idx = find(strcmp(calib.names_all, name), 1, 'first');
+    if isempty(target_idx)
+        error('calibration_param_sets:unknownInitialParameter', ...
+            'Initial-parameter recipe references unknown parameter %s.', name);
+    end
+    if value < calib.lb_all(target_idx) || value > calib.ub_all(target_idx)
+        error('calibration_param_sets:initialValueOutsideBounds', ...
+            'Initial-parameter recipe value %.12g for %s is outside bounds [%.12g, %.12g].', ...
+            value, name, calib.lb_all(target_idx), calib.ub_all(target_idx));
+    end
+    calib.x0_all(target_idx) = value;
+    calib.parameterRegistry.seeded_value(target_idx) = value;
+end
 end
 
 function calib = apply_case_profile_coupling(calib, case_profile)

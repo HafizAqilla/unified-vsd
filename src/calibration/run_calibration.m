@@ -34,9 +34,32 @@ if ~isempty(par_env)
 end
 
 calib = calibration_param_sets(scenario, params0, optMask, primaryMetrics, caseProfile, registryContext);
-J0 = objective_calibration(calib.x0, params0, clinical, make_stage_calib(calib, params0, calib.names, calib.metricFields), scenario, pce_surrogate);
+params_start = apply_initial_vector_to_params(params0, calib.referenceParams, ...
+    calib.names, calib.x0, calib.caseProfile);
+J0 = objective_calibration(calib.x0, params0, clinical, make_stage_calib(calib, params_start, calib.names, calib.metricFields), scenario, pce_surrogate);
+if should_accept_initial_seed(calib)
+    seed_summary = validation_summary_for_params( ...
+        params_start, clinical, scenario, calib.primaryMetrics, calib.caseProfile);
+    if seed_summary.rmse <= profile_scalar(calib.caseProfile, 'acceptInitialSeedRmseMax', ...
+            profile_scalar(calib.caseProfile, 'acceptancePrimaryRmseMax', 0.09)) && ...
+            seed_summary.primary_fail_count == 0
+        params_best = params_start;
+        calib_out = build_initial_seed_calib_out( ...
+            params0, params_best, calib, clinical, scenario, pce_surrogate, ...
+            J0, seed_summary);
+        fprintf(['[run_calibration] Accepted explicit recipe seed: ', ...
+            'RMSE %.6g, primary_fail %d, CO error %.2f%%.\n'], ...
+            seed_summary.rmse, seed_summary.primary_fail_count, ...
+            seed_summary.co_abs_error_pct);
+        return;
+    end
+    fprintf(['[run_calibration] Explicit recipe seed did not pass: ', ...
+        'RMSE %.6g, primary_fail %d, CO error %.2f%%. Continuing optimisation.\n'], ...
+        seed_summary.rmse, seed_summary.primary_fail_count, ...
+        seed_summary.co_abs_error_pct);
+end
 
-params_stage = params0;
+params_stage = params_start;
 stage_history_cell = cell(1, 6);
 
 [params_stage, stage_history_cell{1}] = optimize_stage(params_stage, clinical, scenario, calib, ...
@@ -189,6 +212,65 @@ calib_out.output = last_stage.output;
 calib_out.objective_breakdown = build_objective_breakdown(params_best, clinical, scenario, final_calib_source);
 calib_out.use_parallel = do_parallel;
 
+end
+
+function params_out = apply_initial_vector_to_params(params_in, reference_params, names, x0, case_profile)
+params_out = params_in;
+for idx = 1:numel(names)
+    params_out = set_calibration_param_value( ...
+        params_out, reference_params, names{idx}, x0(idx), case_profile);
+end
+end
+
+function tf = should_accept_initial_seed(calib)
+tf = isfield(calib, 'caseProfile') && isstruct(calib.caseProfile) && ...
+    isfield(calib.caseProfile, 'acceptInitialSeedIfPass') && ...
+    logical(calib.caseProfile.acceptInitialSeedIfPass);
+end
+
+function calib_out = build_initial_seed_calib_out(params0, params_best, calib, ...
+    clinical, scenario, pce_surrogate, J0, seed_summary)
+active_xbest = pack_x(params_best, calib.referenceParams, calib.names, calib.caseProfile);
+fbest = objective_for_params(params_best, clinical, scenario, calib, pce_surrogate);
+calib_out = struct();
+calib_out.names = calib.names;
+calib_out.names_all = calib.names_all;
+calib_out.mask = calib.mask;
+calib_out.x0 = pack_x(params0, calib.referenceParams, calib.names, calib.caseProfile);
+calib_out.xbest = active_xbest;
+calib_out.x0_all = calib.x0_all;
+calib_out.x0_active = calib.x0;
+calib_out.xbest_all = pack_x(params_best, calib.referenceParams, calib.names_all, calib.caseProfile);
+calib_out.J0 = J0;
+calib_out.fbest = fbest;
+calib_out.lb = calib.lb;
+calib_out.ub = calib.ub;
+calib_out.scenario = scenario;
+calib_out.primaryMetrics = calib.primaryMetrics;
+calib_out.caseProfile = calib.caseProfile;
+calib_out.parameterRegistry = calib.parameterRegistry;
+calib_out.parameterRegistryActive = calib.parameterRegistryActive;
+calib_out.xbest_active = active_xbest;
+calib_out.parameterPlausibility = evaluate_parameter_plausibility(active_xbest, calib.parameterRegistryActive);
+calib_out.improvement = J0 - fbest;
+calib_out.best_stage = 0;
+calib_out.best_restart = 0;
+calib_out.stage_history = {struct( ...
+    'label', 'recipe_seed', ...
+    'names', {calib.names}, ...
+    'x0', calib.x0, ...
+    'xbest', active_xbest, ...
+    'fval', fbest, ...
+    'exitflag', 1, ...
+    'output', struct('message', 'Accepted explicit calibration recipe seed.', ...
+        'validation_summary', seed_summary), ...
+    'skipped', false)};
+calib_out.exitflag = 1;
+calib_out.output = struct('message', 'Accepted explicit calibration recipe seed.');
+calib_out.objective_breakdown = table();
+calib_out.use_parallel = false;
+calib_out.rollback_applied = 0;
+calib_out.rollback_reason = '';
 end
 
 function tf = should_run_systemic_polish(calib, scenario)
