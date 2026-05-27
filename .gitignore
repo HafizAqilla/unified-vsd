@@ -97,6 +97,7 @@ $RECYCLE.BIN/
 *.aux
 *.fdb_latexmk
 *.fls
+.tmp_zhang_paper.txt
 
 # Scratch MATLAB scripts (naming convention for exploratory work)
 scratch_*.m
