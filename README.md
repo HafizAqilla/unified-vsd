@@ -8,14 +8,15 @@ main model combines a Valenti-style 14-state lumped-parameter circulation,
 time-varying chamber elastance, VSD shunt physiology, evidence-aware clinical
 target handling, and reproducible calibration outputs.
 
-Last updated: 2026-05-19.
+Last updated: 2026-05-27.
 
 ## Current Status
 
-The current `main` branch includes the latest systemic-flow calibration work.
-The model now produces auditable pre-surgery and post-surgery run folders with
-clinical consistency checks, parameter plausibility tables, baseline provenance,
-candidate snapshots, and validation reports.
+The current `main` branch includes the latest systemic-flow calibration,
+Reyna recipe governance, Zhang seed separation, and clinical-vs-model-derived
+reporting split. The model now produces auditable pre-surgery and post-surgery
+run folders with clinical consistency checks, parameter plausibility tables,
+baseline provenance, candidate snapshots, and validation reports.
 
 Scientific interpretation remains important:
 
@@ -50,6 +51,10 @@ Scientific interpretation remains important:
   but rejected candidates.
 - Added age-validity and scaling annotations, including `lundquist_bsa` as the
   preferred pediatric scaling mode and `zhang` as a comparator.
+- Added Reyna recipe-owned seed controls so Zhang scaling no longer inherits
+  Lundquist-calibrated disease vectors or initial-condition packages.
+- Split clinical validation target exports from model-derived finding exports,
+  so patient RMSE rows and interpretation-only rows are easier to audit.
 - Added post-surgery warm-start support through
   `src/utils/apply_post_surgery_warm_start.m` and `run_post_surgery.m`.
 - Added focused Reyna analysis scripts for uncertainty, targeted polish,
@@ -231,6 +236,7 @@ unified_vsd/
   scripts/                           operational audits and experiment runners
   tests/                             regression and governance checks
   docs/                              theory, data dictionary, decision memos
+  .assistant/AGENTS.md               agent/project guardrails
   results/                           generated output; ignored by Git
 ```
 
@@ -274,11 +280,12 @@ config/patient_template.m
 
 Real clinical files, raw patient records, large `.mat` outputs, and generated
 run archives must not be committed without documented authorization. See
-`AGENTS.md` and `docs/clinical_data_dictionary.md` for the project rules.
+`.assistant/AGENTS.md` and `docs/clinical_data_dictionary.md` for the project
+rules.
 
 ## Key Documentation
 
-- `AGENTS.md` - MATLAB/physiology coding guardrails.
+- `.assistant/AGENTS.md` - MATLAB/physiology coding guardrails.
 - `docs/theory_notes.md` - governing equations and assumptions.
 - `docs/clinical_data_dictionary.md` - clinical field mapping.
 - `docs/calibration_data_governance_notes.md` - target-tier policy.

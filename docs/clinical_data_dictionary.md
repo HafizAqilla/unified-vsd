@@ -9,7 +9,7 @@ All values derive from `patient_template.m`; filled examples are in
 removed on 2026-05-24 because it was no longer part of the active cohort.
 
 **Raw clinical data and model outputs are strictly separate namespaces** —
-never assign clinical values directly to model output variables (AGENTS.md §3.11).
+never assign clinical values directly to model output variables (`.assistant/AGENTS.md`, section 3.11).
 
 ---
 
@@ -177,7 +177,7 @@ a silent model bug. The calibration target metadata therefore records
 > **How to fill in the Date column:** Enter the date of the clinical measurement or
 > record in YYYY-MM format. Write `N/A` for derived quantities with no direct measurement date.
 >
-> **Reliability levels (AGENTS.md §9.1):**
+> **Reliability levels (`.assistant/AGENTS.md`, section 9.1):**
 > - `High` — direct invasive measurement (RHC, arterial line)
 > - `Moderate` — non-invasive imaging or indirect calculation (echo, Fick)
 > - `Low` — indirect estimate or single measurement without repeat
