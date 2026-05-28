@@ -198,6 +198,8 @@ print_clinical_data_rank(report.clinical_data_rank);
 disp(report.table_baseline);
 fprintf('RMSE Baseline (primary governed): %.4f\n', report.rmse_primary_baseline);
 fprintf('RMSE Baseline (full transparent): %.4f\n', report.rmse_full_baseline);
+fprintf('RMSE Baseline Hard-only: %.4f | Soft-only: %.4f\n', ...
+    report.rmse_hard_baseline, report.rmse_soft_baseline);
 if ~isempty(metrics_cal)
     fprintf('\n--- After calibration ---\n');
     disp(report.table_cal);

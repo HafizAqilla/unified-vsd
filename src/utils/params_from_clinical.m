@@ -37,6 +37,12 @@ if isfield(common, 'HR') && ~isnan(common.HR)
     params = recompute_timing(params);
 end
 
+if strcmp(scenario, 'post_surgery') && isfield(src, 'HR') && ...
+        isfinite(src.HR) && src.HR > 0
+    params.HR = src.HR;  % [bpm] post-operative measured heart rate
+    params = recompute_timing(params);
+end
+
 rv_edv_consistency_only = is_metric_consistency_only(case_profile, 'RVEDV');
 if rv_edv_consistency_only
     params.clinical_override.RVEDV_consistency_only = true;

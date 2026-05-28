@@ -33,7 +33,7 @@ fprintf('=====================================================\n\n');
 
 % Keep the post-op handoff quick by default. Remove this line if a full
 % post-op PCE sensitivity pass is required.
-setenv('UNIFIED_VSD_DO_GSA', '0');
+setenv('UNIFIED_VSD_DO_GSA', '1'); % 0 biar ga pake GSA
 
 clinical = patient_reyna();
 clinical = apply_post_surgery_targets(clinical);
@@ -55,30 +55,32 @@ function clinical = apply_post_surgery_targets(clinical)
 % APPLY_POST_SURGERY_TARGETS - set editable post-op targets [clinical units].
 post = clinical.post_surgery;
 
-post.QpQs          = 1.0;      % [-] closed VSD target, no residual shunt
+post.HR            = 108;      % [bpm] post-operative measured heart rate
+post.QpQs          = 0.9;      % [-] closed VSD target, no residual shunt
 post.PAP_sys_mmHg  = 17.0;     % [mmHg]
-post.PAP_dia_mmHg  = 8.67;     % [mmHg]
+post.PAP_dia_mmHg  = 9;     % [mmHg]
 post.PAP_mean_mmHg = 13.0;     % [mmHg]
 post.PVR_WU        = NaN;      % [WU]
 
-post.SAP_sys_mmHg  = 104.3;    % [mmHg]
-post.SAP_dia_mmHg  = 71.67;    % [mmHg]
+post.SAP_sys_mmHg  = 89;    % [mmHg]
+post.SAP_dia_mmHg  = 68;    % [mmHg]
 post.MAP_mmHg      = post.SAP_dia_mmHg + ...
     (post.SAP_sys_mmHg - post.SAP_dia_mmHg) / 3; % [mmHg]
 post.SVR_WU        = NaN;      % [WU]
 
 post.RAP_mean_mmHg = 5.0;      % [mmHg]
-post.RAP_sys_mmHg  = 7.67;     % [mmHg]
-post.RAP_dia_mmHg  = 5.0;      % [mmHg]
+post.RAP_sys_mmHg  = NaN;     % [mmHg]
+post.RAP_dia_mmHg  = NaN;      % [mmHg]
 post.LAP_mean_mmHg = NaN;      % [mmHg]
 
-post.LVEDV_mL      = 32.0;     % [mL]
-post.EF            = 0.618;    % [-] fraction, not percent
-post.LVESV_mL      = post.LVEDV_mL * (1 - post.EF); % [mL]
+post.LVESV_mL      = 13.8;     % [mL] post-op echo, biplane Simpson ESV
+post.EF            = 0.618;    % [-] post-op echo, biplane Simpson EF = 61.8%
+post.LVEDV_mL      = post.LVESV_mL / (1 - post.EF); % [mL] derived from ESV/EF
+post.SV_lv_mL      = post.LVEDV_mL - post.LVESV_mL; % [mL] derived LV stroke volume
 post.RVEDV_mL      = 30.5;     % [mL]
-post.RVESV_mL      = 12.0;     % [mL]
+post.RVESV_mL      = 12;     % [mL]
 post.RVEF          = (post.RVEDV_mL - post.RVESV_mL) / post.RVEDV_mL; % [-]
-post.CO_Lmin       = 3.0;      % [L/min]
+post.CO_Lmin       = 2.54;  % [L/min] echo-derived LVCO = BP SV * 114 / 1000
 
 clinical.post_surgery = post;
 end

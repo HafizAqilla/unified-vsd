@@ -40,6 +40,7 @@ if nargin < 4 || isempty(config)
 else
     config = merge_struct(default_target_tier_config(), config);
 end
+config = apply_scenario_target_tier_config(config, scenario);
 
 targets = get_calibration_targets(scenario, clinical);      % [-]
 metric_names = {targets.Metric};                            % [cellstr]
@@ -74,7 +75,10 @@ end
 % available, fitting EF in addition to both volumes double-counts the same
 % echo measurement block. Keep it visible for validation, but do not let it
 % act as an independent calibration/RMSE anchor.
-if all(ismember({'LVEDV','LVESV','LVEF'}, available_metrics))
+lv_volume_fit_metrics = intersect({'LVEDV','LVESV'}, ...
+    unique([hard, soft], 'stable'), 'stable');
+if all(ismember({'LVEDV','LVESV','LVEF'}, available_metrics)) && ...
+        numel(lv_volume_fit_metrics) == 2
     consistency_only = unique([consistency_only, {'LVEF'}], 'stable');
     consistency_reasons.LVEF = ['EF is directly derived from LVEDV and ', ...
         'LVESV; excluded from fitting to avoid double-counting echo volumes.'];
@@ -172,6 +176,19 @@ config.metric_weight_multipliers = struct( ...
     'SAP_max', 0.45, ...
     'SAP_min', 0.40, ...
     'RVESV', 0.45);
+end
+
+function config = apply_scenario_target_tier_config(config, scenario)
+% APPLY_SCENARIO_TARGET_TIER_CONFIG - scenario-specific target governance.
+if ~strcmp(char(scenario), 'post_surgery')
+    return;
+end
+
+config.hard = setdiff(config.hard, {'LVESV'}, 'stable');
+config.soft = unique([config.soft, {'RVEDV','RVESV'}], 'stable');
+config.validation_holdout = unique([config.validation_holdout, {'LVESV'}], 'stable');
+config.metric_weight_multipliers.RVEDV = 0.45;
+config.metric_weight_multipliers.RVESV = 0.45;
 end
 
 function tier_table = build_tier_table(targets, hard, soft, consistency_only, ...

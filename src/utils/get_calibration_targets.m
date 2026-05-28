@@ -76,7 +76,9 @@ switch scenario
             'CO_Lmin',      'CO_Lmin',       'L/min', 'Effective systemic cardiac output (Qs)', true, false, true, 'High'
             'VSD_frac_pct', 'VSD_frac_pct',  '%',     'Residual VSD shunt fraction of Qp',    false, false, false, 'Derived'
             'LVEDV',        'LVEDV_mL',      'mL',    'LV end-diastolic volume',              true,  false, true,  'Moderate'
+            'LVESV',        'LVESV_mL',      'mL',    'LV end-systolic volume',               false, false, true,  'Moderate'
             'RVEDV',        'RVEDV_mL',      'mL',    'RV end-diastolic volume',              true,  false, true,  'Moderate'
+            'RVESV',        'RVESV_mL',      'mL',    'RV end-systolic volume',               true,  false, true,  'Moderate'
             'LVEF',         'EF',            '-',     'LV ejection fraction',                 true,  false, true,  'Moderate'
             'RVEF',         'RVEF',          '-',     'RV ejection fraction',                 true,  false, true,  'Moderate'
             };
