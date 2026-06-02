@@ -39,7 +39,10 @@ clinical = patient_reyna();
 clinical = apply_post_surgery_targets(clinical);
 
 patient_label = resolve_patient_label(clinical);
-seed_file = find_latest_pre_to_post_seed(root, patient_label);
+
+%Pre to post file
+seed_file = 'C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\Reyna_Pre_Surgery_Hafiz\pre_to_post_seed_20260514_1602225(zhang.mat'; %Changed to automaticaly latest : find_latest_pre_to_post_seed(root, patient_label)
+
 params_pre = load_pre_surgery_params(seed_file);
 clinical.pre_surgery.CalibParams = params_pre;
 

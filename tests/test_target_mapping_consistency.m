@@ -124,6 +124,41 @@ else
     n_fail = n_fail + 1;
 end
 
+%% Test 6: Post-op BP echo derivatives do not double-count source evidence
+clinical_echo = patient_template();
+clinical_echo.common.HR = 108;                  % [bpm]
+clinical_echo.post_surgery.LVESV_mL = 13.8;     % [mL] direct BP echo ESV
+clinical_echo.post_surgery.EF = 0.618;          % [-] direct BP echo EF
+clinical_echo.post_surgery.LVEDV_mL = ...
+    clinical_echo.post_surgery.LVESV_mL / ...
+    (1 - clinical_echo.post_surgery.EF);         % [mL] derived from ESV/EF
+clinical_echo.post_surgery.CO_Lmin = ...
+    (clinical_echo.post_surgery.LVEDV_mL - ...
+    clinical_echo.post_surgery.LVESV_mL) * ...
+    clinical_echo.common.HR / 1000;              % [L/min] echo-derived LVCO
+
+tiers_echo = build_target_tiers(clinical_echo, 'post_surgery');
+tier_tbl_echo = tiers_echo.table;
+lvesv_tier_idx = find(strcmp(tier_tbl_echo.Metric, 'LVESV'), 1, 'first');
+lvef_tier_idx = find(strcmp(tier_tbl_echo.Metric, 'LVEF'), 1, 'first');
+lvedv_tier_idx = find(strcmp(tier_tbl_echo.Metric, 'LVEDV'), 1, 'first');
+co_tier_idx = find(strcmp(tier_tbl_echo.Metric, 'CO_Lmin'), 1, 'first');
+
+if strcmp(tier_tbl_echo.Tier{lvesv_tier_idx}, 'hard') && ...
+        strcmp(tier_tbl_echo.Tier{lvef_tier_idx}, 'hard') && ...
+        strcmp(tier_tbl_echo.Tier{lvedv_tier_idx}, 'derived_validation') && ...
+        strcmp(tier_tbl_echo.Tier{co_tier_idx}, 'derived_validation') && ...
+        tier_tbl_echo.IncludedInCalibration(lvesv_tier_idx) && ...
+        tier_tbl_echo.IncludedInCalibration(lvef_tier_idx) && ...
+        ~tier_tbl_echo.IncludedInCalibration(lvedv_tier_idx) && ...
+        ~tier_tbl_echo.IncludedInCalibration(co_tier_idx)
+    fprintf('  [PASS] Post-op BP echo source targets and derived checks are tiered correctly.\n');
+    n_pass = n_pass + 1;
+else
+    fprintf('  [FAIL] Post-op BP echo derived target governance is incorrect.\n');
+    n_fail = n_fail + 1;
+end
+
 %% Summary
 fprintf('\n==========================================\n');
 fprintf('  RESULT: %d PASSED, %d FAILED\n', n_pass, n_fail);

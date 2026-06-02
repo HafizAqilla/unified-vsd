@@ -56,6 +56,7 @@ validation_holdout = intersect(config.validation_holdout, available_metrics, 'st
 primary_rmse_holdout = intersect(config.primary_rmse_holdout, available_metrics, 'stable');
 consistency_reasons = struct();
 holdout_reasons = struct();
+derived_reasons = struct();
 
 if isfield(audit, 'recommended_target_tier_changes')
     changes = audit.recommended_target_tier_changes;
@@ -69,6 +70,16 @@ if isfield(audit, 'recommended_target_tier_changes')
             consistency_reasons.(metric_name) = changes(idx).reason;
         end
     end
+end
+
+% Post-operative BP echo records may report LVESV and EF directly, while
+% LVEDV, stroke volume, and CO are calculated from those same source fields.
+% Fit the independent echo pair and keep algebraic consequences as derived
+% validation rows, avoiding repeated leverage from one measurement block.
+if strcmp(char(scenario), 'post_surgery')
+    [derived_validation, hard, soft, validation_holdout, derived_reasons] = ...
+        apply_post_op_echo_derived_tiers(clinical, targets, ...
+        derived_validation, hard, soft, validation_holdout, derived_reasons);
 end
 
 % EF is mathematically derived from LVEDV and LVESV. When all three are
@@ -148,7 +159,8 @@ target_config.consistency_reasons = consistency_reasons;
 target_config.holdout_reasons = holdout_reasons;
 target_config.table = build_tier_table(targets, hard, soft, ...
     consistency_only, derived_validation, validation_holdout, ...
-    primary_rmse_holdout, audit, consistency_reasons, holdout_reasons);
+    primary_rmse_holdout, audit, consistency_reasons, holdout_reasons, ...
+    derived_reasons);
 end
 
 function config = default_target_tier_config()
@@ -184,16 +196,65 @@ if ~strcmp(char(scenario), 'post_surgery')
     return;
 end
 
-config.hard = setdiff(config.hard, {'LVESV'}, 'stable');
 config.soft = unique([config.soft, {'RVEDV','RVESV'}], 'stable');
-config.validation_holdout = unique([config.validation_holdout, {'LVESV'}], 'stable');
 config.metric_weight_multipliers.RVEDV = 0.45;
 config.metric_weight_multipliers.RVESV = 0.45;
 end
 
+function [derived_validation, hard, soft, validation_holdout, derived_reasons] = ...
+    apply_post_op_echo_derived_tiers(clinical, targets, derived_validation, ...
+    hard, soft, validation_holdout, derived_reasons)
+% APPLY_POST_OP_ECHO_DERIVED_TIERS - classify algebraic BP echo derivatives.
+src = clinical.post_surgery;                                % [-]
+metric_names = {targets.Metric};                            % [cellstr]
+
+has_lvesv = has_finite_field(src, 'LVESV_mL');              % [-]
+has_ef = has_finite_field(src, 'EF') || has_finite_field(src, 'LVEF'); % [-]
+if ~(has_lvesv && has_ef)
+    return;
+end
+
+hard = unique([hard, {'LVESV','LVEF'}], 'stable');
+validation_holdout = setdiff(validation_holdout, {'LVESV','LVEF'}, 'stable');
+
+LVESV_mL = finite_field(src, 'LVESV_mL');                   % [mL]
+EF = finite_field(src, 'EF');                               % [fraction]
+if ~isfinite(EF)
+    EF = finite_field(src, 'LVEF');                         % [fraction]
+end
+LVEDV_derived_mL = LVESV_mL / max(1 - EF, 1e-9);            % [mL]
+
+if has_finite_field(src, 'LVEDV_mL') && ...
+        values_match(src.LVEDV_mL, LVEDV_derived_mL)
+    derived_validation = unique([derived_validation, {'LVEDV'}], 'stable');
+    hard = setdiff(hard, {'LVEDV'}, 'stable');
+    soft = setdiff(soft, {'LVEDV'}, 'stable');
+    derived_reasons.LVEDV = ['LVEDV is algebraically derived from ', ...
+        'post-operative BP echo LVESV and EF.'];
+end
+
+if has_finite_field(src, 'CO_Lmin')
+    SV_lv_mL = LVEDV_derived_mL - LVESV_mL;                 % [mL/beat]
+    HR_bpm = scenario_HR_bpm(clinical);                     % [bpm]
+    CO_derived_Lmin = SV_lv_mL * HR_bpm / 1000;             % [L/min]
+    if values_match(src.CO_Lmin, CO_derived_Lmin) || ...
+            ~has_independent_CO_comparator(src)
+        derived_validation = unique([derived_validation, {'CO_Lmin'}], 'stable');
+        hard = setdiff(hard, {'CO_Lmin'}, 'stable');
+        soft = setdiff(soft, {'CO_Lmin'}, 'stable');
+        derived_reasons.CO_Lmin = ['CO_Lmin is echo-derived from ', ...
+            'LV stroke volume and heart rate, not an independent flow measurement.'];
+    end
+end
+
+if ~ismember('LVEF', metric_names)
+    hard = setdiff(hard, {'LVEF'}, 'stable');
+end
+end
+
 function tier_table = build_tier_table(targets, hard, soft, consistency_only, ...
     derived_validation, validation_holdout, primary_rmse_holdout, audit, ...
-    consistency_reasons, holdout_reasons)
+    consistency_reasons, holdout_reasons, derived_reasons)
 n_targets = numel(targets);
 metric_col = cell(n_targets, 1);
 tier_col = cell(n_targets, 1);
@@ -218,7 +279,7 @@ for idx = 1:n_targets
         included_cal_col(idx) = false;
         included_primary_rmse_col(idx) = false;
         flag_col{idx} = 'derived_validation';
-        reason_col{idx} = 'Derived from source pressures/flows; retained for validation only.';
+        reason_col{idx} = derived_validation_reason(metric_name, derived_reasons);
     elseif ismember(metric_name, validation_holdout)
         tier_col{idx} = 'validation_holdout';
         included_cal_col(idx) = false;
@@ -258,11 +319,59 @@ tier_table = table(metric_col, tier_col, included_cal_col, ...
     'IncludedInPrimaryRMSE','Flag','Reason'});
 end
 
+function reason = derived_validation_reason(metric_name, derived_reasons)
+reason = 'Derived from source measurements; retained for validation only.';
+if ismember(metric_name, {'PVR','SVR'})
+    reason = 'Derived from source pressures/flows; retained for validation only.';
+end
+if isstruct(derived_reasons) && isfield(derived_reasons, metric_name)
+    reason = derived_reasons.(metric_name);
+end
+end
+
 function reason = holdout_reason(metric_name, holdout_reasons)
 reason = 'Target is retained as transparent validation holdout.';
 if isstruct(holdout_reasons) && isfield(holdout_reasons, metric_name)
     reason = holdout_reasons.(metric_name);
 end
+end
+
+function value = finite_field(src, field_name)
+value = NaN;
+if isstruct(src) && isfield(src, field_name) && isnumeric(src.(field_name)) && ...
+        isscalar(src.(field_name)) && isfinite(src.(field_name))
+    value = src.(field_name);
+end
+end
+
+function tf = has_finite_field(src, field_name)
+tf = isfinite(finite_field(src, field_name));
+end
+
+function tf = values_match(observed, expected)
+abs_tol = 1e-6;                                              % [same unit]
+rel_tol = 1e-4;                                              % [-]
+tf = isfinite(observed) && isfinite(expected) && ...
+    abs(observed - expected) <= max(abs_tol, rel_tol * max(abs(expected), 1));
+end
+
+function HR_bpm = scenario_HR_bpm(clinical)
+HR_bpm = NaN;                                                % [bpm]
+if isfield(clinical, 'post_surgery') && ...
+        has_finite_field(clinical.post_surgery, 'HR')
+    HR_bpm = clinical.post_surgery.HR;                       % [bpm]
+elseif isfield(clinical, 'common') && has_finite_field(clinical.common, 'HR')
+    HR_bpm = clinical.common.HR;                             % [bpm]
+end
+end
+
+function tf = has_independent_CO_comparator(src)
+tf = false;
+if ~isstruct(src) || ~isfield(src, 'CO_comparator') || isempty(src.CO_comparator)
+    return;
+end
+comparator = lower(strtrim(char(src.CO_comparator)));        % [-]
+tf = any(strcmp(comparator, {'qs_lmin','fick','thermodilution','cath'}));
 end
 
 function [flag, reason] = consistency_flag(metric_name, audit, consistency_reasons)
