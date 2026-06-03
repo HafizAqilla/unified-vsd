@@ -147,6 +147,14 @@ matlab_*.log
 src/results/
 
 # -----------------------------------------------------------------------------
+#  Generated thesis/reporting artifacts
+# -----------------------------------------------------------------------------
+# Figure and workbook deliverables are regenerated from source scripts and live
+# outside normal source commits unless intentionally force-added for a release.
+figures/**
+outputs/**
+
+# -----------------------------------------------------------------------------
 #  GSA checkpoint files — large, regenerable
 #  Kept under results/gsa/ which is already covered by results/**/*.mat,
 #  but explicit here for clarity.

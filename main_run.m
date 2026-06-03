@@ -31,8 +31,8 @@ function main_run(scenario, clinical)
 % USER TOGGLE:
 %   DO_PLOTS        — generate haemodynamic figures
 %   DO_OVERLAY      — baseline vs calibrated overlap curves in one canvas
-%   DO_GSA          — run Sobol screening + post-calibration Sobol
-%   GSA_SOBOL_N     — optional override for Sobol base sample N
+%   DO_GSA          — run PCE/Sobol screening before and after calibration
+%   UNIFIED_VSD_GSA_PCE_N — optional override for PCE training samples
 %
 % FILE STRUCTURE:
 %   Entry point:    main_run.m            (this file — no physics)
@@ -41,7 +41,7 @@ function main_run(scenario, clinical)
 %   Parameters:     config/default_parameters.m
 %   Scaling:        utils/apply_scaling.m
 %   Calibration:    calibration/run_calibration.m
-%   GSA:            gsa/gsa_sobol_setup.m + gsa/gsa_run_sobol.m
+%   GSA:            gsa/gsa_pce_setup.m + gsa/gsa_run_pce.m
 %   Validation:     utils/validation_report.m
 %
 % REFERENCES:
@@ -105,6 +105,7 @@ end
 % Optional runtime override from environment variable:
 %   UNIFIED_VSD_DO_GSA=0|false|off  -> disable GSA
 %   UNIFIED_VSD_DO_GSA=1|true|on    -> enable GSA
+%   UNIFIED_VSD_GSA_PCE_N=<N>       -> override PCE training samples
 do_gsa_env = getenv('UNIFIED_VSD_DO_GSA');
 if ~isempty(do_gsa_env)
     DO_GSA = any(strcmpi(strtrim(do_gsa_env), {'1', 'true', 'yes', 'on'}));
@@ -405,7 +406,7 @@ if DO_GSA
     % PCE-based post-calibration GSA (same method as Step 4, applied to
     % calibrated parameters).  Sobol indices are extracted analytically
     % from the trained PCE — no additional Monte Carlo sampling required.
-    % Runtime: ~200 ODE runs (same as pre-calibration), not N*(d+2)=5376.
+    % Runtime: one shared PCE training batch, not direct Sobol N*(d+2).
     fprintf('\n=== [Step 7/10] Final PCE GSA on calibrated params (%.1fs elapsed) ===\n', toc(run_timer));
     gsa_final_cfg = gsa_pce_setup(params_cal, scenario);
     gsa_final_out = gsa_run_pce(gsa_final_cfg, params_cal);
@@ -608,11 +609,11 @@ fprintf('[main_run] Calibration diagnostics saved to:\n          %s\n', diag_fna
 
 if DO_GSA
     % Display summary table for initial and final GSA
-    fprintf('\n[main_run] Initial Sobol summary table:\n');
+    fprintf('\n[main_run] Initial PCE/Sobol summary table:\n');
     gsa_summary_init = make_gsa_summary_table(gsa_init_out);
     disp(gsa_summary_init);
 
-    fprintf('\n[main_run] Final Sobol summary table:\n');
+    fprintf('\n[main_run] Final PCE/Sobol summary table:\n');
     gsa_summary_final = make_gsa_summary_table(gsa_final_out);
     disp(gsa_summary_final);
 

@@ -33,8 +33,8 @@ recipe.demographics = struct( ...
 
 pre = struct();
 pre.VSD_diameter_mm = 3.025;       % [mm] accepted effective RV-side diameter
-pre.LAP_mean_mmHg = 8;             % [mmHg] validation-only filling estimate
-pre.LVEDP_mmHg = 8;                % [mmHg] validation-only filling estimate
+pre.LAP_mean_mmHg = NaN;           % [mmHg] not directly measured; exclude from RMSE
+pre.LVEDP_mmHg = NaN;              % [mmHg] not directly measured; exclude from RMSE
 pre.LVEDV_mL = 41.0;               % [mL] consistency-only Teichholz evidence
 pre.LVESV_mL = 19.3;               % [mL] consistency-only Teichholz evidence
 pre.RVEDV_mL = 30.5;               % [mL] consistency-only/audit evidence
