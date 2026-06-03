@@ -116,6 +116,7 @@ run run_post_surgery
 | Variable | Effect |
 |---|---|
 | `UNIFIED_VSD_DO_GSA` | `0` disables GSA for faster runs; `1` enables GSA/PCE passes |
+| `UNIFIED_VSD_GSA_PCE_N` | Overrides PCE training sample count for GSA; default is `128` |
 | `UNIFIED_VSD_DO_PLOTS` | `0` disables figure generation; `1` enables figures |
 | `UNIFIED_VSD_DO_OVERLAY` | `0` disables overlay figures; `1` enables overlays |
 | `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` |
@@ -193,9 +194,10 @@ Important generated files include:
 - `tables/co_definition_audit_<scenario>.csv`
 - `run_manifest.txt`
 
-`results/` is intentionally ignored by Git. Commit code, documentation, and
-figure-generation logic; do not commit regenerated run dumps or patient data
-without documented authorization.
+`results/`, root-level `figures/`, and root-level `outputs/` are intentionally
+ignored by Git. Commit code, documentation, and figure/workbook generation logic;
+do not commit regenerated run dumps, workbook exports, figure bundles, or patient
+data without documented authorization.
 
 ## Calibration And Validation Design
 

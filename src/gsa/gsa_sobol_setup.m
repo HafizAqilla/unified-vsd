@@ -1,45 +1,36 @@
 function cfg = gsa_sobol_setup(params0, scenario, N_override)
 % GSA_SOBOL_SETUP
 % -----------------------------------------------------------------------
-% Configure the Sobol sensitivity analysis.
+% Configure the direct Saltelli/Jansen Sobol sensitivity analysis.
 %
-% Defines uncertain parameters, their bounds, the Saltelli sample
-% matrices (A, B, A_Bi), and the scenario-specific output metrics of
-% interest.
+% This direct Sobol path uses the same uncertain-parameter space as the
+% PCE-GSA path through gsa_parameter_space().
 %
 % INPUTS:
-%   params0   - scaled parameter struct (starting point for bounds)
-%   scenario  - 'pre_surgery' | 'post_surgery'
-%               Controls which output metrics are emphasised in the
-%               sensitivity ranking:
-%                 pre_surgery:  QpQs, PAP_mean, PVR  (shunt / PH)
-%                 post_surgery: LVEF, SAP_mean, SVR  (recovery)
-%   N_override - optional explicit Sobol base sample count N.
-%                If omitted, function uses this priority:
-%                1) environment variable GSA_SOBOL_N (if valid > 0)
-%                2) default N = 512
+%   params0    - scaled parameter struct used as nominal point for bounds
+%   scenario   - 'pre_surgery' | 'post_surgery'
+%   N_override - optional explicit Sobol base sample count N
+%
+% ENVIRONMENT:
+%   GSA_SOBOL_N - optional positive integer Sobol base sample count
 %
 % OUTPUTS:
-%   cfg       - struct with all Sobol configuration fields
+%   cfg        - struct with parameter bounds, sample matrices, metrics,
+%                and reduced-fidelity simulation overrides
 %
 % REFERENCES:
-%   [1] Saltelli et al. (2010). Variance based sensitivity analysis of
-%       model output. Design and estimator for the total sensitivity index.
-%       Computer Physics Communications 181:259–270.
-%   [2] Jansen (1999). Analysis of variance designs for model output.
-%
-% AUTHOR:   Unified VSD Model
-% DATE:     2026-02-26
-% VERSION:  1.0
+%   Saltelli et al. (2010). Variance based sensitivity analysis of model
+%   output. Design and estimator for the total sensitivity index.
+%   Jansen (1999). Analysis of variance designs for model output.
 % -----------------------------------------------------------------------
 
-cfg          = struct();
+cfg = struct();
 cfg.scenario = scenario;
 
 % Base Sobol sample count per Saltelli A/B block.
-default_N = 512;
-cfg.N     = default_N;
-N_source  = 'default';
+default_N = 256;
+cfg.N = default_N;
+N_source = 'default';
 
 if nargin >= 3 && ~isempty(N_override)
     cfg.N = max(1, round(N_override));
@@ -57,104 +48,23 @@ end
 
 cfg.N_source = N_source;
 
-% Total model evaluations = N * (d + 2).
-% Example d=19: N=512 -> 10,752 evals, N=1024 -> 21,504 evals.
-% Use higher N when screening stability is insufficient.
+% GSA evaluations use reduced warmup for screening speed.
+cfg.gsa_sim_overrides.nCyclesSteady = 10;
+cfg.gsa_sim_overrides.ss_tol_P = 1.0;
+cfg.gsa_sim_overrides.ss_tol_V = 1.0;
 
-% GSA evaluations use reduced warmup for speed (SS not critical per-sample).
-% Without this, N=512 at full 80-cycle fidelity may take days, not hours.
-cfg.gsa_sim_overrides.nCyclesSteady = 10;   % not 80
-cfg.gsa_sim_overrides.ss_tol_P      = 1.0;  % [mmHg] relaxed
-cfg.gsa_sim_overrides.ss_tol_V      = 1.0;  % [mL]   relaxed
-
-%% =====================================================================
-%  UNCERTAIN PARAMETERS  (shared across both scenarios)
-%% =====================================================================
-cfg.names = {
-    % Resistances
-    'R.SAR'
-    'R.SC'
-    'R.SVEN'
-    'R.PAR'
-    'R.PCOX'
-    'R.PVEN'
-    % Compliances
-    'C.SAR'
-    'C.SVEN'
-    'C.PAR'
-    'C.PVEN'
-    % Ventricular elastances
-    'E.LV.EA'
-    'E.LV.EB'
-    'E.RV.EA'
-    'E.RV.EB'
-    % Atrial elastances (controls LAP/RAP; must match PCE setup and calibration)
-    'E.LA.EA'
-    'E.RA.EA'
-    % Unstressed volumes
-    'V0.LV'
-    'V0.RV'
-    'V0.LA'
-    'V0.RA'
-    };
-
-% Add the active shunt parameter only for pre-surgery analysis.
-if strcmp(scenario, 'pre_surgery')
-    if isfield(params0, 'vsd') && isfield(params0.vsd, 'mode') && ...
-            strcmpi(params0.vsd.mode, 'orifice_bidirectional')
-        cfg.names{end+1} = 'vsd.Cd';
-    else
-        cfg.names{end+1} = 'R.vsd';
-    end
-end
+%% Shared uncertain parameters and bounds
+space = gsa_parameter_space(params0, scenario);
+cfg.names = space.names;
+cfg.x0 = space.x0;
+cfg.lb = space.lb;
+cfg.ub = space.ub;
 
 d = numel(cfg.names);
+lb = cfg.lb;
+ub = cfg.ub;
 
-%% =====================================================================
-%  NOMINAL VALUES AND BOUNDS
-%% =====================================================================
-x0 = zeros(d, 1);
-lb = zeros(d, 1);
-ub = zeros(d, 1);
-
-for i = 1:d
-    nm    = cfg.names{i};
-    x0(i) = get_param_by_name(params0, nm);
-
-    if startsWith(nm, 'R.')
-        if strcmp(nm, 'R.vsd')
-            lb(i) = max(0.001, 0.05 * x0(i));
-            ub(i) = min(500,   20.0 * x0(i));
-        else
-            lb(i) = 0.4 * x0(i);
-            ub(i) = 2.5 * x0(i);
-        end
-    elseif strcmp(nm, 'vsd.Cd')
-        lb(i) = 0.8 * x0(i);
-        ub(i) = 1.2 * x0(i);
-    elseif startsWith(nm, 'C.')
-        lb(i) = 0.5 * x0(i);
-        ub(i) = 2.0 * x0(i);
-    elseif startsWith(nm, 'E.')
-        lb(i) = 0.5 * x0(i);
-        ub(i) = 2.0 * x0(i);
-    elseif startsWith(nm, 'V0.')
-        lb(i) = 0.6 * x0(i);
-        ub(i) = 1.7 * x0(i);
-    else
-        lb(i) = 0.7 * x0(i);
-        ub(i) = 1.3 * x0(i);
-    end
-end
-
-cfg.x0 = x0;
-cfg.lb = lb;
-cfg.ub = ub;
-
-%% =====================================================================
-%  SCENARIO-SPECIFIC OUTPUT METRICS OF INTEREST
-%  (used by gsa_run_sobol to label the primary sensitivity outputs)
-%% =====================================================================
+%% Scenario-specific output metrics
 switch scenario
     case 'pre_surgery'
         cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR', 'SAP_mean', 'CO_Lmin'};
@@ -164,73 +74,51 @@ switch scenario
         cfg.secondary_metrics = {'LVEF', 'RVEF', 'SVR', 'LVEDV', 'RVEDV'};
     otherwise
         error('gsa_sobol_setup:unknownScenario', ...
-              'scenario must be ''pre_surgery'' or ''post_surgery''.');
+            'scenario must be ''pre_surgery'' or ''post_surgery''.');
 end
 
-%% All metrics evaluated during GSA (union of primary + secondary + standard)
 cfg.all_metrics = unique([
     cfg.primary_metrics, cfg.secondary_metrics, ...
     {'RAP_mean', 'PAP_mean', 'SAP_mean', 'SVR', 'PVR', 'QpQs', ...
      'CO_Lmin', 'LVEDV', 'LVESV', 'RVEDV', 'RVESV', 'LVEF', 'RVEF'}
 ], 'stable');
 
-%% =====================================================================
-%  SALTELLI SAMPLE MATRICES  (A, B, and A_Bi for each i)
-%  Quasi-random Sobol sequences for low-discrepancy sampling
-%% =====================================================================
-rng(42, 'combRecursive');   % reproducible seed — Saltelli (2010) recommends fixed seed for reproducibility
+%% Saltelli sample matrices
+rng(42, 'combRecursive');
 
-% Draw two independent N×d Sobol sample matrices in [0,1]
-% soob_or_rand() returns the N×2d quasi-random matrix directly (calls net() internally).
 sob = sobolset(2*d, 'Skip', 1e3, 'Leap', 1e2);
-raw = soob_or_rand(sob, cfg.N);   % [N × 2d]  quasi-random samples in [0,1]
+raw = soob_or_rand(sob, cfg.N);
 
-A_01 = raw(:,   1:d);    % base matrix A
-B_01 = raw(:, d+1:2*d); % independent matrix B
+A_01 = raw(:, 1:d);
+B_01 = raw(:, d+1:2*d);
 
-% Scale from [0,1] to [lb, ub]
 A = bsxfun(@plus, lb', bsxfun(@times, A_01, (ub - lb)'));
 B = bsxfun(@plus, lb', bsxfun(@times, B_01, (ub - lb)'));
 
-% A_Bi matrices: A with column i replaced by B's column i  (Jansen estimator)
 AB = cell(d, 1);
 for i = 1:d
-    AB_i      = A;
-    AB_i(:,i) = B(:,i);
-    AB{i}     = AB_i;
+    AB_i = A;
+    AB_i(:, i) = B(:, i);
+    AB{i} = AB_i;
 end
 
 cfg.saltelli = struct('A', A, 'B', B, 'AB', {AB});
 
 fprintf('[gsa_sobol_setup] d=%d params | N=%d samples | scenario=%s\n', ...
-        d, cfg.N, scenario);
+    d, cfg.N, scenario);
 fprintf('[gsa_sobol_setup] N source: %s\n', cfg.N_source);
 
 if bitand(cfg.N, cfg.N - 1) ~= 0
     fprintf(2, '[gsa_sobol_setup] Warning: N=%d is not a power of two; Sobol stability may degrade.\n', cfg.N);
 end
 
-end  % gsa_sobol_setup
-
-% =========================================================================
-%  LOCAL HELPERS
-% =========================================================================
-
-function v = get_param_by_name(params, name)
-% GET_PARAM_BY_NAME — resolve dot-notation field access
-parts = strsplit(name, '.');
-v = params;
-for k = 1:numel(parts)
-    v = v.(parts{k});
-end
 end
 
 function M = soob_or_rand(sobolobj, N)
-% SOOB_OR_RAND — use sobolset if Statistics Toolbox available, else rand
 try
     M = net(sobolobj, N);
 catch
     d2 = numel(sobolobj);
-    M  = rand(N, d2);
+    M = rand(N, d2);
 end
 end

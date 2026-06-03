@@ -1,177 +1,123 @@
 function make_gsa_matrix_table(gsa_out, highlight_thresh, save_fig, varargin)
 % MAKE_GSA_MATRIX_TABLE
 % -----------------------------------------------------------------------
-% Render a matrix-style GSA table:
-%   - Rows    = uncertain parameters
+% Render a publication-style GSA heatmap:
+%   - Rows    = uncertain parameters, sorted by strongest total effect
 %   - Columns = output metrics
-%   - Cells   = Sobol total-order index (ST), displayed in scientific notation
-%   - Yellow background on cells where ST >= highlight_thresh
+%   - Cells   = Sobol total-order index (S_T)
 %
-% This replicates the table style from the reference paper figure.
+% Color carries the main interpretation, while numeric labels are reserved
+% for the strongest cells so the figure stays readable in a thesis or paper.
 %
 % USAGE:
 %   make_gsa_matrix_table(gsa_out)
-%   make_gsa_matrix_table(gsa_out, 0.1)          % custom threshold
-%   make_gsa_matrix_table(gsa_out, 0.1, true)    % also save PNG
+%   make_gsa_matrix_table(gsa_out, 0.1)
+%   make_gsa_matrix_table(gsa_out, 0.1, true, 'ResultsDir', out_dir)
 %
 % INPUTS:
-%   gsa_out          - struct from gsa_run_pce (or loaded from .mat)
-%   highlight_thresh - (optional) ST threshold for yellow highlight [default 0.1]
-%   save_fig         - (optional) true/false to save figure as PNG [default false]
-%
-% AUTHOR:   Unified VSD Model
-% DATE:     2026-03-12
-% VERSION:  1.0
+%   gsa_out          - struct from gsa_run_pce/gsa_run_sobol
+%   highlight_thresh - S_T threshold for cell labels [default 0.1]
+%   save_fig         - true/false to save PNG/PDF/TIFF [default false]
 % -----------------------------------------------------------------------
 
 if nargin < 2 || isempty(highlight_thresh), highlight_thresh = 0.1; end
-if nargin < 3 || isempty(save_fig),         save_fig         = false; end
+if nargin < 3 || isempty(save_fig), save_fig = false; end
 opts = parse_matrix_table_options(varargin{:});
 
-%% =====================================================================
-%  1. Collect metrics and parameters from gsa_out
-%% =====================================================================
 cfg = gsa_out.cfg;
+metrics = cfg.all_metrics;
+params = cfg.names;
+nM = numel(metrics);
+nP = numel(params);
 
-metrics = cfg.all_metrics;   % ordered list of output metrics (columns)
-params  = cfg.names;         % ordered list of parameter names (rows)
-nM      = numel(metrics);
-nP      = numel(params);
-
-% Build ST matrix  [nP x nM]
 ST_mat = nan(nP, nM);
 for mi = 1:nM
     mf = metrics{mi};
     if isfield(gsa_out, mf) && isfield(gsa_out.(mf), 'ST')
-        st_vec = gsa_out.(mf).ST;   % [nP x 1]  same order as cfg.names
+        st_vec = gsa_out.(mf).ST;
         if numel(st_vec) == nP
             ST_mat(:, mi) = st_vec;
         end
     end
 end
 
-%% =====================================================================
-%  2. Build display labels
-%% =====================================================================
-param_labels  = format_param_labels(params);
+row_max = max(ST_mat, [], 2, 'omitnan');
+row_max(isnan(row_max)) = -Inf;
+[~, row_order] = sort(row_max, 'descend');
+
+ST_plot = ST_mat(row_order, :);
+params_plot = params(row_order);
+row_max_plot = row_max(row_order);
+
+param_labels = format_param_labels(params_plot);
 metric_labels = format_metric_labels(metrics);
 
-%% =====================================================================
-%  3. Draw the table as a MATLAB figure
-%% =====================================================================
-% Data-space sizing: keep these small so the axis coordinates are manageable
-col_w   = 1.2;    % width per column in data units
-row_h   = 0.55;   % height per row in data units
-left_w  = 2.4;    % row-label column width
-top_h   = 1.2;    % column-header row height
+fig_w = max(9.5, min(18, 5.6 + 0.40 * nM));
+fig_h = max(7.5, min(15, 3.8 + 0.36 * nP));
+hfig = figure('Name', sprintf('GSA S_T Heatmap - %s', cfg.scenario), ...
+    'NumberTitle', 'off', ...
+    'Color', 'w', ...
+    'Units', 'inches', ...
+    'Position', [1, 1, fig_w, fig_h]);
 
-x_total = left_w + nM * col_w;
-y_total = top_h  + nP * row_h;
+bottom_margin = max(0.18, min(0.30, 0.12 + 0.007 * nM));
+ax = axes(hfig, 'Position', [0.16, bottom_margin, 0.70, 0.84 - bottom_margin]);
+imagesc(ax, ST_plot);
+set(ax, 'YDir', 'reverse');
+colormap(ax, scientific_colormap(256));
 
-% Open figure maximized so ALL columns and rows are visible immediately
-hfig = figure('Name', sprintf('GSA Matrix Table — %s', cfg.scenario), ...
-              'NumberTitle', 'off', ...
-              'Color', 'w', ...
-              'Units', 'normalized', ...
-              'OuterPosition', [0 0 1 1]);   % <-- full-screen
+cmax = max(ST_plot(:), [], 'omitnan');
+if isempty(cmax) || isnan(cmax) || cmax <= 0
+    cmax = 1;
+end
+clim(ax, [0, min(1, max(cmax, highlight_thresh))]);
 
-% Axes covers full figure with small margins for the title
-ax = axes(hfig, ...
-    'Units', 'normalized', ...
-    'Position', [0.01, 0.06, 0.98, 0.88], ...
-    'XLim', [0, x_total], ...
-    'YLim', [0, y_total], ...
-    'YDir', 'reverse', ...
-    'Visible', 'off');
+cb = colorbar(ax);
+cb.Label.String = 'Sobol total-order index, S_T';
+cb.Label.FontWeight = 'bold';
+cb.Label.FontSize = 9;
+cb.TickDirection = 'out';
+cb.FontSize = 8.5;
+
+ax.XTick = 1:nM;
+ax.XTickLabel = metric_labels;
+ax.XTickLabelRotation = 45;
+ax.YTick = 1:nP;
+ax.YTickLabel = param_labels;
+ax.TickLength = [0 0];
+ax.FontName = 'Arial';
+ax.FontSize = 8.5;
+ax.LineWidth = 0.8;
+ax.Box = 'on';
+ax.TickLabelInterpreter = 'none';
+if exist('axtoolbar', 'file') == 2
+    axtoolbar(ax, {});
+end
+
+xlabel(ax, 'Model output metric', 'FontWeight', 'bold', 'FontSize', 9.5);
+ylabel(ax, 'Uncertain parameter', 'FontWeight', 'bold', 'FontSize', 9.5);
+title(ax, sprintf('Sobol total-effect sensitivity (%s)', ...
+    strrep(cfg.scenario, '_', ' ')), ...
+    'FontWeight', 'bold', 'FontSize', 10.5);
+
 hold(ax, 'on');
+draw_cell_grid(ax, nM, nP);
+annotate_significant_cells(ax, ST_plot, highlight_thresh, row_max_plot);
 
-% Colors
-col_header_bg  = [0.92 0.92 0.92];
-row_label_bg   = [1.00 1.00 1.00];
-cell_bg_normal = [1.00 1.00 1.00];
-cell_bg_hi     = [1.00 1.00 0.50];   % yellow
-border_col     = [0.55 0.55 0.55];
-text_col       = [0.05 0.05 0.05];
-
-% ---- Column headers (metrics) ----
-for mi = 1:nM
-    x0c = left_w + (mi-1)*col_w;
-    y0c = 0;
-    fill_rect(ax, x0c, y0c, col_w, top_h, col_header_bg, border_col);
-    text(ax, x0c + col_w/2, top_h/2, metric_labels{mi}, ...
-        'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
-        'FontSize', 6.5, 'FontWeight', 'bold', 'Color', text_col, ...
-        'Interpreter', 'tex');
-end
-
-% ---- Row labels (parameters) ----
-for pi = 1:nP
-    y0r = top_h + (pi-1)*row_h;
-    fill_rect(ax, 0, y0r, left_w, row_h, row_label_bg, border_col);
-    text(ax, left_w - 0.12, y0r + row_h/2, param_labels{pi}, ...
-        'HorizontalAlignment', 'right', 'VerticalAlignment', 'middle', ...
-        'FontSize', 7.5, 'Color', text_col, 'Interpreter', 'tex');
-end
-
-% ---- Data cells ----
-for pi = 1:nP
-    for mi = 1:nM
-        x0c = left_w + (mi-1)*col_w;
-        y0c = top_h  + (pi-1)*row_h;
-        val = ST_mat(pi, mi);
-
-        if isnan(val)
-            bg    = cell_bg_normal;
-            label = '—';
-        elseif val >= highlight_thresh
-            bg    = cell_bg_hi;
-            label = sci_str(val);
-        else
-            bg    = cell_bg_normal;
-            label = sci_str(val);
-        end
-
-        fill_rect(ax, x0c, y0c, col_w, row_h, bg, border_col);
-        text(ax, x0c + col_w/2, y0c + row_h/2, label, ...
-            'HorizontalAlignment', 'center', 'VerticalAlignment', 'middle', ...
-            'FontSize', 6.5, 'Color', text_col, 'Interpreter', 'tex');
-    end
-end
-
-% Outer border
-x_total = left_w + nM*col_w;
-y_total = top_h  + nP*row_h;
-rectangle(ax, 'Position', [0, 0, x_total, y_total], ...
-    'EdgeColor', [0.2 0.2 0.2], 'LineWidth', 1.2);
-
-title(ax, sprintf('Sobol Total-Order Indices (S_T) — %s', ...
-      strrep(cfg.scenario, '_', '\_')), ...
-    'FontSize', 10, 'FontWeight', 'bold', 'Visible', 'on');
-ax.Visible = 'off';
-
-% ---- Legend annotation ----
-annotation(hfig, 'textbox', [0.01 0.01 0.40 0.04], ...
-    'String', sprintf('Yellow = S_T \\geq %.2g   |   Values: Sobol Total-Order Index', highlight_thresh), ...
-    'FitBoxToText', 'off', 'EdgeColor', 'none', ...
-    'FontSize', 7, 'BackgroundColor', 'w');
-
-%% =====================================================================
-%  4. Optional save  (high-res PNG — captures all rows + columns)
-%% =====================================================================
 if save_fig
     out_dir = opts.ResultsDir;
     if ~exist(out_dir, 'dir'), mkdir(out_dir); end
-    fname = fullfile(out_dir, sprintf('gsa_matrix_table_%s.png', cfg.scenario));
-    % ContentType='vector' gives exact patch boundaries; Resolution for raster fallback
-    exportgraphics(hfig, fname, 'Resolution', 250, 'BackgroundColor', 'white');
-    fprintf('[make_gsa_matrix_table] Saved: %s\n', fname);
-    fprintf('                        Open the PNG for a full-resolution view.\n');
+
+    base = fullfile(out_dir, sprintf('gsa_st_heatmap_%s', cfg.scenario));
+    exportgraphics(hfig, [base '.png'], 'Resolution', 300, 'BackgroundColor', 'white');
+    exportgraphics(hfig, [base '.pdf'], 'ContentType', 'vector', 'BackgroundColor', 'white');
+    print(hfig, [base '.tiff'], '-dtiff', '-r600');
+    fprintf('[make_gsa_matrix_table] Saved: %s.[png|pdf|tiff]\n', base);
 end
 
-end % make_gsa_matrix_table
+end
 
 function opts = parse_matrix_table_options(varargin)
-% PARSE_MATRIX_TABLE_OPTIONS â€” parse optional export directory.
 default_dir = getenv('UNIFIED_VSD_GSA_DIR');
 if isempty(default_dir)
     default_dir = fullfile(fileparts(mfilename('fullpath')), '..', 'results', 'gsa');
@@ -184,99 +130,109 @@ opts = parser.Results;
 opts.ResultsDir = char(opts.ResultsDir);
 end
 
-
-%% =========================================================================
-%  INTERNAL HELPERS
-%% =========================================================================
-
-function fill_rect(ax, x, y, w, h, fc, ec)
-% Draw a filled rectangle (patch) in axis ax
-patch(ax, [x x+w x+w x], [y y y+h y+h], fc, ...
-    'EdgeColor', ec, 'LineWidth', 0.4);
+function draw_cell_grid(ax, nM, nP)
+for x = 0.5:1:(nM + 0.5)
+    plot(ax, [x x], [0.5 nP + 0.5], '-', 'Color', [1 1 1], 'LineWidth', 0.5);
+end
+for y = 0.5:1:(nP + 0.5)
+    plot(ax, [0.5 nM + 0.5], [y y], '-', 'Color', [1 1 1], 'LineWidth', 0.5);
+end
 end
 
-function s = sci_str(v)
-% Format a scalar as compact scientific notation for TeX: "a.b·10^{n}"
-if v == 0
+function annotate_significant_cells(ax, ST_plot, highlight_thresh, row_max)
+[nP, nM] = size(ST_plot);
+for pi = 1:nP
+    row_best = row_max(pi);
+    for mi = 1:nM
+        val = ST_plot(pi, mi);
+        if isnan(val)
+            continue;
+        end
+        is_row_best = abs(val - row_best) <= 1e-12 && row_best > 0;
+        if val >= highlight_thresh || is_row_best
+            if val >= 0.50
+                txt_col = [1 1 1];
+            else
+                txt_col = [0.08 0.08 0.08];
+            end
+            text(ax, mi, pi, compact_value(val), ...
+                'HorizontalAlignment', 'center', ...
+                'VerticalAlignment', 'middle', ...
+                'FontName', 'Arial', ...
+                'FontSize', 7.5, ...
+                'FontWeight', 'bold', ...
+                'Color', txt_col);
+        end
+    end
+end
+end
+
+function s = compact_value(v)
+if v >= 0.01
+    s = sprintf('%.2f', v);
+elseif v > 0
+    s = sprintf('%.1e', v);
+else
     s = '0';
-    return;
 end
-exp_val = floor(log10(abs(v)));
-mant    = v / 10^exp_val;
-% Round mantissa to 1 decimal place
-mant_r  = round(mant, 1);
-if mant_r >= 10  % rounding edge case
-    mant_r  = mant_r / 10;
-    exp_val = exp_val + 1;
 end
-% Format: e.g. "4.2\cdot10^{-1}"
-s = sprintf('%.1f{\\cdot}10^{%d}', mant_r, exp_val);
+
+function cmap = scientific_colormap(n)
+if nargin < 1, n = 256; end
+anchors = [
+    0.95 0.97 1.00
+    0.78 0.88 0.96
+    0.48 0.71 0.86
+    0.20 0.53 0.74
+    0.08 0.34 0.56
+    0.04 0.18 0.36
+];
+x = linspace(0, 1, size(anchors, 1));
+xi = linspace(0, 1, n);
+cmap = interp1(x, anchors, xi, 'pchip');
+cmap = max(0, min(1, cmap));
 end
 
 function labels = format_param_labels(names)
-% Convert cfg.names like 'E.LV.EA' → TeX label 'E^{A}_{LV}'
-n      = numel(names);
+n = numel(names);
 labels = cell(n, 1);
 for i = 1:n
     nm = names{i};
     parts = strsplit(nm, '.');
     switch parts{1}
         case 'E'
-            % E.LV.EA → E^{A}_{LV}
-            chamber = parts{2};   % LV or RV or LA or RA
-            subtype = parts{3};   % EA or EB
-            sup = strrep(subtype, 'E', '');   % 'A' or 'B'
-            labels{i} = sprintf('E^{%s}_{%s}', sup, chamber);
+            labels{i} = sprintf('E%s_%s', erase(parts{3}, 'E'), parts{2});
         case 'V0'
-            % V0.LV → V^{0}_{LV}
-            chamber = parts{2};
-            labels{i} = sprintf('V^{0}_{%s}', chamber);
-        case 'R'
-            sub = strjoin(parts(2:end), '_{');
-            close_braces = repmat('}', 1, numel(parts)-2);
-            labels{i} = sprintf('R_{%s%s}', sub, close_braces);
-        case 'C'
-            sub = strjoin(parts(2:end), '_{');
-            close_braces = repmat('}', 1, numel(parts)-2);
-            labels{i} = sprintf('C_{%s%s}', sub, close_braces);
+            labels{i} = sprintf('V0_%s', parts{2});
         otherwise
-            labels{i} = strrep(nm, '.', '_{');
+            labels{i} = strrep(nm, '.', '_');
     end
 end
 end
 
 function labels = format_metric_labels(metrics)
-% Convert metric names to compact TeX column headers
-n      = numel(metrics);
+n = numel(metrics);
 labels = cell(n, 1);
 for i = 1:n
     m = metrics{i};
     switch m
-        case 'RAP_mean';  labels{i} = 'P^{mean}_{RA}';
-        case 'LAP_mean';  labels{i} = 'P^{mean}_{LA}';
-        case 'PAP_min';   labels{i} = 'P^{min}_{PA}';
-        case 'PAP_max';   labels{i} = 'P^{max}_{PA}';
-        case 'PAP_mean';  labels{i} = 'P^{mean}_{PA}';
-        case 'PVP_mean';  labels{i} = 'P^{PUL}_{VEN}';
-        case 'RVP_min';   labels{i} = 'P^{min}_{RV}';
-        case 'RVP_max';   labels{i} = 'P^{max}_{RV}';
-        case 'RVP_mean';  labels{i} = 'P^{mean}_{RV}';
-        case 'LVP_min';   labels{i} = 'P^{min}_{LV}';
-        case 'LVP_max';   labels{i} = 'P^{max}_{LV}';
-        case 'LVP_mean';  labels{i} = 'P^{mean}_{LV}';
-        case 'SAP_min';   labels{i} = 'P^{min}_{AO}';
-        case 'SAP_max';   labels{i} = 'P^{max}_{AO}';
-        case 'SAP_mean';  labels{i} = 'P^{mean}_{AO}';
-        case 'SVR';       labels{i} = 'R^{SYS}_{AR}';
-        case 'PVR';       labels{i} = 'R^{PUL}_{AR}';
-        case 'QpQs';      labels{i} = 'Q_{p}/Q_{s}';
-        case 'LVEDV';     labels{i} = 'V^{ED}_{LV}';
-        case 'LVESV';     labels{i} = 'V^{ES}_{LV}';
-        case 'RVEDV';     labels{i} = 'V^{ED}_{RV}';
-        case 'RVESV';     labels{i} = 'V^{ES}_{RV}';
-        case 'LVEF';      labels{i} = 'EF_{LV}';
-        case 'RVEF';      labels{i} = 'EF_{RV}';
-        otherwise;        labels{i} = strrep(m, '_', '\_');
+        case 'RAP_mean'; labels{i} = 'RAP mean';
+        case 'LAP_mean'; labels{i} = 'LAP mean';
+        case 'PAP_min'; labels{i} = 'PAP min';
+        case 'PAP_max'; labels{i} = 'PAP max';
+        case 'PAP_mean'; labels{i} = 'PAP mean';
+        case 'PVP_mean'; labels{i} = 'PVP mean';
+        case 'RVP_min'; labels{i} = 'RVP min';
+        case 'RVP_max'; labels{i} = 'RVP max';
+        case 'RVP_mean'; labels{i} = 'RVP mean';
+        case 'LVP_min'; labels{i} = 'LVP min';
+        case 'LVP_max'; labels{i} = 'LVP max';
+        case 'LVP_mean'; labels{i} = 'LVP mean';
+        case 'SAP_min'; labels{i} = 'SAP min';
+        case 'SAP_max'; labels{i} = 'SAP max';
+        case 'SAP_mean'; labels{i} = 'SAP mean';
+        case 'QpQs'; labels{i} = 'Qp/Qs';
+        otherwise; labels{i} = strrep(m, '_', ' ');
     end
 end
 end
