@@ -1,0 +1,189 @@
+# Hemodynamic and Parameter Calibration Comparison Report
+Generated on: 02-Jun-2026 15:45:19
+
+## 1. Metadata Comparison
+- **Run 1 (Pre-Surgery 20260526)**:
+  - Path: `C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260526_173410_reyna_pre_surgery\mat\pre_to_post_seed_20260526_173410.mat`
+  - Timestamp: `20260526_173410`
+  - Source Scenario: `pre_surgery`
+  - Calibration Status:
+    - n_primary_excellent_fail: 2.000000
+    - n_primary_fail: 0.000000
+    - n_secondary_fail: 0.000000
+    - max_primary_abs_error: 8.761197
+    - max_secondary_abs_error: 33.447504
+    - rmse_improvement_frac: 0.656134
+    - n_warning: 3.000000
+    - n_fail: 0.000000
+    - warning_fraction: 0.272727
+    - label: ACCEPT
+    - summary: ACCEPT | excellent5_fail=2 | primary10_fail=0 | secondary15_fail=0 | plausibility_warning=3 | plausibility_fail=0 | RMSE_improvement=65.6%
+
+- **Run 2 (Reyna_Pre_Surgery_Hafiz)**:
+  - Path: `C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\Reyna_Pre_Surgery_Hafiz\pre_to_post_seed_20260514_1602225(zhang.mat`
+  - Timestamp: `20260514_160222`
+  - Source Scenario: `pre_surgery`
+  - Calibration Status:
+    - n_primary_fail: 4.000000
+    - n_secondary_fail: 5.000000
+    - max_primary_abs_error: 43.519895
+    - max_secondary_abs_error: 40.921051
+    - rmse_improvement_frac: 0.000000
+    - n_warning: 4.000000
+    - n_fail: 0.000000
+    - warning_fraction: 0.307692
+    - label: REJECT
+    - summary: REJECT | primary_fail=4 | secondary_fail=5 | plausibility_warning=4 | plausibility_fail=0
+    - rollback_reason: status=REJECT, RMSE baseline=0.2317, calibrated=0.1734
+
+## 2. Active Parameters Comparison
+This table shows parameters that were actively calibrated in either run.
+
+| Parameter | Run 1 (20260526) | Run 2 (Hafiz) | Abs Diff | Rel Diff (%) |
+|:---|:---:|:---:|:---:|:---:|
+| `C.PAR` | 2.489924 | NaN | NaN | NaN% |
+| `C.SAR` | 0.775649 | 0.668947 | 0.106702 | 13.76% |
+| `E.LA.EA` | NaN | 0.228558 | NaN | NaN% |
+| `E.LV.EA` | 15.310347 | 7.450077 | 7.860271 | 51.34% |
+| `E.LV.EB` | 0.211788 | 0.230415 | 0.018627 | 8.80% |
+| `E.RA.EA` | NaN | 0.345537 | NaN | NaN% |
+| `E.RV.EA` | 3.054914 | 3.074678 | 0.019764 | 0.65% |
+| `E.RV.EB` | 0.169308 | 0.128112 | 0.041196 | 24.33% |
+| `R.SVEN` | 0.284336 | 0.070012 | 0.214324 | 75.38% |
+| `V0.LV` | 8.108807 | 6.280000 | 1.828807 | 22.55% |
+| `V0.RV` | 5.247277 | 7.316583 | 2.069306 | 39.44% |
+| `group.R_pul_scale` | 0.539681 | 1.000000 | 0.460319 | 85.29% |
+| `group.R_sys_scale` | 0.545274 | 0.638493 | 0.093219 | 17.10% |
+| `vsd.Cd` | NaN | 0.522701 | NaN | NaN% |
+
+## 3. Structural Parameter Differences (params_calibrated)
+This lists all nested fields inside `params_calibrated` that differ between the two runs.
+
+| Field | Run 1 (20260526) | Run 2 (Hafiz) | Rel Diff (%) |
+|:---|:---:|:---:|:---:|
+| `params.C.LA` | 1.000000 | 0.957143 | 4.29% |
+| `params.C.PAR` | 2.489924 | 0.957143 | 61.56% |
+| `params.C.PCNO` | 0.000340 | 0.000325 | 4.29% |
+| `params.C.PCOX` | 0.090262 | 0.037960 | 57.94% |
+| `params.C.PVEN` | 6.258690 | 2.632143 | 57.94% |
+| `params.C.RA` | 1.000000 | 0.957143 | 4.29% |
+| `params.C.SAR` | 0.775649 | 0.668947 | 13.76% |
+| `params.C.SC` | 0.448963 | 0.348176 | 22.45% |
+| `params.C.SVEN` | 1.638135 | 10.445276 | 537.63% |
+| `params.E.LA.EA` | 0.782624 | 0.228558 | 70.80% |
+| `params.E.LA.EB` | 0.447214 | 0.457116 | 2.21% |
+| `params.E.LV.EA` | 15.310347 | 7.450077 | 51.34% |
+| `params.E.LV.EB` | 0.211788 | 0.230415 | 8.80% |
+| `params.E.RA.EA` | 1.003110 | 0.345537 | 65.55% |
+| `params.E.RA.EB` | 0.334370 | 0.691075 | 106.68% |
+| `params.E.RV.EA` | 3.054914 | 3.074678 | 0.65% |
+| `params.E.RV.EB` | 0.169308 | 0.128112 | 24.33% |
+| `params.L.PAR` | 0.000050 | 0.000010 | 80.00% |
+| `params.L.PVEN` | 0.000050 | 0.000010 | 80.00% |
+| `params.L.SAR` | 0.000050 | 0.000010 | 80.00% |
+| `params.L.SVEN` | 0.000050 | 0.000010 | 80.00% |
+| `params.R.PAR` | 0.016650 | 0.031812 | 91.06% |
+| `params.R.PCNO` | 3.899654 | 4.021077 | 3.11% |
+| `params.R.PCOX` | 0.104895 | 0.200418 | 91.06% |
+| `params.R.PVEN` | 0.033300 | 0.063625 | 91.06% |
+| `params.R.SAR` | 0.058559 | 0.070012 | 19.56% |
+| `params.R.SC` | 0.936947 | 1.022176 | 9.10% |
+| `params.R.SVEN` | 0.284336 | 0.070012 | 75.38% |
+| `params.Rvalve.open` | 0.008944 | 0.017711 | 98.02% |
+| `params.Tc_LV` | 0.133613 | 0.151261 | 13.21% |
+| `params.Tc_LV_frac` | 0.265000 | 0.300000 | 13.21% |
+| `params.Tr_LV` | 0.201681 | 0.050420 | 75.00% |
+| `params.Tr_LV_frac` | 0.400000 | 0.100000 | 75.00% |
+| `params.Tr_RV` | 0.201681 | 0.050420 | 75.00% |
+| `params.Tr_RV_frac` | 0.400000 | 0.100000 | 75.00% |
+| `params.V0.LA` | 0.637021 | 1.332218 | 109.13% |
+| `params.V0.LV` | 8.108807 | 6.280000 | 22.55% |
+| `params.V0.PAR` | 54.085403 | 52.222959 | 3.44% |
+| `params.V0.RA` | 0.976435 | 1.332218 | 36.44% |
+| `params.V0.RV` | 5.247277 | 7.316583 | 39.44% |
+| `params.V0.SAR` | 25.083485 | 24.219730 | 3.44% |
+| `params.V0.SC` | 13.521351 | 13.055740 | 3.44% |
+| `params.V0.SVEN` | 607.165702 | 586.006916 | 3.48% |
+| `params.clinical_override.C_PAR_seed_mL_per_mmHg` | 3.434506 | *Absent* | N/A |
+| `params.clinical_override.C_PAR_seed_source` | "stroke_volume_over_pulmonary_pulse_pressure" | *Absent* | N/A |
+| `params.clinical_override.SVR_seed_WU` | *Absent* | 19.370000 | N/A |
+| `params.clinical_override.SVR_target_diag` | *Absent* | *Complex* | N/A |
+| `params.scaling.BSA_patient` | 0.617342 | 0.588000 | 4.75% |
+| `params.scaling.BV_patient` | 980.000000 | 938.000000 | 4.29% |
+| `params.scaling.V0_SVEN_applied` | 607.165702 | 586.006916 | 3.48% |
+| `params.scaling.V0_SVEN_required` | 607.165702 | 586.006916 | 3.48% |
+| `params.scaling.patient.BSA` | 0.617342 | 0.588000 | 4.75% |
+| `params.scaling.patient.height_cm` | 98.000000 | 95.000000 | 3.06% |
+| `params.scaling.patient.weight_kg` | 14.000000 | 13.400000 | 4.29% |
+| `params.scaling.w` | 0.200000 | 0.191429 | 4.29% |
+| `params.scaling.zhang_exponents.L` | -1.000000 | *Absent* | N/A |
+| `params.scaling.zhang_exponents.Rvalve_open` | -0.500000 | -0.900000 | 80.00% |
+
+## 4. Hemodynamic Metrics Comparison
+This table compares the simulated hemodynamic outputs at the calibrated state.
+
+| Metric | Description | Run 1 Sim | Run 2 Sim | Abs Diff | Rel Diff (%) |
+|:---|:---|:---:|:---:|:---:|:---:|
+| `CO_Lmin` | Cardiac Output (Qs) | 3.1582 | 2.6593 | 0.4990 | 15.80% |
+| `LAP_max` | Peak LA Pressure | 9.3980 | 9.1514 | 0.2466 | 2.62% |
+| `LAP_mean` | Mean LA Pressure | 7.1883 | 7.2564 | 0.0680 | 0.95% |
+| `LAP_min` | Minimum LA Pressure | 2.8803 | 5.4531 | 2.5728 | 89.33% |
+| `LA_size_proxy_mm` | Model simulated metric | 34.5804 | 34.4202 | 0.1602 | 0.46% |
+| `LVCO_Lmin` | Model simulated metric | 3.5507 | 2.8786 | 0.6721 | 18.93% |
+| `LVEDD_mm` | Model simulated metric | 32.2859 | 31.3448 | 0.9410 | 2.91% |
+| `LVEDP` | Model simulated metric | 7.1468 | NaN | NaN | NaN% |
+| `LVEDV` | LV End-Diastolic Volume | 41.8539 | 38.9510 | 2.9029 | 6.94% |
+| `LVEF` | LV Ejection Fraction | 0.7129 | 0.6210 | 0.0919 | 12.89% |
+| `LVESD_mm` | Model simulated metric | 19.5536 | 21.2029 | 1.6493 | 8.43% |
+| `LVESV` | LV End-Systolic Volume | 12.0159 | 14.7611 | 2.7452 | 22.85% |
+| `LVP_max` | Peak LV Pressure | 86.9353 | 70.6419 | 16.2934 | 18.74% |
+| `LVP_mean` | Model simulated metric | 35.7774 | 23.3573 | 12.4202 | 34.72% |
+| `LVP_min` | Minimum LV Pressure | 3.1389 | 2.5180 | 0.6209 | 19.78% |
+| `LVSV` | Model simulated metric | 29.8380 | 24.1899 | 5.6481 | 18.93% |
+| `LV_sphericity_index` | Model simulated metric | 0.6056 | 0.6764 | 0.0708 | 11.69% |
+| `PAP_max` | Systolic Pulmonary Pressure | 20.5731 | 31.0263 | 10.4532 | 50.81% |
+| `PAP_mean` | Mean Pulmonary Pressure | 16.3142 | 21.5280 | 5.2138 | 31.96% |
+| `PAP_min` | Diastolic Pulmonary Pressure | 12.3982 | 13.8023 | 1.4041 | 11.33% |
+| `PAP_pulse` | Model simulated metric | 8.1749 | 17.2240 | 9.0491 | 110.69% |
+| `PVP_mean` | Model simulated metric | 9.1864 | 10.4276 | 1.2412 | 13.51% |
+| `PVR` | Pulmonary Vascular Resistance | 2.5349 | 4.7722 | 2.2373 | 88.26% |
+| `PVR_from_Qpv` | Model simulated metric | 2.5344 | 4.7715 | 2.2371 | 88.27% |
+| `PWP_mean` | Model simulated metric | 9.1864 | NaN | NaN | NaN% |
+| `Q_AV_mean` | Model simulated metric | 52.6476 | NaN | NaN | NaN% |
+| `Q_PVv_mean` | Model simulated metric | 60.0141 | NaN | NaN | NaN% |
+| `Q_shunt_Lmin` | Net Shunt Flow | 0.4419 | NaN | NaN | NaN% |
+| `Q_shunt_mean_mLs` | Model simulated metric | 7.3635 | 5.5221 | 1.8414 | 25.01% |
+| `Qao_Lmin` | Aortic Flow | 3.1589 | 2.6595 | 0.4993 | 15.81% |
+| `Qao_mean_mLs` | Model simulated metric | 52.6476 | 44.3256 | 8.3220 | 15.81% |
+| `QpQs` | Pulmonary/Systemic Flow Ratio | 1.1399 | 1.1246 | 0.0153 | 1.34% |
+| `Qp_Lmin` | Effective Pulmonary Flow | 3.6001 | 2.9906 | 0.6095 | 16.93% |
+| `Qp_mean_mLs` | Model simulated metric | 60.0020 | 49.8429 | 10.1591 | 16.93% |
+| `Qp_minus_Qs_Lmin` | Model simulated metric | 0.4419 | 0.3313 | 0.1106 | 25.02% |
+| `Qp_pv_gap_Lmin` | Model simulated metric | 0.0007 | 0.0005 | 0.0003 | 37.71% |
+| `Qpv_Lmin` | Pulmonary Venous Flow | 3.6008 | 2.9910 | 0.6098 | 16.94% |
+| `Qpv_mean_mLs` | Model simulated metric | 60.0141 | 49.8505 | 10.1637 | 16.94% |
+| `Qs_Lmin` | Effective Systemic Flow | 3.1582 | 2.6593 | 0.4990 | 15.80% |
+| `Qs_ao_gap_Lmin` | Model simulated metric | 0.0006 | 0.0003 | 0.0004 | 56.07% |
+| `Qs_mean_mLs` | Model simulated metric | 52.6369 | 44.3208 | 8.3160 | 15.80% |
+| `Qvsd_Lmin` | VSD Shunt Flow | 0.4418 | 0.3313 | 0.1105 | 25.01% |
+| `Qvsd_mean_mLs` | Model simulated metric | 7.3635 | 5.5221 | 1.8414 | 25.01% |
+| `RAP_max` | Peak RA Pressure | 7.3936 | 7.2974 | 0.0962 | 1.30% |
+| `RAP_mean` | Mean RA Pressure | 4.8603 | 4.9460 | 0.0857 | 1.76% |
+| `RAP_min` | Minimum RA Pressure | 1.6078 | 3.3558 | 1.7481 | 108.73% |
+| `RVCO_Lmin` | Model simulated metric | 3.3538 | 2.8256 | 0.5282 | 15.75% |
+| `RVEDP` | Model simulated metric | 12.5079 | NaN | NaN | NaN% |
+| `RVEDV` | RV End-Diastolic Volume | 39.6135 | 40.6551 | 1.0416 | 2.63% |
+| `RVEF` | RV Ejection Fraction | 0.7114 | 0.5840 | 0.1274 | 17.91% |
+| `RVESV` | RV End-Systolic Volume | 11.4305 | 16.9105 | 5.4800 | 47.94% |
+| `RVP_max` | Peak RV Pressure | 22.2191 | 33.2182 | 10.9991 | 49.50% |
+| `RVP_mean` | Model simulated metric | 11.6474 | 11.1056 | 0.5418 | 4.65% |
+| `RVP_min` | Minimum RV Pressure | 2.9627 | 1.6000 | 1.3627 | 45.99% |
+| `RVSV` | Model simulated metric | 28.1830 | 23.7446 | 4.4384 | 15.75% |
+| `RV_diameter_proxy_mm` | Model simulated metric | 42.2943 | 42.6618 | 0.3675 | 0.87% |
+| `SAP_max` | Systolic Arterial Pressure | 86.0687 | 69.1198 | 16.9489 | 19.69% |
+| `SAP_mean` | Mean Arterial Pressure | 72.2268 | 56.4558 | 15.7709 | 21.84% |
+| `SAP_min` | Diastolic Arterial Pressure | 59.0536 | 44.0558 | 14.9978 | 25.40% |
+| `SAP_pulse` | Model simulated metric | 27.0151 | 25.0639 | 1.9512 | 7.22% |
+| `SVR` | Systemic Vascular Resistance | 21.3306 | 19.3701 | 1.9605 | 9.19% |
+| `SVR_from_Qao` | Model simulated metric | 21.3262 | 19.3680 | 1.9582 | 9.18% |
+| `VSD_frac_pct` | VSD Shunt Fraction | 12.2721 | 11.0791 | 1.1930 | 9.72% |

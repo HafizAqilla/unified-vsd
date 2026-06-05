@@ -40,8 +40,10 @@ clinical = apply_post_surgery_targets(clinical);
 
 patient_label = resolve_patient_label(clinical);
 
-%Pre to post file
-seed_file = 'C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\Reyna_Pre_Surgery_Hafiz\pre_to_post_seed_20260514_1602225(zhang.mat'; %Changed to automaticaly latest : find_latest_pre_to_post_seed(root, patient_label)
+% Pre-to-post handoff seed from the calibrated pre-surgery run. 
+seed_file = fullfile(root, 'results', 'runs', ...
+    '20260605_115443_reyna_pre_surgery', 'mat', ...
+    'pre_to_post_seed_20260605_115443.mat');
 
 params_pre = load_pre_surgery_params(seed_file);
 clinical.pre_surgery.CalibParams = params_pre;
@@ -122,6 +124,7 @@ end
 
 function params_pre = load_pre_surgery_params(seed_file)
 % LOAD_PRE_SURGERY_PARAMS - read calibrated pre-op params from modern or legacy MAT files.
+seed_file = strip_wrapping_quotes(seed_file);
 loaded = load(seed_file);
 
 if isfield(loaded, 'pre_to_post_seed')
@@ -141,6 +144,14 @@ elseif isfield(loaded, 'params_cal')
 else
     error('run_post_surgery:badLegacyPayload', ...
         'MAT file does not contain pre_to_post_seed or params_cal.');
+end
+end
+
+function file_path = strip_wrapping_quotes(file_path)
+% STRIP_WRAPPING_QUOTES - remove copy-pasted shell quotes around a MAT path.
+file_path = char(file_path);
+if numel(file_path) >= 2 && file_path(1) == '"' && file_path(end) == '"'
+    file_path = file_path(2:end-1);
 end
 end
 
