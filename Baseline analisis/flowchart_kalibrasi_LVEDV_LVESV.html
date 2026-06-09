@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flowchart Kalibrasi LVEDV & LVESV — Adult Baseline Model</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+
+    :root {
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --green-light: #dcfce7;
+      --green: #16a34a;
+      --green-dark: #166534;
+      --blue-light: #dbeafe;
+      --blue: #2563eb;
+      --blue-dark: #1e40af;
+      --orange-light: #ffedd5;
+      --orange: #ea580c;
+      --orange-dark: #9a3412;
+      --purple-light: #f3e8ff;
+      --purple: #9333ea;
+      --purple-dark: #6b21a8;
+      --red-light: #fee2e2;
+      --red: #dc2626;
+      --yellow-light: #fef9c3;
+      --yellow: #ca8a04;
+      --gray-light: #f1f5f9;
+      --gray: #94a3b8;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 32px 24px 60px;
+    }
+
+    /* ─── Header ─── */
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    header p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+    .badge {
+      display: inline-block;
+      background: var(--blue-light);
+      color: var(--blue-dark);
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-top: 10px;
+    }
+
+    /* ─── Legend ─── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ─── Flowchart Container ─── */
+    .flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* ─── Nodes ─── */
+    .node {
+      width: 100%;
+      max-width: 420px;
+      border-radius: 12px;
+      padding: 14px 20px;
+      text-align: center;
+      box-shadow: var(--shadow-md);
+      position: relative;
+      z-index: 2;
+    }
+    .node-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+      opacity: 0.7;
+    }
+    .node-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .node-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+    .node-desc {
+      font-size: 0.78rem;
+      margin-top: 4px;
+      opacity: 0.8;
+    }
+
+    /* Colors */
+    .node-start  { background: var(--green-light);  border: 2px solid var(--green);  }
+    .node-start  .node-title { color: var(--green-dark); }
+    .node-end    { background: var(--green-light);  border: 2px solid var(--green);  }
+    .node-end    .node-title { color: var(--green-dark); }
+    .node-check-vol   { background: var(--blue-light);   border: 2px solid var(--blue);   }
+    .node-check-vol   .node-title { color: var(--blue-dark); }
+    .node-check-ef    { background: var(--purple-light);  border: 2px solid var(--purple);  }
+    .node-check-ef    .node-title { color: var(--purple-dark); }
+    .node-action { background: var(--orange-light); border: 2px solid var(--orange); }
+    .node-action .node-title { color: var(--orange-dark); }
+    .node-ok     { background: var(--green-light);  border: 2px dashed var(--green); }
+    .node-ok     .node-title { color: var(--green-dark); }
+    .node-note   { background: var(--yellow-light); border: 2px solid var(--yellow); }
+
+    /* ─── Diamond Decision ─── */
+    .diamond-wrap {
+      width: 100%;
+      max-width: 500px;
+      position: relative;
+      margin: 0 auto;
+    }
+    .diamond {
+      background: var(--blue-light);
+      border: 2px solid var(--blue);
+      transform: rotate(0deg);
+      border-radius: 8px;
+      padding: 16px 24px;
+      text-align: center;
+      box-shadow: var(--shadow-md);
+      position: relative;
+    }
+    .diamond.ef { background: var(--purple-light); border-color: var(--purple); }
+    .diamond-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--blue-dark);
+    }
+    .diamond.ef .diamond-title { color: var(--purple-dark); }
+    .diamond-range {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--blue);
+      margin-top: 2px;
+    }
+    .diamond.ef .diamond-range { color: var(--purple); }
+
+    /* ─── Branch Row ─── */
+    .branch-row {
+      display: flex;
+      width: 100%;
+      max-width: 860px;
+      gap: 12px;
+      align-items: flex-start;
+      position: relative;
+    }
+    .branch-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+    .branch-center {
+      flex: 0.8;
+    }
+
+    /* ─── Connectors ─── */
+    .arrow-down {
+      width: 2px;
+      background: var(--gray);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .arrow-down::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--gray);
+    }
+
+    .connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    .vline {
+      width: 2px;
+      background: var(--gray);
+      position: relative;
+    }
+    .vline.short  { height: 20px; }
+    .vline.medium { height: 32px; }
+    .vline.tall   { height: 44px; }
+    .vline.arrow::after {
+      content: '';
+      position: absolute;
+      bottom: -6px;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--gray);
+    }
+
+    /* Branch label on the line */
+    .branch-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      display: inline-block;
+      position: relative;
+      z-index: 3;
+    }
+    .label-ok     { background: var(--green);  color: white; }
+    .label-low    { background: var(--red);    color: white; }
+    .label-high   { background: var(--orange); color: white; }
+
+    /* ─── Branch connector lines (horizontal) ─── */
+    .hline-wrap {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      height: 2px;
+      margin: 0;
+    }
+    .hline {
+      height: 2px;
+      background: var(--gray);
+      flex: 1;
+    }
+
+    /* ─── Action Node (small) ─── */
+    .action-node {
+      border-radius: 10px;
+      padding: 10px 14px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      width: 100%;
+    }
+    .action-node .param {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--orange-dark);
+    }
+    .action-node .effect {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+    .action-low  { background: var(--red-light);    border: 1.5px solid var(--red); }
+    .action-low  .param  { color: var(--red); }
+    .action-high { background: var(--orange-light);  border: 1.5px solid var(--orange); }
+    .action-high .param  { color: var(--orange-dark); }
+
+    /* ─── Loop arrow ─── */
+    .loop-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-style: italic;
+      text-align: center;
+      padding: 3px 8px;
+      background: var(--gray-light);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin: 4px 0;
+    }
+
+    /* ─── Separator ─── */
+    .section-sep {
+      width: 100%;
+      max-width: 860px;
+      border: none;
+      border-top: 1.5px dashed var(--border);
+      margin: 4px 0;
+    }
+
+    /* ─── Insight box ─── */
+    .insight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      max-width: 860px;
+      width: 100%;
+      margin: 32px auto 0;
+    }
+    .insight-card {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+    .insight-card h3 {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .insight-card p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+    }
+    .insight-card code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      background: var(--gray-light);
+      padding: 1px 4px;
+      border-radius: 3px;
+      color: var(--blue-dark);
+    }
+
+    /* ─── Equation box ─── */
+    .eq-box {
+      background: var(--gray-light);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.78rem;
+      margin-top: 8px;
+      color: var(--blue-dark);
+      line-height: 1.6;
+    }
+
+    /* Icon */
+    .icon { font-size: 1.1rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Flowchart Kalibrasi Parameter Volume Ventrikel Kiri</h1>
+  <p>Model Lumped-Parameter Kardiovaskular Dewasa — Valenti 14-State RLC</p>
+  <span class="badge">Adult Baseline · E(t) = EA·e(t) + EB</span>
+</header>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#dcfce7; border:2px solid #16a34a;"></div>
+    <span>Mulai / Selesai</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#dbeafe; border:2px solid #2563eb;"></div>
+    <span>Cek Volume</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#f3e8ff; border:2px solid #9333ea;"></div>
+    <span>Cek LVEF</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#fee2e2; border:2px solid #dc2626;"></div>
+    <span>Aksi: nilai terlalu rendah</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#ffedd5; border:2px solid #ea580c;"></div>
+    <span>Aksi: nilai terlalu tinggi</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════
+     FLOWCHART
+═══════════════════════════════════════════════════════ -->
+<div class="flow">
+
+  <!-- START -->
+  <div class="node node-start" style="max-width:320px;">
+    <div class="node-label">▶ Mulai</div>
+    <div class="node-title">Jalankan Simulasi</div>
+    <div class="node-desc">Integrasi ODE hingga steady-state (80 siklus)<br>Ekstrak LVEDV, LVESV dari 2 siklus terakhir</div>
+  </div>
+
+  <div class="connector">
+    <div class="vline medium arrow"></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       BLOK 1: CEK LVEDV
+  ══════════════════════════════ -->
+  <div class="diamond-wrap">
+    <div class="diamond">
+      <div class="diamond-title">🔷 Apakah LVEDV dalam rentang?</div>
+      <div class="diamond-range">Target: 87–137 mL</div>
+    </div>
+  </div>
+
+  <!-- Branch row for LVEDV -->
+  <div class="branch-row" style="max-width:860px; margin-top:0;">
+
+    <!-- LEFT: LVEDV < 87 -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="branch-label label-low">❌ &lt; 87 mL</div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low">
+        <div class="param">↓ E<sub>B,LV</sub></div>
+        <div class="effect">Compliance diastolik ↑<br>→ Preload ↑ → LVEDV ↑</div>
+      </div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">atau: ↑ IC V_LV</div>
+        <div class="effect">Koreksi kondisi awal<br>jika LVEDV sangat rendah</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Iterasi Ulang</div>
+    </div>
+
+    <!-- CENTER: LVEDV OK -->
+    <div class="branch-col branch-center">
+      <div class="vline medium" style="background:var(--green);"></div>
+      <div class="branch-label label-ok">✅ OK</div>
+      <div class="vline medium" style="background:var(--green);"></div>
+    </div>
+
+    <!-- RIGHT: LVEDV > 137 -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="branch-label label-high">❌ &gt; 137 mL</div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high">
+        <div class="param">↑ E<sub>B,LV</sub></div>
+        <div class="effect">Kekakuan diastolik ↑<br>→ Preload ↓ → LVEDV ↓</div>
+      </div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">atau: ↓ LAP / ↑ R.SC</div>
+        <div class="effect">Kurangi tekanan pengisian<br>melalui afterload/preload</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Iterasi Ulang</div>
+    </div>
+
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ══════════════════════════════
+       BLOK 2: CEK LVESV
+  ══════════════════════════════ -->
+  <div class="connector">
+    <div class="vline short arrow"></div>
+  </div>
+
+  <div class="diamond-wrap">
+    <div class="diamond">
+      <div class="diamond-title">🔷 Apakah LVESV dalam rentang?</div>
+      <div class="diamond-range">Target: 31–51 mL</div>
+    </div>
+  </div>
+
+  <!-- Branch row for LVESV -->
+  <div class="branch-row" style="max-width:860px; margin-top:0;">
+
+    <!-- LEFT: LVESV < 31 -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="branch-label label-low">❌ &lt; 31 mL</div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low">
+        <div class="param">↓ E<sub>A,LV</sub></div>
+        <div class="effect">Kontraktilitas aktif ↓<br>→ Ejeksi berkurang<br>→ LVESV ↑</div>
+      </div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">atau: ↑ Afterload (R.SC)</div>
+        <div class="effect">Resistansi arteri ↑<br>→ LV tidak bisa kosong penuh<br>→ LVESV ↑</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Iterasi Ulang</div>
+    </div>
+
+    <!-- CENTER: LVESV OK -->
+    <div class="branch-col branch-center">
+      <div class="vline medium" style="background:var(--green);"></div>
+      <div class="branch-label label-ok">✅ OK</div>
+      <div class="vline medium" style="background:var(--green);"></div>
+    </div>
+
+    <!-- RIGHT: LVESV > 51 -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="branch-label label-high">❌ &gt; 51 mL</div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high">
+        <div class="param">↑ E<sub>A,LV</sub></div>
+        <div class="effect">Kontraktilitas aktif ↑<br>→ Ejeksi meningkat<br>→ LVESV ↓</div>
+      </div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">atau: ↓ Afterload (R.SC)</div>
+        <div class="effect">Resistansi arteri ↓<br>→ LV lebih mudah kosong<br>→ LVESV ↓</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Iterasi Ulang</div>
+    </div>
+
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ══════════════════════════════
+       BLOK 3: CEK LVEF
+  ══════════════════════════════ -->
+  <div class="connector">
+    <div class="vline short arrow"></div>
+  </div>
+
+  <!-- LVEF formula note -->
+  <div class="node node-note" style="max-width:380px; padding:10px 16px;">
+    <div class="node-label" style="color:var(--yellow);">Formula</div>
+    <div class="node-title" style="font-family:'JetBrains Mono',monospace; font-size:0.85rem; color:var(--text);">
+      LVEF = (LVEDV − LVESV) / LVEDV
+    </div>
+    <div class="node-desc" style="margin-top:4px;">Nilai harus dalam fraksi; tampilkan ×100% untuk pelaporan</div>
+  </div>
+
+  <div class="connector">
+    <div class="vline short arrow"></div>
+  </div>
+
+  <div class="diamond-wrap">
+    <div class="diamond ef">
+      <div class="diamond-title">🔷 Apakah LVEF dalam rentang?</div>
+      <div class="diamond-range" style="color:var(--purple);">Target Dewasa: 52–72%</div>
+    </div>
+  </div>
+
+  <!-- Branch row for LVEF -->
+  <div class="branch-row" style="max-width:860px; margin-top:0;">
+
+    <!-- LEFT: LVEF < 52% -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="branch-label label-low">❌ &lt; 52%</div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low">
+        <div class="param">↑ E<sub>A,LV</sub></div>
+        <div class="effect">Kontraktilitas ↑ → SV ↑<br>LVESV ↓ → LVEF ↑</div>
+      </div>
+      <div class="vline short" style="background:var(--red);"></div>
+      <div class="action-node action-low" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">dan/atau: ↓ E<sub>B,LV</sub></div>
+        <div class="effect">Preload ↑ → LVEDV ↑<br>meningkatkan numerator</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Kembali ke Cek LVEDV</div>
+    </div>
+
+    <!-- CENTER: LVEF OK -->
+    <div class="branch-col branch-center">
+      <div class="vline medium" style="background:var(--green);"></div>
+      <div class="branch-label label-ok">✅ OK</div>
+      <div class="vline medium" style="background:var(--green);"></div>
+    </div>
+
+    <!-- RIGHT: LVEF > 72% -->
+    <div class="branch-col">
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="branch-label label-high">❌ &gt; 72%</div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high">
+        <div class="param">↓ E<sub>A,LV</sub></div>
+        <div class="effect">Kontraktilitas ↓ → LVESV ↑<br>→ LVEF ↓</div>
+      </div>
+      <div class="vline short" style="background:var(--orange);"></div>
+      <div class="action-node action-high" style="border-style:dashed;">
+        <div class="param" style="color:var(--text-muted);">dan/atau: ↑ E<sub>B,LV</sub></div>
+        <div class="effect">Preload ↓ → LVEDV ↓<br>→ LVEF ↓ (melalui denominator)</div>
+      </div>
+      <div class="vline short"></div>
+      <div class="loop-label">↺ Kembali ke Cek LVEDV</div>
+    </div>
+
+  </div>
+
+  <hr class="section-sep">
+
+  <!-- ══════════════════════════════
+       SELESAI
+  ══════════════════════════════ -->
+  <div class="connector">
+    <div class="vline medium arrow"></div>
+  </div>
+
+  <div class="node node-end" style="max-width:340px;">
+    <div class="node-label">✔ Selesai</div>
+    <div class="node-title">LVEDV ✅ · LVESV ✅ · LVEF ✅</div>
+    <div class="node-desc" style="margin-top:6px;">
+      Lanjutkan ke validasi indeks klinis berikutnya:<br>
+      SBP · DBP · MAP · RVEF · CO · PAP · SVR
+    </div>
+  </div>
+
+</div><!-- end .flow -->
+
+
+<!-- ═══════════════════════════════════════════════════════
+     INSIGHT CARDS
+═══════════════════════════════════════════════════════ -->
+<div class="insight-grid">
+
+  <div class="insight-card">
+    <h3><span class="icon">📐</span> Hubungan Parameter–Volume</h3>
+    <p>
+      <code>LVEDV</code> dikendalikan terutama oleh <code>E<sub>B,LV</sub></code> (kekakuan diastolik) dan tekanan pengisian LA. Semakin kecil <code>E<sub>B,LV</sub></code>, semakin kompliann dinding LV, semakin besar preload.
+    </p>
+    <div class="eq-box">
+      LVEDP ≈ E<sub>B,LV</sub> × (LVEDV − V<sub>0,LV</sub>)
+    </div>
+  </div>
+
+  <div class="insight-card">
+    <h3><span class="icon">💪</span> Kontraktilitas dan LVESV</h3>
+    <p>
+      <code>LVESV</code> dikendalikan oleh <code>E<sub>A,LV</sub></code> (elastance aktif sistolik) dan afterload aorta. Meningkatkan <code>E<sub>A,LV</sub></code> menggeser ESPVR ke atas → LV mengosongkan lebih dalam → LVESV ↓.
+    </p>
+    <div class="eq-box">
+      LVESP ≈ E<sub>A,LV</sub> × e<sub>max</sub> × (LVESV − V<sub>0,LV</sub>)
+    </div>
+  </div>
+
+  <div class="insight-card">
+    <h3><span class="icon">⚖️</span> Trade-off saat mengubah LVEF</h3>
+    <p>
+      Mengubah <code>E<sub>A,LV</sub></code> dan <code>E<sub>B,LV</sub></code> secara bersamaan dapat mempertahankan LVEF stabil sambil menggeser level CO dan tekanan. Lihat Iterasi 1→2 di mana LVEF tetap 69,33% meski parameter berubah.
+    </p>
+    <div class="eq-box">
+      LVEF = (LVEDV − LVESV) / LVEDV
+    </div>
+  </div>
+
+  <div class="insight-card">
+    <h3><span class="icon">🔁</span> Urutan Prioritas Kalibrasi</h3>
+    <p>
+      Disarankan untuk mengikuti urutan: <br>
+      <strong>1.</strong> Sesuaikan <code>V<sub>0</sub></code> dan IC terlebih dahulu<br>
+      <strong>2.</strong> Kalibrasi <code>E<sub>B,LV</sub></code> untuk LVEDV<br>
+      <strong>3.</strong> Kalibrasi <code>E<sub>A,LV</sub></code> untuk LVESV<br>
+      <strong>4.</strong> Periksa LVEF sebagai konfirmasi<br>
+      <strong>5.</strong> Lanjut ke tekanan arteri (R.SC, C.SAR)
+    </p>
+  </div>
+
+  <div class="insight-card">
+    <h3><span class="icon">⚠️</span> Efek Samping yang Perlu Dimonitor</h3>
+    <p>
+      Setiap perubahan <code>E<sub>A,LV</sub></code> atau <code>E<sub>B,LV</sub></code> juga memengaruhi:<br>
+      • <code>CO</code> dan <code>SV</code> (via Frank-Starling)<br>
+      • <code>SBP/DBP</code> (via transmisi tekanan sistolik)<br>
+      • <code>RVEF</code> (via peningkatan aliran pulmonal)<br>
+      • <code>LAP/LVEDP</code> (via tekanan balik)
+    </p>
+  </div>
+
+  <div class="insight-card">
+    <h3><span class="icon">🔬</span> Catatan Model Saat Ini (Iterasi-3)</h3>
+    <p>
+      Status setelah 3 iterasi kalibrasi:<br>
+      • <code>LVEDV</code> = 104,63 mL ✅ (target 87–137)<br>
+      • <code>LVESV</code> = 32,79 mL ✅ (target 31–51)<br>
+      • <code>LVEF</code> = 68,66% ✅ (target 52–72%)<br>
+      Masalah residual: <code>SBP</code> 107 ❌ &amp; <code>DBP</code> 66 ❌
+    </p>
+  </div>
+
+</div>
+
+</body>
+</html>

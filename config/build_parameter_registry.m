@@ -99,6 +99,12 @@ for idx = 1:n_params
     [lb, ub, reference_note] = ensure_scaled_reference_inside_bounds( ...
         lb, ub, baseline_scaled, seeded_value, name);
     [lb, ub, widened_note] = ensure_seed_inside_bounds(lb, ub, seeded_value, name);
+    [lb, ub, absolute_note, absolute_bounds_applied] = apply_absolute_bounds( ...
+        name, lb, ub, case_profile);
+    if absolute_bounds_applied
+        bound_type = 'recipe_absolute_final_bounds';
+        bound_source = 'patient_scenario_recipe_bound_parity';
+    end
 
     baseline_adult_col(idx) = baseline_adult;
     baseline_scaled_col(idx) = baseline_scaled;
@@ -114,6 +120,7 @@ for idx = 1:n_params
     note_parts{end + 1} = bound_note;
     note_parts{end + 1} = reference_note;
     note_parts{end + 1} = widened_note;
+    note_parts{end + 1} = absolute_note;
     notes_col{idx} = join_nonempty(note_parts, ' ');
 end
 
@@ -334,6 +341,26 @@ else
     lb = max(lb, case_profile.boundScale.lower(idx) * anchor_value);
     ub = min(ub, case_profile.boundScale.upper(idx) * anchor_value);
 end
+end
+
+function [lb, ub, note_text, applied] = apply_absolute_bounds(name, lb, ub, case_profile)
+% APPLY_ABSOLUTE_BOUNDS - recipe-level final bounds for paired comparisons.
+note_text = '';
+applied = false;
+if ~isfield(case_profile, 'absoluteBounds') || isempty(case_profile.absoluteBounds) || ...
+        ~isfield(case_profile.absoluteBounds, 'names')
+    return;
+end
+
+idx = find(strcmp(case_profile.absoluteBounds.names, name), 1, 'first');
+if isempty(idx)
+    return;
+end
+
+lb = case_profile.absoluteBounds.lb(idx);
+ub = case_profile.absoluteBounds.ub(idx);
+note_text = 'Final bounds set by explicit patient-scenario recipe.';
+applied = true;
 end
 
 function [lb, ub, note_text] = ensure_scaled_reference_inside_bounds(lb, ub, baseline_scaled, seeded_value, name)

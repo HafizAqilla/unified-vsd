@@ -1,0 +1,18 @@
+Unified VSD Baseline Provenance Summary
+======================================
+Scenario: post_surgery
+Rows: 38
+
+bozkurt2019_adult_foundation : 1
+bozkurt2019_table2 : 5
+closed_shunt_numerical_reference : 1
+derived_from_current_C_and_nominal_pressure : 4
+derived_from_nominal_volume_over_pressure : 2
+keisya_baseline_sheet_consistency_correction : 2
+local_consistency_correction_from_bozkurt_foundation : 1
+local_split_of_systemic_compliance : 1
+pressure_state_placeholder : 2
+valenti2023_architecture_placeholder : 3
+valenti2023_parallel_capillary_split : 4
+valenti2023_table3_3_keisya_baseline : 6
+zhang2019_keisya_baseline : 6

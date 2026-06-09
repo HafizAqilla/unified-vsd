@@ -1,0 +1,26 @@
+Metric,Unit,Description,Comparator,UncertaintyFraction,UncertaintyAbs,Clinical,Calibrated,Error_pct,Tier,IncludedInCalibration,IncludedInPrimaryRMSE,Flag
+RAP_min,mmHg,Right atrial diastolic-like minimum,RAP_min,0.2,NaN,NaN,1.62554140460583,NaN,unavailable,0,0,none
+RAP_mean,mmHg,Right atrial mean pressure,RAP_mean,0.05,NaN,5,4.70407820779389,-5.91843584412219,hard,1,1,none
+RAP_max,mmHg,Right atrial systolic-like maximum,RAP_max,0.2,NaN,NaN,6.95667394611798,NaN,unavailable,0,0,none
+LAP_min,mmHg,Left atrial diastolic-like minimum,LAP_min,0.2,NaN,NaN,3.26780082342462,NaN,unavailable,0,0,none
+LAP_mean,mmHg,Left atrial mean pressure,LAP_mean,0.1,NaN,NaN,6.69444474259845,NaN,unavailable,0,0,none
+LAP_max,mmHg,Left atrial systolic-like maximum,LAP_max,0.2,NaN,NaN,8.56459362886347,NaN,unavailable,0,0,none
+LVEDP,mmHg,LV end-diastolic pressure at LVEDV,LVEDP,0.1,NaN,NaN,63.0550632978631,NaN,unavailable,0,0,none
+RVEDP,mmHg,RV end-diastolic pressure at RVEDV,RVEDP,0.1,NaN,NaN,9.62398817632001,NaN,unavailable,0,0,none
+PAP_min,mmHg,PA diastolic pressure,PAP_min,0.05,NaN,9,9.62867986951545,6.98533188350502,validation_only,0,1,none
+PAP_max,mmHg,PA systolic pressure,PAP_max,0.05,NaN,17,18.4734131284659,8.66713604979964,validation_only,0,1,none
+PAP_mean,mmHg,PA mean pressure,PAP_mean,0.05,NaN,13,13.4717390892956,3.62876222535105,hard,1,1,none
+SAP_min,mmHg,Systemic arterial diastolic pressure,SAP_min,0.1,NaN,68,63.1260419563174,-7.16758535835675,soft,1,1,none
+SAP_max,mmHg,Systemic arterial systolic pressure,SAP_max,0.1,NaN,89,88.0697546060811,-1.04521954372906,soft,1,1,none
+SAP_mean,mmHg,Mean arterial pressure,SAP_mean,0.05,NaN,75,75.4662152808644,0.621620374485872,hard,1,1,none
+QpQs,-,Qp/Qs ratio after VSD closure,QpQs,0.05,NaN,0.9,0.999983167930297,11.1092408811441,hard,1,1,none
+PVR,WU,Derived pulmonary vascular resistance,PVR,0.2,NaN,NaN,2.63717099283174,NaN,unavailable,0,0,none
+SVR,WU,Derived systemic vascular resistance,SVR,0.2,NaN,27.5590551181102,27.5343971605823,-0.0894731601729365,derived_validation,0,0,derived_validation
+CO_Lmin,L/min,Effective systemic cardiac output (Qs),CO_Lmin,0.05,NaN,2.54,2.56995410723472,1.17929556042221,hard,1,1,none
+VSD_frac_pct,%,Residual VSD shunt fraction of Qp,VSD_frac_pct,0.2,NaN,NaN,6.45337067295151e-05,NaN,unavailable,0,0,none
+LVEDV,mL,LV end-diastolic volume,LVEDV,0.1,NaN,36.1256544502618,37.6421829736944,4.19792678225541,hard,1,1,none
+LVESV,mL,LV end-systolic volume,LVESV,0.1,NaN,13.8,13.7729966413523,-0.195676511939782,validation_holdout,0,0,validation_holdout
+RVEDV,mL,RV end-diastolic volume,RVEDV,0.1,NaN,30.5,34.97750574387,14.6803467012131,validation_holdout,0,0,validation_holdout
+RVESV,mL,RV end-systolic volume,RVESV,0.1,NaN,12,11.0217330907295,-8.1522242439206,validation_holdout,0,0,validation_holdout
+LVEF,-,LV ejection fraction,LVEF,0.1,NaN,0.618,0.634107388219824,2.60637349835337,hard,1,1,none
+RVEF,-,RV ejection fraction,RVEF,0.1,NaN,0.60655737704918,0.684890821791627,12.9144327818628,validation_only,0,1,none

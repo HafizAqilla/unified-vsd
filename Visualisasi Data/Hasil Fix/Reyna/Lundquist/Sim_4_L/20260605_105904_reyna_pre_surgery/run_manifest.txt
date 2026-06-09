@@ -1,0 +1,56 @@
+Unified VSD Run Manifest
+========================
+Timestamp: 20260605_105904
+Scenario: pre_surgery
+PatientLabel: reyna
+ScalingMode: lundquist_bsa
+CalibrationCaseMode: reyna_recipe
+CalibrationCaseDescription: Reyna pre-surgery explicit pressure-flow recipe; direct hemodynamics drive calibration while inconsistent chamber rows remain transparent consistency evidence.
+CalibrationRecipeId: reyna_pre_surgery
+CalibrationRecipeVersion: 2026-05-24
+TargetGovernance: recipe=reyna_pre_surgery@2026-05-24; explicit pressure-flow targets; chamber rows retained only under target-tier governance; target tiers=reyna_pre_surgery_recipe_tiers_2026-05-24; consistency-only=LVEDV,LVESV,RVEDV,LVEF; audit=critical
+ValidationHoldoutMetrics: LVEDV,LVESV,RVEDV,LVEF,SVR,Q_shunt_Lmin
+CalibrationAgeValidityRegime: preschool_extrapolated
+PreschoolPriorAdjustmentApplied: 1
+ParamPlausibilityLambdaScale: 0.7500
+Weight_kg: 14.0000
+Height_cm: 98.0000
+Age_years: 3.1700
+BSA_m2: 0.6173
+AgeValidityRegime: preschool_extrapolated
+AgeValidityEvidence: low
+AgeValiditySummary: Age lies between the infant maturation literature and the generic school-age child anchor, so scaling is an extrapolated prior rather than a directly validated regime.
+AgeValidityAction: treat_as_extrapolated_and_report_uncertainty
+MaturationMode: normal
+PlotsEnabled: 1
+GSAEnabled: 1
+RMSE_Baseline: 0.509701
+RMSE_Calibrated: 0.045561
+RMSE_Full_Baseline: 0.505611
+RMSE_Full_Calibrated: 0.171012
+RMSE_Primary_Baseline: 0.509701
+RMSE_Primary_Calibrated: 0.045561
+RMSE_Hard_Calibrated: 0.041254
+RMSE_Soft_Calibrated: 0.127966
+ClinicalConsistencyAudit: Clinical consistency audit severity: critical; max relative SV difference = 60.0%.
+ConsistencyOnlyTargets: LVEDV,LVESV,RVEDV,LVEF
+CalibrationStatus: ACCEPT
+CalibrationStatusSummary: ACCEPT | excellent5_fail=2 | primary10_fail=0 | secondary15_fail=0 | plausibility_warning=7 | plausibility_fail=0 | RMSE_improvement=91.1%
+BestCandidateRMSE: 0.045561
+BestCandidateStatus: ACCEPT
+ScientificCandidateRMSE: 0.045561
+ScientificCandidateStatus: ACCEPT
+RollbackApplied: 0
+RunFolder: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery
+ConsoleLog: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\logs\console_20260605_105904_reyna_pre_surgery.log
+FiguresDir: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\figures
+TablesDir: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\tables
+GsaDir: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\gsa
+MatDir: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat
+ParamsPackage: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat\params_calibrated_pre_surgery.mat
+BestCandidatePackage: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat\params_best_candidate_pre_surgery.mat
+ScientificCandidatePackage: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat\params_scientific_candidate_pre_surgery.mat
+AcceptedCandidatePackage: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat\params_accepted_candidate_pre_surgery.mat
+RunPackage: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\mat\run_package_pre_surgery_20260605_105904.mat
+BaselineProvenanceFile: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\tables\baseline_provenance_pre_surgery.csv
+BaselineProvenanceSummary: D:\Kuliah\Skripsi\CollabHafizKeisya\unified_vsd_reproducibility_library_test\results\runs\20260605_105904_reyna_pre_surgery\tables\baseline_provenance_summary_pre_surgery.txt

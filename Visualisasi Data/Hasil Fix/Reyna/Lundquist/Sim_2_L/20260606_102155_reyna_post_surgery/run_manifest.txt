@@ -1,0 +1,56 @@
+Unified VSD Run Manifest
+========================
+Timestamp: 20260606_102155
+Scenario: post_surgery
+PatientLabel: reyna
+ScalingMode: lundquist_bsa
+CalibrationCaseMode: reyna_recipe
+CalibrationCaseDescription: Reyna post-surgery explicit pressure-flow recipe; active parameter set is held at pre-surgery parity for paired model comparison after VSD closure.
+CalibrationRecipeId: reyna_post_surgery
+CalibrationRecipeVersion: 2026-06-05
+TargetGovernance: recipe=reyna_post_surgery@2026-06-05; explicit pressure-flow targets; chamber rows retained only under target-tier governance; target tiers=reyna_post_surgery_recipe_tiers_2026-06-05; consistency-only=none; audit=none
+ValidationHoldoutMetrics: LVESV,RVEDV,RVESV,SVR
+CalibrationAgeValidityRegime: preschool_extrapolated
+PreschoolPriorAdjustmentApplied: 1
+ParamPlausibilityLambdaScale: 0.7500
+Weight_kg: 14.0000
+Height_cm: 98.0000
+Age_years: 3.1700
+BSA_m2: 0.6173
+AgeValidityRegime: preschool_extrapolated
+AgeValidityEvidence: low
+AgeValiditySummary: Age lies between the infant maturation literature and the generic school-age child anchor, so scaling is an extrapolated prior rather than a directly validated regime.
+AgeValidityAction: treat_as_extrapolated_and_report_uncertainty
+MaturationMode: normal
+PlotsEnabled: 1
+GSAEnabled: 1
+RMSE_Baseline: 0.128237
+RMSE_Calibrated: 0.067142
+RMSE_Full_Baseline: 0.132051
+RMSE_Full_Calibrated: 0.071719
+RMSE_Primary_Baseline: 0.128237
+RMSE_Primary_Calibrated: 0.067142
+RMSE_Hard_Calibrated: 0.053158
+RMSE_Soft_Calibrated: 0.051219
+ClinicalConsistencyAudit: Clinical consistency audit severity: none; max relative SV difference = 18.7%.
+ConsistencyOnlyTargets: none
+CalibrationStatus: PROMISING_NEAR_MISS
+CalibrationStatusSummary: PROMISING_NEAR_MISS | excellent5_fail=2 | primary10_fail=1 | secondary15_fail=0 | plausibility_warning=9 | plausibility_fail=0 | RMSE_improvement=47.6%
+BestCandidateRMSE: 0.067142
+BestCandidateStatus: PROMISING_NEAR_MISS
+ScientificCandidateRMSE: 0.067142
+ScientificCandidateStatus: PROMISING_NEAR_MISS
+RollbackApplied: 0
+RunFolder: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery
+ConsoleLog: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\logs\console_20260606_102155_reyna_post_surgery.log
+FiguresDir: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\figures
+TablesDir: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\tables
+GsaDir: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\gsa
+MatDir: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat
+ParamsPackage: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat\params_calibrated_post_surgery.mat
+BestCandidatePackage: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat\params_best_candidate_post_surgery.mat
+ScientificCandidatePackage: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat\params_scientific_candidate_post_surgery.mat
+AcceptedCandidatePackage: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat\params_accepted_candidate_post_surgery.mat
+RunPackage: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\mat\run_package_post_surgery_20260606_102155.mat
+BaselineProvenanceFile: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\tables\baseline_provenance_post_surgery.csv
+BaselineProvenanceSummary: C:\Users\asus\Documents\VSD Main\unified-vsd-main\results\runs\20260606_102155_reyna_post_surgery\tables\baseline_provenance_summary_post_surgery.txt

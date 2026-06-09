@@ -80,12 +80,14 @@ cfg.names = {
     'V0.RA'
 };
 
-if strcmp(scenario, 'pre_surgery')
+if strcmp(scenario, 'pre_surgery') || strcmp(scenario, 'post_surgery')
     if isfield(params0, 'vsd') && isfield(params0.vsd, 'mode') && ...
             strcmpi(params0.vsd.mode, 'orifice_bidirectional')
         cfg.names{end+1} = 'vsd.Cd';
-    else
+    elseif strcmp(scenario, 'pre_surgery')
         cfg.names{end+1} = 'R.vsd';
+    else
+        cfg.names{end+1} = 'vsd.Cd';
     end
 end
 

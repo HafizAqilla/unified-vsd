@@ -45,5 +45,10 @@ registry_subset = parameter_registry(loc, :);
 x0 = registry_subset.seeded_value;
 lb = registry_subset.lb;
 ub = registry_subset.ub;
+if ismember('bound_type', registry_subset.Properties.VariableNames)
+    absolute_mask = strcmp(registry_subset.bound_type, 'recipe_absolute_final_bounds');
+    x0(absolute_mask) = min(max(x0(absolute_mask), lb(absolute_mask)), ub(absolute_mask));
+    registry_subset.seeded_value(absolute_mask) = x0(absolute_mask);
+end
 param_names = registry_subset.name;
 end

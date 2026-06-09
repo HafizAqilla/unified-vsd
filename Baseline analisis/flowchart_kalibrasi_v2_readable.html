@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Flowchart Kalibrasi — Valenti 14-State</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap');
+
+/* ─── Reset & Base ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: #f0f4f8;
+  color: #1a202c;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ─── Page wrapper ─── */
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 40px 28px 80px;
+}
+
+/* ─── Header ─── */
+.header {
+  background: white;
+  border-radius: 16px;
+  padding: 28px 32px;
+  margin-bottom: 32px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.header h1 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #1a202c;
+  letter-spacing: -.02em;
+}
+.header p { color: #64748b; margin-top: 4px; font-size: .9rem; }
+
+.tag-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.tag {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+  border: 1.5px solid;
+}
+
+/* ─── HOW TO READ box ─── */
+.how-to {
+  background: #fffbeb;
+  border: 1.5px solid #fcd34d;
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 28px;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.how-to .icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+.how-to h3 { font-size: .85rem; font-weight: 700; color: #92400e; margin-bottom: 4px; }
+.how-to p { font-size: .8rem; color: #78350f; line-height: 1.6; }
+
+/* ─── Legend ─── */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 28px;
+  background: white;
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1px solid #e2e8f0;
+}
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: #475569; }
+.legend-shape {
+  width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; font-weight: 700;
+}
+
+/* ─── Stage wrapper ─── */
+.stage {
+  margin-bottom: 12px;
+}
+
+/* ─── Stage header strip ─── */
+.stage-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-radius: 10px 10px 0 0;
+  border-bottom: none;
+}
+.stage-num {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .85rem;
+  background: white;
+  flex-shrink: 0;
+}
+.stage-header h2 { font-size: .95rem; font-weight: 700; }
+.stage-header span { font-size: .78rem; opacity: .8; font-weight: 400; }
+
+/* ─── Check block ─── */
+.check-block {
+  background: white;
+  border-radius: 0 0 12px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-top: none;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+  margin-bottom: 8px;
+}
+.check-block + .check-block {
+  border-radius: 12px;
+  border-top: 1.5px solid #e2e8f0;
+  margin-top: 4px;
+}
+
+.check-label {
+  padding: 12px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.check-label .icon { font-size: 1.1rem; }
+.check-label h3 { font-size: .9rem; font-weight: 700; color: #1e293b; }
+.check-label .range {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .75rem;
+  color: #64748b;
+  background: #f8fafc;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid #e2e8f0;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+/* ─── 3-column grid ─── */
+.three-col {
+  display: grid;
+  grid-template-columns: 1fr 200px 1fr;
+}
+
+.col-side {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.col-left { border-right: 1px solid #f1f5f9; background: #fff9f9; }
+.col-right { border-left: 1px solid #f1f5f9; background: #fffdf5; }
+
+.col-center {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #f8fff8;
+  border-left: 1px solid #f1f5f9;
+  border-right: 1px solid #f1f5f9;
+}
+
+/* ─── Status label ─── */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: .75rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  align-self: flex-start;
+}
+.status-low  { background: #fee2e2; color: #b91c1c; }
+.status-ok   { background: #dcfce7; color: #15803d; font-size: .85rem; padding: 8px 16px; align-self: center; border-radius: 10px; }
+.status-high { background: #fef9c3; color: #854d0e; }
+
+/* ─── Action card ─── */
+.action {
+  border-radius: 10px;
+  padding: 12px 14px;
+  border-left: 4px solid;
+}
+.action-low  { background: #fff5f5; border-color: #ef4444; }
+.action-high { background: #fffbeb; border-color: #f59e0b; }
+.action-alt  { background: #f8fafc; border-color: #94a3b8; }
+
+.action .param {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .82rem;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.action-low  .param { color: #dc2626; }
+.action-high .param { color: #b45309; }
+.action-alt  .param { color: #64748b; }
+
+.action .effect { font-size: .78rem; color: #475569; line-height: 1.55; }
+.action .effect b { color: #1e293b; }
+.action .warn {
+  font-size: .72rem;
+  color: #92400e;
+  background: #fef3c7;
+  padding: 4px 8px;
+  border-radius: 5px;
+  margin-top: 6px;
+  display: block;
+}
+
+/* ─── Coupling note ─── */
+.coupling {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 10px 13px;
+  font-size: .76rem;
+  color: #1e40af;
+  line-height: 1.55;
+  margin-top: 2px;
+}
+.coupling b { color: #1d4ed8; }
+
+/* ─── Center pathway ─── */
+.center-ok {
+  background: #dcfce7;
+  border: 2px solid #22c55e;
+  border-radius: 10px;
+  padding: 10px 14px;
+  text-align: center;
+  font-weight: 700;
+  font-size: .85rem;
+  color: #15803d;
+  width: 100%;
+}
+.center-arrow {
+  font-size: 1.5rem;
+  color: #22c55e;
+  line-height: 1;
+}
+.center-label {
+  font-size: .72rem;
+  color: #64748b;
+  text-align: center;
+}
+.center-loop {
+  font-size: .7rem;
+  color: #94a3b8;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ─── Arrow connector between stages ─── */
+.stage-arrow {
+  display: flex;
+  justify-content: center;
+  margin: 4px 0;
+}
+.stage-arrow svg { display: block; }
+
+/* ─── Formula box ─── */
+.formula {
+  background: #f0f9ff;
+  border: 1px solid #7dd3fc;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  color: #0369a1;
+  text-align: center;
+}
+
+/* ─── END block ─── */
+.end-block {
+  background: white;
+  border: 2px solid #22c55e;
+  border-radius: 16px;
+  padding: 24px 28px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(34,197,94,.15);
+  margin-top: 4px;
+}
+.end-block h2 { font-size: 1.1rem; font-weight: 800; color: #15803d; }
+.end-block p { color: #64748b; margin-top: 6px; font-size: .83rem; }
+.end-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 14px; }
+.end-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .72rem;
+  font-weight: 600;
+  background: #dcfce7;
+  color: #15803d;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #86efac;
+}
+
+/* ─── Sensitivity matrix ─── */
+.matrix-section { margin-top: 48px; }
+.sec-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.matrix-wrap { overflow-x: auto; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 6px rgba(0,0,0,.05); }
+table.mx { width: 100%; border-collapse: collapse; font-size: .75rem; background: white; }
+table.mx th, table.mx td { padding: 9px 12px; border: 1px solid #f1f5f9; text-align: center; }
+table.mx th { background: #f8fafc; font-weight: 700; color: #475569; font-size: .72rem; }
+table.mx th.ph { background: #eff6ff; color: #1e40af; font-family: 'JetBrains Mono', monospace; }
+table.mx td.lbl { text-align: left; font-weight: 600; color: #1e293b; background: white; padding-left: 14px; white-space: nowrap; }
+table.mx td.grp { background: #f8fafc; font-weight: 700; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: #94a3b8; text-align: left; padding-left: 14px; }
+
+.pp { background: #bbf7d0; color: #14532d; font-weight: 700; border-radius: 4px; }
+.p  { background: #dcfce7; color: #166534; border-radius: 4px; }
+.nn { background: #fecaca; color: #7f1d1d; font-weight: 700; border-radius: 4px; }
+.n  { background: #fee2e2; color: #991b1b; border-radius: 4px; }
+.zz { color: #cbd5e1; }
+.ss { background: #fef9c3; color: #713f12; border-radius: 4px; }
+
+/* ─── Conflict cards ─── */
+.conflict-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 14px; }
+.conflict-card {
+  background: white;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
+}
+.conflict-card h4 { font-size: .82rem; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+.conflict-card ul { list-style: none; display: flex; flex-direction: column; gap: 7px; }
+.conflict-card li { font-size: .77rem; color: #475569; padding-left: 14px; position: relative; line-height: 1.55; }
+.conflict-card li::before { content: '→'; position: absolute; left: 0; color: #ef4444; font-weight: 700; }
+.conflict-card li.solution::before { content: '✓'; color: #22c55e; }
+.conflict-card li.solution { color: #166534; font-weight: 500; }
+code { font-family: 'JetBrains Mono', monospace; font-size: .72rem; background: #f1f5f9; padding: 1px 5px; border-radius: 3px; color: #334155; }
+
+/* ─── Responsive ─── */
+@media (max-width: 700px) {
+  .three-col { grid-template-columns: 1fr; }
+  .col-left, .col-right, .col-center { border: none; border-top: 1px solid #f1f5f9; }
+  .check-label .range { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ════════ HEADER ════════ -->
+<div class="header">
+  <h1>📋 Flowchart Kalibrasi Model Kardiovaskular</h1>
+  <p>Valenti 14-State RLC · Adult Baseline · 26 Indeks Klinis · 12 Parameter Kalibrasi</p>
+  <div class="tag-row">
+    <span class="tag" style="color:#1d4ed8;border-color:#93c5fd;background:#eff6ff;">🔵 LV Mechanics</span>
+    <span class="tag" style="color:#7e22ce;border-color:#d8b4fe;background:#faf5ff;">🟣 RV Mechanics</span>
+    <span class="tag" style="color:#15803d;border-color:#86efac;background:#f0fdf4;">🟢 Systemic</span>
+    <span class="tag" style="color:#b45309;border-color:#fcd34d;background:#fffbeb;">🟡 Pulmonary</span>
+    <span class="tag" style="color:#be185d;border-color:#f9a8d4;background:#fdf2f8;">🩷 Filling P</span>
+  </div>
+</div>
+
+<!-- ════════ HOW TO READ ════════ -->
+<div class="how-to">
+  <div class="icon">💡</div>
+  <div>
+    <h3>Cara Membaca Flowchart Ini</h3>
+    <p>Ikuti alur dari atas ke bawah melalui kolom tengah (jalur hijau ✅). Jika suatu variabel <b>di luar rentang</b>, lihat kolom kiri (nilai terlalu rendah 🔴) atau kolom kanan (nilai terlalu tinggi 🟡), terapkan perubahan parameter yang disarankan, lalu <b>ulangi simulasi</b> dari awal blok tersebut. Setiap stage harus lolos sebelum lanjut ke stage berikutnya.</p>
+  </div>
+</div>
+
+<!-- ════════ LEGEND ════════ -->
+<div class="legend">
+  <b style="font-size:.78rem;color:#1e293b;margin-right:4px;">Legenda:</b>
+  <div class="legend-item"><div class="legend-shape" style="background:#fee2e2;border:2px solid #ef4444;">↓</div> Nilai terlalu rendah</div>
+  <div class="legend-item"><div class="legend-shape" style="background:#dcfce7;border:2px solid #22c55e;">✓</div> Dalam target</div>
+  <div class="legend-item"><div class="legend-shape" style="background:#fef9c3;border:2px solid #f59e0b;">↑</div> Nilai terlalu tinggi</div>
+  <div class="legend-item"><div class="legend-shape" style="background:#f0f9ff;border:2px solid #7dd3fc;font-size:.6rem;">fx</div> Formula</div>
+  <div class="legend-item"><div class="legend-shape" style="background:#eff6ff;border:2px solid #93c5fd;">⚡</div> Efek samping penting</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     STAGE 1 — GLOBAL
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#eff6ff;border:1.5px solid #93c5fd;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#1d4ed8;border:2px solid #1d4ed8;">1</div>
+    <div>
+      <h2 style="color:#1e3a8a;">Global Hemodynamics</h2>
+      <span style="color:#3b82f6;">HR · CO · SV<sub>LV</sub> — Pastikan output global benar sebelum masuk subsistem</span>
+    </div>
+  </div>
+  <div class="check-block" style="border-color:#93c5fd;">
+    <div class="check-label">
+      <span class="icon">💓</span>
+      <h3>Heart Rate &amp; Cardiac Output</h3>
+      <span class="range">HR: 61–87 bpm &nbsp;|&nbsp; CO: 4–8 L/min &nbsp;|&nbsp; SV: 60–100 mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ CO &lt; 4 L/min</div>
+        <div class="action action-low">
+          <div class="param">↑ E<sub>A,LV</sub></div>
+          <div class="effect"><b>Kontraktilitas aktif ↑</b> → puncak tekanan sistolik ↑ → SV ↑ → CO ↑<br>Efek samping: SBP ↑, RVEF ↑ (sekunder)</div>
+        </div>
+        <div class="action action-low">
+          <div class="param">↓ E<sub>B,LV</sub></div>
+          <div class="effect"><b>Compliance diastolik ↑</b> → preload ↑ → Frank-Starling → SV ↑<br>Efek samping: LVEDP ↓</div>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↓ R<sub>SC</sub> (alternatif)</div>
+          <div class="effect"><b>Afterload ↓</b> → ejeksi lebih efisien → SV ↑</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ Dalam Target</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Lanjut ke<br><b>Stage 2</b></div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ CO &gt; 8 L/min</div>
+        <div class="action action-high">
+          <div class="param">↑ R<sub>SC</sub></div>
+          <div class="effect"><b>Afterload ↑</b> → resistansi yang dilawan LV naik → SV ↓ → CO ↓<br>Efek samping: MAP ↑, DBP ↑</div>
+        </div>
+        <div class="action action-high">
+          <div class="param">↓ E<sub>A,LV</sub></div>
+          <div class="effect"><b>Kontraktilitas ↓</b> → ejeksi kurang sempurna → SV ↓ → CO ↓<br>Efek samping: SBP ↓, LVESV ↑</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 2 — LV VOLUMES
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#eff6ff;border:1.5px solid #93c5fd;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#1d4ed8;border:2px solid #1d4ed8;">2</div>
+    <div>
+      <h2 style="color:#1e3a8a;">LV Volume Block 🔵</h2>
+      <span style="color:#3b82f6;">LVEDV → E<sub>B,LV</sub> (preload) &nbsp;·&nbsp; LVESV → E<sub>A,LV</sub> (kontraktilitas) &nbsp;·&nbsp; LVEF = turunan</span>
+    </div>
+  </div>
+
+  <!-- LVEDV -->
+  <div class="check-block" style="border-color:#93c5fd;border-radius:0;margin-bottom:4px;">
+    <div class="check-label" style="background:#f0f9ff;">
+      <span class="icon">📦</span>
+      <h3>LVEDV — Volume Diastolik Akhir LV</h3>
+      <span class="range">87–137 mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 87 mL — Preload kurang</div>
+        <div class="action action-low">
+          <div class="param">↓ E<sub>B,LV</sub></div>
+          <div class="effect"><b>Dinding LV lebih kompliann</b> → volume pengisian ↑ pada LAP sama<br><br>Formula: <code>LVEDP = E<sub>B</sub> × (LVEDV − V₀)</code></div>
+          <span class="warn">⚡ LVEDP ikut turun — pantau tetap ≥ 3 mmHg</span>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↓ V₀<sub>LV</sub> (alternatif)</div>
+          <div class="effect">Volume efektif chamber ↑ → kapasitas pengisian ↑</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 87–137 mL</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Cek LVESV</div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 137 mL — Preload berlebih</div>
+        <div class="action action-high">
+          <div class="param">↑ E<sub>B,LV</sub></div>
+          <div class="effect"><b>Dinding LV lebih kaku</b> → volume pengisian ↓ → LVEDV ↓<br><br>Formula: <code>LVEDP = E<sub>B</sub> × (LVEDV − V₀)</code></div>
+          <span class="warn">⚡ LVEDP ikut naik — pantau tetap ≤ 12 mmHg</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LVESV -->
+  <div class="check-block" style="border-color:#93c5fd;border-radius:0;margin-bottom:4px;border-top:1px solid #dbeafe;">
+    <div class="check-label" style="background:#f0f9ff;">
+      <span class="icon">💪</span>
+      <h3>LVESV — Volume Sistolik Akhir LV</h3>
+      <span class="range">31–51 mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 31 mL — LV kosong terlalu penuh</div>
+        <div class="action action-low">
+          <div class="param">↓ E<sub>A,LV</sub></div>
+          <div class="effect"><b>Kontraktilitas aktif ↓</b> → ejeksi tidak sesempurna sebelumnya → LVESV ↑<br><br>Formula: <code>LVESP ≈ E<sub>A</sub>×e<sub>max</sub>×(LVESV−V₀)</code></div>
+          <span class="warn">⚡ SBP dan CO ikut turun</span>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↑ R<sub>SC</sub> — naikkan afterload</div>
+          <div class="effect">SVR ↑ → LV tidak bisa kosong penuh → LVESV ↑<br>Efek samping: MAP ↑</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 31–51 mL</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Cek LVEF</div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 51 mL — Ejeksi tidak sempurna</div>
+        <div class="action action-high">
+          <div class="param">↑ E<sub>A,LV</sub></div>
+          <div class="effect"><b>Kontraktilitas aktif ↑</b> → ejeksi lebih sempurna → LVESV ↓<br>Efek samping: SBP ↑, CO ↑, RVEF ↑ (sekunder)</div>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↓ R<sub>SC</sub> — kurangi afterload</div>
+          <div class="effect">Resistansi yang dilawan LV ↓ → ejeksi lebih efisien → LVESV ↓<br>Efek samping: MAP ↓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LVEF -->
+  <div class="check-block" style="border-color:#93c5fd;border-top:1px solid #dbeafe;">
+    <div class="check-label" style="background:#f0f9ff;">
+      <span class="icon">📊</span>
+      <h3>LVEF — Fraksi Ejeksi LV</h3>
+      <span class="range">52–72 %</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 52% — Kontraktilitas relatif kurang</div>
+        <div class="formula">LVEF = (LVEDV − LVESV) / LVEDV</div>
+        <div class="action action-low">
+          <div class="param">↑ E<sub>A,LV</sub> (primer)</div>
+          <div class="effect">LVESV ↓ lebih besar dari LVEDV → LVEF ↑</div>
+        </div>
+        <div class="coupling">💡 <b>Analisis:</b> Jika LVEDV normal + LVESV tinggi → murni masalah kontraktilitas → naikkan E<sub>A,LV</sub></div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 52–72 %</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Lanjut ke<br><b>Stage 3: RV</b></div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 72% — Hiperdinamik</div>
+        <div class="formula">LVEF = (LVEDV − LVESV) / LVEDV</div>
+        <div class="action action-high">
+          <div class="param">↓ E<sub>A,LV</sub> (primer)</div>
+          <div class="effect">LVESV ↑ → LVEF ↓<br>Perhatikan: SBP akan ikut turun</div>
+        </div>
+        <div class="coupling">💡 <b>Tip Iterasi-2→3:</b> Jika RVEF juga di atas target, turunkan E<sub>A,RV</sub> di Stage 3 — jangan hanya E<sub>A,LV</sub></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 3 — RV VOLUMES
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#faf5ff;border:1.5px solid #d8b4fe;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#7e22ce;border:2px solid #7e22ce;">3</div>
+    <div>
+      <h2 style="color:#4c1d95;">RV Volume Block 🟣</h2>
+      <span style="color:#9333ea;">RVEDV → E<sub>B,RV</sub> &nbsp;·&nbsp; RVESV → E<sub>A,RV</sub> &nbsp;·&nbsp; Sangat sensitif terhadap afterload pulmonal (PAP)</span>
+    </div>
+  </div>
+
+  <!-- RVEDV -->
+  <div class="check-block" style="border-color:#d8b4fe;border-radius:0;margin-bottom:4px;">
+    <div class="check-label" style="background:#faf5ff;">
+      <span class="icon">📦</span>
+      <h3>RVEDV — Volume Diastolik Akhir RV</h3>
+      <span class="range">64.6–160.5 mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 64.6 mL</div>
+        <div class="action action-low">
+          <div class="param">↓ E<sub>B,RV</sub></div>
+          <div class="effect"><b>RV lebih kompliann</b> → menerima volume lebih besar saat RAP sama → RVEDV ↑<br>RVEDP akan turun</div>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↑ C<sub>SVEN</sub></div>
+          <div class="effect">Kapasitas vena sistemik ↑ → aliran balik ke RA lebih stabil → RVEDV ↑</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 64.6–160.5 mL</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Cek RVESV</div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 160.5 mL — Dilatasi RV</div>
+        <div class="action action-high">
+          <div class="param">↑ E<sub>B,RV</sub></div>
+          <div class="effect"><b>RV lebih kaku saat diastol</b> → volume pengisian ↓ → RVEDV ↓<br>RVEDP akan naik</div>
+          <span class="warn">⚡ Kombinasi dengan E<sub>A,RV</sub> agar RVEF tidak drop</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RVESV -->
+  <div class="check-block" style="border-color:#d8b4fe;border-radius:0;margin-bottom:4px;border-top:1px solid #ede9fe;">
+    <div class="check-label" style="background:#faf5ff;">
+      <span class="icon">💪</span>
+      <h3>RVESV — Volume Sistolik Akhir RV</h3>
+      <span class="range">18.5–81.2 mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 18.5 mL — RV terlalu hiperdinamik</div>
+        <div class="action action-low">
+          <div class="param">↓ E<sub>A,RV</sub></div>
+          <div class="effect"><b>Kontraktilitas RV ↓</b> → ejeksi kurang sempurna → RVESV ↑<br>RVEDV akan ikut naik (Frank-Starling)</div>
+          <span class="warn">⚡ Turunkan bertahap! E<sub>A,RV</sub> 1.2→0.5 terlalu agresif (Iterasi-3): RVEDV +20mL di adult, +24% di pediatrik Zhang</span>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 18.5–81.2 mL</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Cek RVEF</div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 81.2 mL — Ejeksi RV terganggu</div>
+        <div class="action action-high">
+          <div class="param">↑ E<sub>A,RV</sub></div>
+          <div class="effect"><b>Kontraktilitas RV ↑</b> → ejeksi lebih sempurna → RVESV ↓</div>
+        </div>
+        <div class="action action-alt">
+          <div class="param">↓ R<sub>PAR</sub> — kurangi afterload pulmonal</div>
+          <div class="effect">PVR ↓ → RV lebih mudah mengosongkan → RVESV ↓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RVEF -->
+  <div class="check-block" style="border-color:#d8b4fe;border-top:1px solid #ede9fe;">
+    <div class="check-label" style="background:#faf5ff;">
+      <span class="icon">📊</span>
+      <h3>RVEF — Fraksi Ejeksi RV</h3>
+      <span class="range">50–66 %</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ &lt; 50% — Gagal ejeksi RV</div>
+        <div class="action action-low">
+          <div class="param">↑ E<sub>A,RV</sub></div>
+          <div class="effect">Jika PVR normal: masalah kontraktilitas intrinsik RV<br>Jika PVR tinggi: turunkan R<sub>PAR</sub> terlebih dahulu</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ 50–66 %</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Lanjut ke<br><b>Stage 4: Systemic</b></div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ &gt; 66% — Hiperdinamik (sering sekunder)</div>
+        <div class="action action-high">
+          <div class="param">↓ E<sub>A,RV</sub> secara bertahap</div>
+          <div class="effect">RVESV ↑ → RVEF ↓<br>Cek apakah RVEF tinggi karena CO ↑ (efek sekunder dari Stage 1)</div>
+        </div>
+        <div class="coupling">💡 <b>Penting:</b> Jika RVEF tinggi karena CO ↑, perbaiki CO di Stage 1 terlebih dahulu. RVEF sering membaik sendiri.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 4 — SYSTEMIC PRESSURES
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#f0fdf4;border:1.5px solid #86efac;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#15803d;border:2px solid #15803d;">4</div>
+    <div>
+      <h2 style="color:#14532d;">Systemic Pressure Block 🟢</h2>
+      <span style="color:#16a34a;">SBP · DBP · MAP · SVR — MAP primer via R<sub>SC</sub>, distribusi PP via C<sub>SAR</sub></span>
+    </div>
+  </div>
+  <div class="check-block" style="border-color:#86efac;">
+    <div class="check-label" style="background:#f0fdf4;">
+      <span class="icon">🩸</span>
+      <h3>SBP · DBP · MAP · SVR</h3>
+      <span class="range">SBP: 128–156 · DBP: 80–96 · MAP: 70–100 mmHg · SVR: 9.1–31.5 WU</span>
+    </div>
+    <!-- MAP row -->
+    <div style="padding:14px 18px;border-bottom:1px solid #f0fdf4;background:#fafffe;">
+      <div style="font-size:.78rem;font-weight:700;color:#15803d;margin-bottom:10px;">🎯 Langkah 4A — Kalibrasi MAP terlebih dahulu (MAP = CO × SVR)</div>
+      <div style="display:grid;grid-template-columns:1fr 200px 1fr;gap:0;">
+        <div style="padding:0 16px 0 0;">
+          <div class="status status-low">❌ MAP &lt; 70 mmHg</div>
+          <div class="action action-low" style="margin-top:8px;">
+            <div class="param">↑ R<sub>SC</sub> — naikkan SVR</div>
+            <div class="effect"><b>MAP ≈ CO × SVR</b> → SVR ↑ → MAP ↑<br>DBP juga akan naik sebagai bonus</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px solid #dcfce7;border-right:1px solid #dcfce7;padding:0 12px;">
+          <div style="background:#dcfce7;border:2px solid #22c55e;border-radius:8px;padding:8px 12px;text-align:center;font-weight:700;font-size:.82rem;color:#15803d;width:100%;">✅ 70–100 mmHg</div>
+          <div style="font-size:.7rem;color:#64748b;margin-top:6px;text-align:center;">Lanjut ke<br>langkah 4B</div>
+        </div>
+        <div style="padding:0 0 0 16px;">
+          <div class="status status-high">⚠️ MAP &gt; 100 mmHg</div>
+          <div class="action action-high" style="margin-top:8px;">
+            <div class="param">↓ R<sub>SC</sub> — turunkan SVR</div>
+            <div class="effect">SVR ↓ → MAP ↓<br>CO akan sedikit naik (afterload mismatch berkurang)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- SBP/DBP row -->
+    <div style="padding:14px 18px;">
+      <div style="font-size:.78rem;font-weight:700;color:#15803d;margin-bottom:10px;">🎯 Langkah 4B — Fine-tune distribusi tekanan sistol/diastol via C<sub>SAR</sub></div>
+      <div style="display:grid;grid-template-columns:1fr 200px 1fr;gap:0;">
+        <div style="padding:0 16px 0 0;">
+          <div class="status status-low">❌ SBP rendah, DBP OK</div>
+          <div class="action action-low" style="margin-top:8px;">
+            <div class="param">↓ C<sub>SAR</sub> — kurangi buffer aorta</div>
+            <div class="effect"><b>PP = SV/C<sub>SAR</sub></b> → C↓ → PP↑ → SBP↑<br>DBP bisa turun sedikit — kombinasi dengan ↑R<sub>SC</sub></div>
+          </div>
+          <div class="action action-low" style="margin-top:8px;">
+            <div class="param">↑ E<sub>A,LV</sub> — naikkan SV</div>
+            <div class="effect">SV lebih besar → PP lebih besar → SBP ↑ lebih natural<br>tanpa menurunkan DBP</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-left:1px solid #dcfce7;border-right:1px solid #dcfce7;padding:0 12px;">
+          <div style="background:#dcfce7;border:2px solid #22c55e;border-radius:8px;padding:8px 12px;text-align:center;font-weight:700;font-size:.82rem;color:#15803d;width:100%;">✅ SBP &amp; DBP OK</div>
+          <div style="font-size:.7rem;color:#64748b;margin-top:6px;text-align:center;">Lanjut ke<br><b>Stage 5</b></div>
+        </div>
+        <div style="padding:0 0 0 16px;">
+          <div class="status status-high">⚠️ DBP rendah, SBP OK</div>
+          <div class="action action-high" style="margin-top:8px;">
+            <div class="param">↑ C<sub>SAR</sub> — tambah buffer aorta</div>
+            <div class="effect"><b>Aorta menyimpan energi lebih banyak</b> → dilepas ke diastol → DBP ↑<br>SBP turun sedikit — trade-off inheren</div>
+          </div>
+        </div>
+      </div>
+      <div class="coupling" style="margin-top:12px;">
+        ⚡ <b>Dilemma Kalibrasi (Observasi Iterasi 1,2,3):</b> Jika SBP <i>dan</i> DBP keduanya rendah → naikkan R<sub>SC</sub> terlebih dahulu (MAP ↑ → semua tekanan terangkat), baru atur distribusi PP via C<sub>SAR</sub>. Jangan mulai dari C<sub>SAR</sub> karena perubahan C<sub>SAR</sub> bersifat <i>redistribusi</i>, bukan <i>peningkatan</i> tekanan absolut.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 5 — PULMONARY
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#fffbeb;border:1.5px solid #fcd34d;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#b45309;border:2px solid #b45309;">5</div>
+    <div>
+      <h2 style="color:#78350f;">Pulmonary Pressure Block 🟡</h2>
+      <span style="color:#d97706;">PAP<sub>mean</sub> → R<sub>PAR</sub> · Pulsatility → C<sub>PAR</sub> · PVR = konfirmasi</span>
+    </div>
+  </div>
+  <div class="check-block" style="border-color:#fcd34d;">
+    <div class="check-label" style="background:#fffbeb;">
+      <span class="icon">🌬️</span>
+      <h3>PAP<sub>sys</sub> · PAP<sub>dia</sub> · PAP<sub>mean</sub> · PVR</h3>
+      <span class="range">PAP<sub>sys</sub>: 15–30 · PAP<sub>dia</sub>: 4–12 · PAP<sub>mean</sub>: 8–20 mmHg · PVR: 0.3–2 WU</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side" style="background:#fffef5;">
+        <div class="status status-low">❌ PAP<sub>mean</sub> &gt; 20 atau PVR &gt; 2 WU</div>
+        <div class="action action-low">
+          <div class="param">↓ R<sub>PAR</sub> + ↓ R<sub>PCOX</sub></div>
+          <div class="effect"><b>Resistansi pulmonal ↓</b> → PVR ↓ → PAP<sub>mean</sub> ↓<br>Formula: <code>PVR = (PAP − LAP) / CO</code></div>
+        </div>
+        <div class="action action-low">
+          <div class="param">↑ C<sub>PAR</sub> (jika PAP<sub>sys</sub> terlalu tinggi)</div>
+          <div class="effect">Buffer arteri pulmonal ↑ → pulsatility ↓ → PAP<sub>sys</sub> ↓</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ Semua PAP OK</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Lanjut ke<br><b>Stage 6: Filling P</b></div>
+        <div class="center-loop">↺ Jika gagal:<br>iterasi ulang</div>
+      </div>
+      <div class="col-side" style="background:#fffef5;">
+        <div class="status status-high">⚠️ PAP<sub>mean</sub> &lt; 8 mmHg</div>
+        <div class="action action-high">
+          <div class="param">↑ R<sub>PAR</sub> (sangat sedikit)</div>
+          <div class="effect">Afterload pulmonal ↑ sedikit → PAP naik<br><b>Hati-hati:</b> jangan sampai RVEF drop</div>
+        </div>
+        <div class="coupling">💡 PAP rendah biasanya bukan masalah di model sehat. Cek apakah CO sudah dalam rentang — CO rendah juga berarti PAP rendah.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 6 — FILLING PRESSURES
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#fdf2f8;border:1.5px solid #f9a8d4;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#be185d;border:2px solid #be185d;">6</div>
+    <div>
+      <h2 style="color:#831843;">Filling &amp; Peak Pressure Block 🩷</h2>
+      <span style="color:#db2777;">LVEDP · RVEDP dikontrol E<sub>B</sub> · LVESP · RVESP dikontrol E<sub>A</sub> + afterload · LAP/RAP via compliance vena</span>
+    </div>
+  </div>
+  <div class="check-block" style="border-color:#f9a8d4;">
+    <div class="check-label" style="background:#fdf2f8;">
+      <span class="icon">💧</span>
+      <h3>LVEDP · RVEDP · LVESP · RVESP · LAP · RAP</h3>
+      <span class="range">LVEDP: 3–12 · RVEDP: &lt;8 · LVESP: 90–140 · RVESP: 20–30 · LAP: 2–12 · RAP: 2–6 mmHg</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#fce7f3;">
+      <div style="padding:16px;background:white;">
+        <div style="font-size:.8rem;font-weight:700;color:#1d4ed8;margin-bottom:10px;">🔵 Sisi Kiri (LV)</div>
+        <div class="action action-low" style="margin-bottom:8px;">
+          <div class="param">LVEDP &gt; 12: ↓ E<sub>B,LV</sub></div>
+          <div class="effect">Chamber lebih kompliann → LVEDP ↓<br>LVEDV akan naik — monitor tetap &lt; 137 mL</div>
+        </div>
+        <div class="action action-low" style="margin-bottom:8px;">
+          <div class="param">LVESP &lt; 90: ↑ E<sub>A,LV</sub></div>
+          <div class="effect">Puncak sistolik LV ↑ → LVESP ↑ → SBP ikut naik</div>
+        </div>
+        <div class="action action-low">
+          <div class="param">LAP &gt; 12: ↓ R<sub>PVEN</sub> atau ↑ C<sub>PVEN</sub></div>
+          <div class="effect">Aliran balik pulmonal lebih lancar → LAP ↓<br>Alternatif: turunkan LVEDP agar LV mudah terisi</div>
+        </div>
+      </div>
+      <div style="padding:16px;background:white;">
+        <div style="font-size:.8rem;font-weight:700;color:#7e22ce;margin-bottom:10px;">🟣 Sisi Kanan (RV)</div>
+        <div class="action action-high" style="margin-bottom:8px;border-color:#a855f7;">
+          <div class="param" style="color:#7e22ce;">RVEDP &gt; 8: ↓ E<sub>B,RV</sub></div>
+          <div class="effect">Chamber RV lebih kompliann → RVEDP ↓<br>RVEDV akan naik (Frank-Starling)</div>
+        </div>
+        <div class="action action-high" style="margin-bottom:8px;border-color:#a855f7;">
+          <div class="param" style="color:#7e22ce;">RVESP &lt; 20: ↑ E<sub>A,RV</sub></div>
+          <div class="effect">Atau cek PAP<sub>sys</sub> dulu: RVESP ≈ PAP<sub>sys</sub> di steady-state → pastikan PAP dikalibrasi dulu di Stage 5</div>
+        </div>
+        <div class="action action-high" style="border-color:#a855f7;">
+          <div class="param" style="color:#7e22ce;">RAP &gt; 6: ↑ C<sub>SVEN</sub></div>
+          <div class="effect">Kapasitas vena sistemik ↑ → tekanan balik ke RA ↓ → RAP ↓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#94a3b8" stroke-width="2" stroke-dasharray="4,3"/><polygon points="15,40 9,26 21,26" fill="#94a3b8"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     STAGE 7 — Qp/Qs
+══════════════════════════════════════════ -->
+<div class="stage">
+  <div class="stage-header" style="background:#f0f4f8;border:1.5px solid #94a3b8;border-bottom:none;border-radius:12px 12px 0 0;">
+    <div class="stage-num" style="color:#475569;border:2px solid #475569;">7</div>
+    <div>
+      <h2 style="color:#334155;">Verifikasi Konservasi Massa</h2>
+      <span style="color:#64748b;">Qp/Qs harus = 1.000 untuk model sehat tanpa shunt</span>
+    </div>
+  </div>
+  <div class="check-block" style="border-color:#94a3b8;">
+    <div class="check-label">
+      <span class="icon">⚖️</span>
+      <h3>Qp/Qs Ratio</h3>
+      <span class="range">Target: 1.000 &nbsp;|&nbsp; R<sub>VSD</sub> = 10⁶ mmHg·s/mL</span>
+    </div>
+    <div class="three-col">
+      <div class="col-side col-left">
+        <div class="status status-low">❌ Qp/Qs &gt; 1.05</div>
+        <div class="action action-low">
+          <div class="param">Cek R<sub>VSD</sub></div>
+          <div class="effect">Jika R<sub>VSD</sub> &lt; 10⁶ → shunt L→R aktif tanpa disengaja<br>Set ke 10⁶ mmHg·s/mL</div>
+        </div>
+        <div class="action action-alt">
+          <div class="param">Cek mass conservation di ODE</div>
+          <div class="effect">Periksa toleransi solver: rtol=1e-5, atol=1e-6</div>
+        </div>
+      </div>
+      <div class="col-center">
+        <div class="center-ok">✅ ≈ 1.000</div>
+        <div class="center-arrow">↓</div>
+        <div class="center-label">Model Valid</div>
+      </div>
+      <div class="col-side col-right">
+        <div class="status status-high">⚠️ Qp/Qs &lt; 0.95</div>
+        <div class="action action-high">
+          <div class="param">Cek konvergensi steady-state</div>
+          <div class="effect">Tambah nCyclesSteady jika belum konvergen<br>Atau periksa inisialisasi kondisi awal (IC)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="stage-arrow">
+  <svg width="30" height="40"><line x1="15" y1="0" x2="15" y2="30" stroke="#22c55e" stroke-width="2.5"/><polygon points="15,40 9,26 21,26" fill="#22c55e"/></svg>
+</div>
+
+<!-- ══════════════════════════════════════════
+     END
+══════════════════════════════════════════ -->
+<div class="end-block">
+  <h2>✅ Model Tervalidasi — Semua Indeks dalam Target</h2>
+  <p>Lanjutkan ke: <b>scaling pediatrik</b> (apply_scaling.m) atau simulasi <b>VSD pre/post-operasi</b></p>
+  <div class="end-tags">
+    <span class="end-tag">CO ✓</span><span class="end-tag">LVEF ✓</span><span class="end-tag">RVEF ✓</span>
+    <span class="end-tag">LVEDV ✓</span><span class="end-tag">LVESV ✓</span><span class="end-tag">RVEDV ✓</span>
+    <span class="end-tag">RVESV ✓</span><span class="end-tag">SBP ✓</span><span class="end-tag">DBP ✓</span>
+    <span class="end-tag">MAP ✓</span><span class="end-tag">PAP ✓</span><span class="end-tag">PVR ✓</span>
+    <span class="end-tag">SVR ✓</span><span class="end-tag">LVEDP ✓</span><span class="end-tag">RVEDP ✓</span>
+    <span class="end-tag">LAP ✓</span><span class="end-tag">RAP ✓</span><span class="end-tag">Qp/Qs ✓</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     SENSITIVITY MATRIX
+══════════════════════════════════════════ -->
+<div class="matrix-section">
+  <div class="sec-title">📊 Matriks Sensitivitas — Parameter vs Indeks Klinis</div>
+  <p style="font-size:.78rem;color:#64748b;margin-bottom:14px;">
+    <span style="background:#bbf7d0;color:#14532d;padding:2px 6px;border-radius:4px;font-weight:700;">++</span> Kuat positif &nbsp;
+    <span style="background:#dcfce7;color:#166534;padding:2px 6px;border-radius:4px;">+</span> Lemah positif &nbsp;
+    <span style="background:#fecaca;color:#7f1d1d;padding:2px 6px;border-radius:4px;font-weight:700;">--</span> Kuat negatif &nbsp;
+    <span style="background:#fee2e2;color:#991b1b;padding:2px 6px;border-radius:4px;">-</span> Lemah negatif &nbsp;
+    <span style="background:#fef9c3;color:#713f12;padding:2px 6px;border-radius:4px;">±</span> Efek sekunder &nbsp;
+    <span style="color:#cbd5e1;padding:2px 6px;">~</span> Tidak signifikan
+  </p>
+  <div class="matrix-wrap">
+    <table class="mx">
+      <thead>
+        <tr>
+          <th style="text-align:left;min-width:130px;background:#f8fafc;">Indeks Klinis</th>
+          <th class="ph">E<sub>A,LV</sub></th>
+          <th class="ph">E<sub>B,LV</sub></th>
+          <th class="ph" style="background:#faf5ff;color:#7e22ce;">E<sub>A,RV</sub></th>
+          <th class="ph" style="background:#faf5ff;color:#7e22ce;">E<sub>B,RV</sub></th>
+          <th class="ph" style="background:#f0fdf4;color:#15803d;">R<sub>SC</sub></th>
+          <th class="ph" style="background:#f0fdf4;color:#15803d;">C<sub>SAR</sub></th>
+          <th class="ph" style="background:#fffbeb;color:#b45309;">R<sub>PAR</sub></th>
+          <th class="ph" style="background:#fffbeb;color:#b45309;">C<sub>PAR</sub></th>
+          <th class="ph" style="background:#fdf2f8;color:#be185d;">C<sub>PVEN</sub></th>
+          <th class="ph" style="background:#fdf2f8;color:#be185d;">C<sub>SVEN</sub></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="grp" colspan="11">🔵 GLOBAL</td></tr>
+        <tr><td class="lbl">CO [L/min]</td><td class="pp">++</td><td class="p">+</td><td class="ss">±</td><td class="zz">~</td><td class="nn">--</td><td class="zz">~</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">SV<sub>LV</sub> [mL]</td><td class="pp">++</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+
+        <tr><td class="grp" colspan="11">🔵 LV VOLUMES</td></tr>
+        <tr><td class="lbl">LVEDV [mL]</td><td class="ss">±</td><td class="nn">--</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="ss">±</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">LVESV [mL]</td><td class="nn">--</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">LVEF [%]</td><td class="pp">++</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">LVEDP [mmHg]</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">LVESP [mmHg]</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+
+        <tr><td class="grp" colspan="11">🟣 RV VOLUMES</td></tr>
+        <tr><td class="lbl">RVEDV [mL]</td><td class="ss">±</td><td class="zz">~</td><td class="ss">±</td><td class="nn">--</td><td class="zz">~</td><td class="zz">~</td><td class="ss">±</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td></tr>
+        <tr><td class="lbl">RVESV [mL]</td><td class="zz">~</td><td class="zz">~</td><td class="nn">--</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">RVEF [%]</td><td class="ss">±</td><td class="zz">~</td><td class="pp">++</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="n">-</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">RVEDP [mmHg]</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="n">-</td></tr>
+
+        <tr><td class="grp" colspan="11">🟢 SYSTEMIC PRESSURES</td></tr>
+        <tr><td class="lbl">SBP [mmHg]</td><td class="pp">++</td><td class="ss">±</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="nn">--</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">DBP [mmHg]</td><td class="ss">±</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">MAP [mmHg]</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">SVR [WU]</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+
+        <tr><td class="grp" colspan="11">🟡 PULMONARY PRESSURES</td></tr>
+        <tr><td class="lbl">PAP<sub>mean</sub> [mmHg]</td><td class="ss">±</td><td class="zz">~</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">PAP<sub>sys</sub> [mmHg]</td><td class="ss">±</td><td class="zz">~</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="nn">--</td><td class="zz">~</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">PVR [WU]</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="pp">++</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+
+        <tr><td class="grp" colspan="11">🩷 FILLING PRESSURES</td></tr>
+        <tr><td class="lbl">LAP<sub>mean</sub> [mmHg]</td><td class="ss">±</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="nn">--</td><td class="zz">~</td></tr>
+        <tr><td class="lbl">RAP<sub>mean</sub> [mmHg]</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="p">+</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="nn">--</td></tr>
+        <tr><td class="lbl">Qp/Qs</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td><td class="zz">~</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     CONFLICT CARDS
+══════════════════════════════════════════ -->
+<div class="matrix-section">
+  <div class="sec-title">⚡ Resolusi Konflik Parameter</div>
+  <div class="conflict-grid">
+    <div class="conflict-card">
+      <h4>🟢 SBP dan DBP keduanya rendah</h4>
+      <ul>
+        <li>Mengubah <code>C<sub>SAR</sub></code> hanya mendistribusi ulang PP — tidak menaikkan tekanan absolut</li>
+        <li class="solution">Solusi: Naikkan <code>R<sub>SC</sub></code> terlebih dahulu untuk angkat MAP secara keseluruhan</li>
+        <li class="solution">Lalu: Naikkan <code>E<sub>A,LV</sub></code> untuk menaikkan SV → PP lebih besar → SBP ↑</li>
+      </ul>
+    </div>
+    <div class="conflict-card">
+      <h4>🟣 RVEF tinggi tapi RVEDV juga tinggi</h4>
+      <ul>
+        <li>Menurunkan <code>E<sub>A,RV</sub></code> terlalu drastis → RVEDV melambung (Frank-Starling)</li>
+        <li class="solution">Solusi: Turunkan <code>E<sub>A,RV</sub></code> bertahap (mis. 1.2 → 0.9 → 0.7) + naikkan <code>E<sub>B,RV</sub></code> sedikit untuk membatasi RVEDV</li>
+        <li>Pelajaran Iterasi-3: 58% penurunan sekaligus terlalu agresif</li>
+      </ul>
+    </div>
+    <div class="conflict-card">
+      <h4>🔵 LVEF stabil saat menaikkan CO</h4>
+      <ul>
+        <li>Mengubah hanya <code>E<sub>A,LV</sub></code> atau hanya <code>E<sub>B,LV</sub></code> → LVEF berubah</li>
+        <li class="solution">Solusi: Ubah keduanya secara berpasangan — EA ↑ + EB ↓ → CO ↑ tapi LVEF tetap stabil</li>
+        <li>Contoh: Iterasi-2 — EA 3.0→3.5, EB 0.08→0.06 → LVEF tetap 69.33%</li>
+      </ul>
+    </div>
+    <div class="conflict-card">
+      <h4>🩷 LVEDP tinggi tapi LVEDV masih dalam rentang</h4>
+      <ul>
+        <li>Turunkan <code>E<sub>B,LV</sub></code> → LVEDP ↓, tapi LVEDV naik</li>
+        <li class="solution">Solusi: Aman selama LVEDV tetap di bawah 137 mL</li>
+        <li>Ingat: <code>LVEDP = E<sub>B</sub> × (LVEDV − V₀)</code> — keduanya terhubung erat</li>
+      </ul>
+    </div>
+    <div class="conflict-card">
+      <h4>🟡 PAP↓ tapi RVEF sudah rendah</h4>
+      <ul>
+        <li>Menurunkan <code>R<sub>PAR</sub></code> → afterload RV ↓ → ejeksi lebih mudah → RVEF ↑</li>
+        <li class="solution">Tidak ada konflik! Mengurangi PVR justru membantu RVEF yang rendah</li>
+        <li>Konflik hanya terjadi jika RVEF sudah terlalu tinggi sebelumnya</li>
+      </ul>
+    </div>
+    <div class="conflict-card">
+      <h4>🔵 Adult OK tapi Pediatrik Zhang overshoot</h4>
+      <ul>
+        <li>Parameter yang optimal untuk adult menyebabkan respons 2–2.5× lebih besar di pediatrik (amplifikasi allometrik)</li>
+        <li class="solution">Solusi: Gunakan nilai intermediate — mis. E<sub>A,RV</sub> tidak perlu turun sampai 0.5, cukup 0.7–0.9</li>
+        <li class="solution">Periksa scaling <code>V₀</code> di <code>apply_scaling.m</code> untuk CO pediatrik yang rendah</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+</div><!-- end .page -->
+</body>
+</html>

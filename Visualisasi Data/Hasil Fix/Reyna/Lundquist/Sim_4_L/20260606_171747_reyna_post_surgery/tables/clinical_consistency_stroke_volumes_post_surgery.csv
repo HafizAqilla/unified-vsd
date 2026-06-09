@@ -1,0 +1,5 @@
+Estimate,Value,Unit,Formula
+SV_Qs,21.344537815126,mL/beat,CO_Lmin * 1000 / HR
+SV_Qp,19.2100840336134,mL/beat,CO_Lmin * QpQs * 1000 / HR
+SV_LV,22.3256544502618,mL/beat,LVEDV - LVESV
+SV_RV,18.5,mL/beat,RVEDV - RVESV

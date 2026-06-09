@@ -55,7 +55,7 @@ is_synthetic = contains(lower(case_id), 'patient_profile') || ...
 
 profile = base_profile(case_id, scenario);
 if recipe_found
-    profile = apply_recipe_governance(profile, recipe);
+    profile = apply_recipe_governance(profile, recipe, clinical);
 elseif is_synthetic
     profile.mode = 'synthetic_benchmark';
     profile.description = 'Synthetic benchmark; useful for stress testing, not patient-specific inference.';
@@ -96,6 +96,10 @@ switch profile.mode
         profile.metricWeightOverrides = struct('QpQs', 1.3, 'Q_shunt_Lmin', 1.5, ...
             'PAP_mean', 1.2, 'SAP_mean', 1.2, 'CO_Lmin', 1.3);
         profile.validationGatePolishEnabled = true;
+    case 'reyna_recipe'
+        % Explicit patient-scenario recipes are complete governance
+        % contracts; do not overwrite their active set or bounds with a
+        % generic evidence-derived profile.
     otherwise
         profile.stageCPreferredNames = {'R.vsd','vsd.Cd','group.R_pul_scale', ...
             'group.R_sys_scale','C.SAR','C.PAR','E.LV.EA'};
@@ -112,7 +116,7 @@ end
 profile = apply_age_validity_prior_adjustment(profile, clinical);
 end
 
-function profile = apply_recipe_governance(profile, recipe)
+function profile = apply_recipe_governance(profile, recipe, clinical)
 % APPLY_RECIPE_GOVERNANCE - use explicit patient-scenario recipe contract.
 profile.mode = recipe.profile_mode;
 profile.description = recipe.description;
@@ -132,6 +136,15 @@ if isfield(recipe, 'accept_initial_seed_scaling_modes')
 end
 profile.stageCPreferredNames = recipe.stage_c_parameters;
 profile.boundScale = recipe.bound_scale;
+requested_scaling_mode = resolve_requested_scaling_mode(clinical, recipe);
+if isfield(recipe, 'absolute_bounds') && ...
+        applies_to_scaling_mode(recipe.absolute_bounds, requested_scaling_mode)
+    profile.absoluteBounds = recipe.absolute_bounds;
+end
+if isfield(recipe, 'zhang_absolute_bounds') && ...
+        applies_to_scaling_mode(recipe.zhang_absolute_bounds, requested_scaling_mode)
+    profile.absoluteBounds = recipe.zhang_absolute_bounds;
+end
 profile.metricWeightOverrides = recipe.metric_weight_overrides;
 profile.validationHoldoutMetrics = recipe.validation_holdout;
 profile.preferredScalingMode = recipe.preferred_scaling_mode;
@@ -155,6 +168,36 @@ profile.targetGovernance = sprintf(['recipe=%s@%s; explicit pressure-flow ', ...
     recipe.id, recipe.version);
 end
 
+function scaling_mode = resolve_requested_scaling_mode(clinical, recipe)
+% RESOLVE_REQUESTED_SCALING_MODE - mirror main_run scaling-mode precedence.
+scaling_mode = getenv('UNIFIED_VSD_SCALING_MODE');
+if isfield(clinical, 'common') && isfield(clinical.common, 'scaling_mode') && ...
+        ~isempty(clinical.common.scaling_mode)
+    scaling_mode = clinical.common.scaling_mode;
+end
+if isempty(scaling_mode)
+    scaling_mode = recipe.preferred_scaling_mode;
+end
+scaling_mode = lower(strtrim(char(scaling_mode)));
+if strcmp(scaling_mode, 'lundquist') || strcmp(scaling_mode, 'lundqvist')
+    scaling_mode = 'lundquist_bsa';
+end
+end
+
+function tf = applies_to_scaling_mode(recipe_block, scaling_mode)
+% APPLIES_TO_SCALING_MODE - true when a recipe block is mode-agnostic or listed.
+if ~isfield(recipe_block, 'scaling_modes') || isempty(recipe_block.scaling_modes)
+    tf = true;
+    return;
+end
+allowed_modes = recipe_block.scaling_modes(:);
+allowed_modes = cellfun(@(value) lower(strtrim(char(value))), ...
+    allowed_modes, 'UniformOutput', false);
+allowed_modes(strcmp(allowed_modes, 'lundquist') | ...
+    strcmp(allowed_modes, 'lundqvist')) = {'lundquist_bsa'};
+tf = any(strcmp(allowed_modes, scaling_mode));
+end
+
 function config = make_recipe_target_tier_config(recipe)
 % MAKE_RECIPE_TARGET_TIER_CONFIG - target-tier config from recipe.
 config = struct();
@@ -165,6 +208,9 @@ config.consistency_only = recipe.consistency_only;
 config.derived_validation = recipe.derived_validation;
 config.validation_holdout = recipe.validation_holdout;
 config.primary_rmse_holdout = recipe.primary_rmse_holdout;
+if isfield(recipe, 'skip_post_op_echo_derived_tiers')
+    config.skip_post_op_echo_derived_tiers = recipe.skip_post_op_echo_derived_tiers;
+end
 config.hard_weight_multiplier = 1.00;
 config.soft_weight_multiplier = 0.45;
 config.metric_weight_multipliers = struct( ...

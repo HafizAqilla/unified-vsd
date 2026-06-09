@@ -1,13 +1,27 @@
-function params = params_from_clinical(params, clinical, scenario, reference_params, case_profile)
+function params = params_from_clinical(params, clinical, scenario, reference_params, case_profile, varargin)
 % PARAMS_FROM_CLINICAL
 % -----------------------------------------------------------------------
 % Maps scenario-specific clinical data into model parameters and rebuilds
 % the initial-condition vector. Vascular V0 (especially V0.SVEN) is
 % reconciled for blood-volume/preload consistency without mutating chamber V0.
 %
+% OPTIONAL NAME-VALUE ARGUMENTS:
+%   'prediction_baseline'  - logical (default: false)
+%       When true (post-surgery prediction mode), the following steps are
+%       SKIPPED so that the baseline simulation uses only the pre-op
+%       calibrated parameter seed:
+%         - Post-op HR override
+%         - seed_arterial_compliance_from_clinical (C.SAR, C.PAR)
+%         - enforce_vascular_rc_coupling (compliance scaling)
+%         - reconcile_vascular_v0 (V0.SVEN blood-volume balance)
+%         - Post-op clinical pressures / volumes in build_initial_conditions
+%       The VSD closure (configure_vsd) and IC rebuild are always applied,
+%       but in prediction mode the IC is seeded from params alone (no
+%       post-op MAP, RAP, PAP, LVEDV, RVEDV, or CO_Lmin).
+%
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-04-28
-% VERSION:  2.0
+% VERSION:  2.1
 % -----------------------------------------------------------------------
 
 R_VSD_CLOSED = 1e6;
@@ -32,15 +46,27 @@ if nargin < 5
     case_profile = struct();
 end
 
+% Parse optional name-value pair: 'prediction_baseline'
+prediction_baseline = false;
+for varg_idx = 1:2:numel(varargin)
+    if strcmpi(varargin{varg_idx}, 'prediction_baseline')
+        prediction_baseline = logical(varargin{varg_idx + 1});
+    end
+end
+
 if isfield(common, 'HR') && ~isnan(common.HR)
     params.HR = common.HR;
     params = recompute_timing(params);
 end
 
-if strcmp(scenario, 'post_surgery') && isfield(src, 'HR') && ...
-        isfinite(src.HR) && src.HR > 0
+if strcmp(scenario, 'post_surgery') && ~prediction_baseline && ...
+        isfield(src, 'HR') && isfinite(src.HR) && src.HR > 0
     params.HR = src.HR;  % [bpm] post-operative measured heart rate
     params = recompute_timing(params);
+elseif strcmp(scenario, 'post_surgery') && prediction_baseline
+    % PREDICTION MODE: retain pre-op HR from the calibrated seed.
+    % Do not override with post-operative measured heart rate.
+    params.clinical_override.HR_source = 'pre_op_calibrated_warm_start';
 end
 
 rv_edv_consistency_only = is_metric_consistency_only(case_profile, 'RVEDV');
@@ -79,17 +105,47 @@ if isfield(src, 'PVR_WU') && ~isnan(src.PVR_WU)
     params.clinical_override.PVR_target_diag = PVR_diag;
 end
 
-params = seed_arterial_compliance_from_clinical(params, src, scenario, case_profile);
+if ~prediction_baseline
+    % NORMAL MODE: re-seed C.SAR and C.PAR from post-op SV/PP Windkessel.
+    params = seed_arterial_compliance_from_clinical(params, src, scenario, case_profile);
+else
+    % PREDICTION MODE: C.SAR and C.PAR are retained from the pre-op
+    % calibrated warm-start. Do not overwrite with post-op clinical data.
+    params.clinical_override.C_SAR_seed_source = 'pre_op_calibrated_warm_start';
+    params.clinical_override.C_PAR_seed_source = 'pre_op_calibrated_warm_start';
+    params.clinical_override.arterial_compliance_seed_mode = 'post_surgery_prediction_from_preop';
+end
+
+% VSD closure is always applied regardless of prediction mode.
 params = configure_vsd(params, src, scenario, R_VSD_CLOSED, Lmin_to_mLs);
 
 if isfield(src, 'override_IC') && isequal(src.override_IC, true)
     params = apply_chamber_tuning_from_clinical(params, src, case_profile);
 end
 
-params = enforce_vascular_rc_coupling(params, reference_params, case_profile);
+if ~prediction_baseline
+    % NORMAL MODE: enforce RC coupling (may scale C from reference R values)
+    % and reconcile V0.SVEN for blood-volume conservation.
+    params = enforce_vascular_rc_coupling(params, reference_params, case_profile);
+    patient = params.scaling.patient;
+    params = reconcile_vascular_v0(params, patient, clinical, scenario);
+else
+    % PREDICTION MODE: V0.SVEN is retained from the pre-op calibrated seed.
+    % Skipping RC coupling and blood-volume reconciliation keeps the vascular
+    % compartment volumes fully consistent with pre-op physiology.
+    params.clinical_override.V0_SVEN_source = 'pre_op_calibrated_warm_start';
+    params.clinical_override.vascular_rc_coupling_enabled = false;
+end
+
 patient = params.scaling.patient;
-params = reconcile_vascular_v0(params, patient, clinical, scenario);
-params.ic.V = build_initial_conditions(params, patient, clinical, scenario);
+if prediction_baseline
+    % PREDICTION MODE: build initial conditions from params only.
+    % Pass empty clinical so that post-op pressures (MAP, RAP, PAP),
+    % volumes (LVEDV, RVEDV), and CO cannot seed the IC vector.
+    params.ic.V = build_initial_conditions(params, patient, [], scenario);
+else
+    params.ic.V = build_initial_conditions(params, patient, clinical, scenario);
+end
 
 end
 

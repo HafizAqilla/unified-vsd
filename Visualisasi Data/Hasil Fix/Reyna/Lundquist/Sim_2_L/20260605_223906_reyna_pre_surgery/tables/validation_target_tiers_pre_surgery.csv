@@ -1,0 +1,27 @@
+Metric,Tier,IncludedInCalibration,IncludedInPrimaryRMSE,Flag,Reason
+RAP_min,unavailable,0,0,none,none
+RAP_mean,hard,1,1,none,none
+RAP_max,unavailable,0,0,none,none
+LAP_min,unavailable,0,0,none,none
+LAP_mean,unavailable,0,0,none,none
+LAP_max,unavailable,0,0,none,none
+LVEDP,unavailable,0,0,none,none
+RVEDP,unavailable,0,0,none,none
+PAP_min,validation_only,0,1,none,none
+PAP_max,validation_only,0,1,none,none
+PAP_mean,hard,1,1,none,none
+SAP_min,soft,1,1,none,none
+SAP_max,soft,1,1,none,none
+SAP_mean,hard,1,1,none,none
+QpQs,hard,1,1,none,none
+Q_shunt_Lmin,soft,1,0,primary_rmse_holdout,Used during calibration/reporting but excluded from governed primary RMSE.
+PVR,unavailable,0,0,none,none
+SVR,derived_validation,0,0,derived_validation,Derived from source pressures/flows; retained for validation only.
+CO_Lmin,hard,1,1,none,none
+VSD_frac_pct,unavailable,0,0,none,none
+LVEDV,consistency_check_only,0,0,inconsistent_or_unverified,Echo-derived LVEDV conflicts with catheter-derived pulmonary stroke volume; keep visible but exclude from hard fitting.
+LVESV,consistency_check_only,0,0,inconsistent_or_unverified,Echo-derived LVESV conflicts with catheter-derived pulmonary stroke volume; keep visible but exclude from hard fitting.
+RVEDV,consistency_check_only,0,0,inconsistent_or_unverified,Echo-derived RVEDV conflicts with catheter-derived pulmonary stroke volume; keep visible but exclude from hard fitting.
+RVESV,soft,1,1,none,none
+LVEF,consistency_check_only,0,0,consistency_check_only,EF is directly derived from LVEDV and LVESV; excluded from fitting to avoid double-counting echo volumes.
+RVEF,unavailable,0,0,none,none

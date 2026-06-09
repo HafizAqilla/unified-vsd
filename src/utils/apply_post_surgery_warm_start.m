@@ -41,12 +41,20 @@ if ~strcmp(scenario, 'post_surgery') || ~has_calib_params(clinical)
 end
 
 params_pre = clinical.pre_surgery.CalibParams;
+% Parameters transferred from pre-op calibrated model to post-op baseline.
+% Excluded (kept from baseline-scaled defaults):
+%   C.SVEN  — venous compliance may change post-closure
+%   E.LV.EB — LV diastolic stiffness: use scaled baseline
+%   E.RA.EA — RA active elastance: use scaled baseline
+%   E.RV.EB — RV diastolic stiffness: use scaled baseline
+%   R.SAR   — systemic arterial resistance: re-seeded from post-op SVR
+%   R.SVEN  — systemic venous resistance: re-seeded from post-op SVR
 copy_paths = {
-    'E.LV.EA', 'E.LV.EB', 'E.RV.EA', 'E.RV.EB', ...
-    'E.LA.EA', 'E.LA.EB', 'E.RA.EA', 'E.RA.EB', ...
+    'E.LV.EA', 'E.RV.EA', ...
+    'E.LA.EA', 'E.LA.EB', 'E.RA.EB', ...
     'V0.LV', 'V0.RV', 'V0.LA', 'V0.RA', ...
-    'R.SAR', 'R.SC', 'R.SVEN', 'R.PAR', 'R.PCOX', 'R.PCNO', 'R.PVEN', ...
-    'C.SAR', 'C.SVEN', 'C.PAR', 'C.PVEN'};
+    'R.SC', 'R.PAR', 'R.PCOX', 'R.PCNO', 'R.PVEN', ...
+    'C.SAR', 'C.PAR', 'C.PVEN', 'C.PCOX', 'C.SC'};
 
 for path_idx = 1:numel(copy_paths)
     [params, did_copy] = copy_numeric_scalar(params, params_pre, copy_paths{path_idx});

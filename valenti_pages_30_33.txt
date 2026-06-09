@@ -1,0 +1,310 @@
+
+
+--- PAGE 30 ---
+22 2| Mathematical Models and Numerical Methods
+For each RLC compartment the pressure and flow rate equations can be computed (Equa-
+tions 2.5).
+L
+dQo
+dt
++R ·Qo = Pi − Po,
+C
+d(Pi − pex)
+dt
+= Qi −Qo
+(2.5)
+Figure 2.1: Single compartment circuit representation, legend i:input, o:output. Image
+taken from [1]
+Finally, each cardiac valve resistance RTV (pRA, pRV ), RPV (pRV , p
+PUL
+AR ), RMV (pLA, pLV ),
+RAV (pLV , p
+SY S
+AR ) depend on its Pre-valve and Post-valve pressures according to the follow-
+ing relationship:
+Ri(p1, p2) =
+Rmin if p1 > p2
+Rmax if p1 ≤ p2
+for i ∈ {MV,AV, TV, PV }, (2.6)
+where p1 and p2 represent the upstream and downstream pressures with respect to the
+flow direction, whereas Rmin and Rmax are the minimum and maximum resistance of the
+valves.
+In an ideal valve, Rmin would be 0 to simulate complete opening and perfect blood passage.
+Rmax, on the other hand, would be infinitely large (+∞) to model a complete closure of
+the leaflets.
+In reality there is dissipation of mechanical energy in the first scenario and some blood
+leakage (called ‘valve regurgitation’) in the second one.
+
+
+--- PAGE 31 ---
+2| Mathematical Models and Numerical Methods 23
+Figure 2.2: Lumped-parameter cardiocirculatory model. The system unkwnown pressures
+and flow rates are in red and blue, respectively, whereas the model parameters are in black.
+Image taken from [31]
+The resulting system of ODEs associated with the lumped-parameters system is obtained
+by setting the continuity equations of flow rates at the circuit nodes and of pressure in
+the vessels. By solving this system it can be obtained the numerical solution of the
+temporal trend within one heartbeat of the system unknowns: the 4 chambers volumes
+
+
+--- PAGE 32 ---
+24 2| Mathematical Models and Numerical Methods
+VRA(t), VLA(t), VRV (t), VLV (t), the systemic and pulmonary arterial, capillary and venous
+pressures pSY S
+V EN(t), pPUL
+V EN(t), pSY S
+AR (t), pPUL
+AR (t), pSY S
+C (t), pPUL
+C (t), and the systemic and pul-
+monary arterial and venous blood fluxes QSY S
+V EN(t), QPUL
+V EN(t), QSY S
+AR (t), QPUL
+AR (t).
+
+CSY S
+V EN
+dpSY S
+V EN
+dt
+= QSY S
+AR −QSY S
+V EN CPUL
+V EN
+dpPUL
+V EN
+dt
+= QPUL
+AR −QPUL
+V EN
+LSY S
+V EN
+RSY S
+V EN
+dQSY S
+V EN
+dt
+= −QSY S
+V EN −
+pRA − pSY S
+V EN
+RSY S
+V EN
+LPUL
+V EN
+RPUL
+V EN
+dQPUL
+V EN
+dt
+= −QPUL
+V EN −
+pLA − pPUL
+V EN
+RPUL
+V EN
+dVRA
+dt
+= QSY S
+V EN −QTV (pRA, pRV )
+dVLA
+dt
+= QPUL
+V EN −QMV (pLA, pLV )
+dVRV
+dt
+= QTV (pRA, pRV )−QPV (pRV , pPUL
+AR )
+dVLV
+dt
+= QMV (pLA, pLV )−QAV (pLV , pSY S
+AR )
+CPUL
+AR
+dpPUL
+AR
+dt
+= QPV (pRV , pPUL
+AR )−QPUL
+AR CSY S
+AR
+dpSY S
+AR
+dt
+= QAV (pLV , pSY S
+AR )−QSY S
+AR
+LPUL
+AR
+RPUL
+AR
+dQPUL
+AR
+dt
+= −QPUL
+AR −
+pPUL
+V EN − pPUL
+AR
+RPUL
+AR
+LSY S
+AR
+RSY S
+AR
+dQSY S
+AR
+dt
+= −QSY S
+AR −
+pSY S
+V EN − pSY S
+AR
+RSY S
+AR
+CSY S
+C
+dpSY S
+C
+dt
+= QSY S
+AR −QSY S
+C (pSY S
+C , pSY S
+V EN )
+dpPUL
+C
+dt
+=
+QPUL
+AR −QSH(pPUL
+C , pPUL
+V EN )−QPUL
+C (pPUL
+C , pPUL
+V EN )
+(CPUL
+C + CSH)
+(2.7)
+From the unknowns a lot other quantities can be computed, such as the atrial and
+ventricular pressures pRA(t), pLA(t), pRV (t), pLV (t), the blood fluxes through the cardiac
+valves QTV (t), QMV (t), QPV (t), QAV (t), the fluxes across the capillaries QSY S
+C (t), QPUL
+C (t)
+, QSH(t) and a lot more useful quantities. Some of these important clinical quantities are
+listed in the Table 2.3.
+Given the substantial physical variability among patients, it is also possible to calculate
+the indexed version of these clinical quantities by dividing them by the Body Surface Area
+BSA, making them more standardized and comparable across individuals with different
+body sizes.
+
+
+--- PAGE 33 ---
+2| Mathematical Models and Numerical Methods 25
+Table 2.3: Computable patient quantities
+Acronym Full Name Calculation Units
+V MAX
+LA Left Atrial Maximal Volume max(VLA) ml
+LVSV Left Ventricular Stroke Volume max(VLV )−min(VLV ) ml
+CO Cardiac Output LVSV × HR
+1000
+l/min
+LVEDV Left Ventricular End Diastolic Volume max(VLV ) ml
+LVESV Left Ventricular End Systolic Volume min(VLV ) ml
+LVEF Left Ventricular Ejection Fraction LVSV
+LVEDV
+× 100 %
+PMAX
+LA Left Atrial Maximal Pressure max(PLA) mmHg
+PMIN
+LA Left Atrial Minimal Pressure min(PLA) mmHg
+PMEAN
+LA Left Atrial Mean Pressure
+∫
+THB
+PLA dt
+THB
+mmHg
+PMAX
+LV Left Ventricular Maximal Pressure max(PLV ) mmHg
+PMIN
+LV Left Ventricular Minimal Pressure min(PLV ) mmHg
+V MAX
+RA Right Atrial Maximal Volume max(VRA) ml
+RVSV Right Ventricular Stroke Volume max(VRV )−min(VRV ) ml
+RVEDV Right Ventricular End Diastolic Volume max(VRV ) ml
+RVESV Right Ventricular End Systolic Volume min(VRV ) ml
+RVEF Right Ventricular Ejection Fraction (1− RVESV
+RVEDV
+)× 100 %
+PMAX
+RA Right Atrial Maximal Pressure max(PRA) mmHg
+PMIN
+RA Right Atrial Minimal Pressure min(PRA) mmHg
+PMEAN
+RA Right Atrial Mean Pressure
+∫
+THB
+PRA dt
+THB
+mmHg
+PMAX
+RV Right Ventricular Maximal Pressure max(PRV ) mmHg
+PMIN
+RV Right Ventricular Minimal Pressure min(PRV ) mmHg
+SAPMAX Systolic Systemic Arterial Pressure max(P SY S
+AR ) mmHg
+SAPMIN Diastolic Systemic Arterial Pressure min(P SY S
+AR ) mmHg
+SAPMEAN Mean Systemic Arterial Pressure
+∫
+THB
+PSY S
+AR dt
+THB
+mmHg
+SCPMEAN Mean Systemic Capillary Pressure
+∫
+THB
+PSY S
+C dt
+THB
+mmHg
+SV PMEAN Mean Systemic Venous Pressure
+∫
+THB
+PSY S
+V EN dt
+THB
+mmHg
+PAPMAX Systolic Pulmonary Arterial Pressure max(P PUL
+AR ) mmHg
+PAPMIN Diastolic Pulmonary Arterial Pressure min(P PUL
+AR ) mmHg
+PAPMEAN Mean Pulmonary Arterial Pressure
+∫
+THB
+PPUL
+AR dt
+THB
+mmHg
+PWPMAX Maximal Pulmonary Wedge Pressure max(P PUL
+V EN) mmHg
+PWPMIN Minimal Pulmonary Wedge Pressure min(P PUL
+V EN) mmHg
+PWPMEAN Mean Pulmonary Wedge Pressure
+∫
+THB
+PPUL
+V EN dt
+THB
+mmHg
+shunt Shunt Fraction
+∫
+THB
+QSH dt
+(THB)
+× 1000
+60
+× 100 %

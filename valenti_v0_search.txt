@@ -1,0 +1,140 @@
+
+
+--- PAGE 28 ---
+20 2| Mathematical Models and Numerical Methods
+Table 2.2: Model parameters abbreviations.
+Acronym Full Name Units of measure
+EA
+LA Left atrial active elastance mmHg ml−1
+EB
+LA Left atrial passive elastance mmHg ml−1
+V 0
+LA Left atrial unstressed volume ml
+EA
+LV Left ventricular active elastance mmHg ml−1
+EB
+LV Left ventricular passive elastance mmHg ml−1
+V 0
+LV Left ventricular unstressed volume ml
+EA
+RA Right atrial active elastance mmHg ml−1
+EB
+RA Right atrial passive elastance mmHg ml−1
+V 0
+RA Right atrial unstressed volume ml
+EA
+RV Right ventricular active elastance mmHg ml−1
+EB
+RV Right ventricular passive elastance mmHg ml−1
+V 0
+RV Right ventricular unstressed volume ml
+RSY S
+AR Systemic arterial resistance mmHg s ml−1
+CSY S
+AR Systemic arterial capacitance ml mmHg−1
+LSY S
+AR Systemic arterial inductance mmHg s2 ml−1
+RSY S
+C Systemic capillary resistance mmHg s ml−1
+CSY S
+C Systemic capillary capacitance ml mmHg−1
+RSY S
+V EN Systemic venous resistance mmHg s ml−1
+CSY S
+V EN Systemic venous capacitance ml mmHg−1
+LSY S
+V EN Systemic venous inductance mmHg s2 ml−1
+RPUL
+AR Pulmonary arterial resistance mmHg s ml−1
+CPUL
+AR Pulmonary arterial capacitance ml mmHg−1
+LPUL
+AR Pulmonary arterial inductance mmHg s2 ml−1
+RPUL
+C Oxygenated pulmonary capillary resistance mmHg s ml−1
+CPUL
+C Oxygenated pulmonary capillary capacitance ml mmHg−1
+RSH Non-oxygenated pulmonary capillary resistance mmHg s ml−1
+CSH Non-oxygenated pulmonary capillary capacitance ml mmHg−1
+RPUL
+V EN Pulmonary venous resistance mmHg s ml−1
+CPUL
+V EN Pulmonary venous capacitance ml mmHg−1
+LPUL
+V EN Pulmonary venous inductance mmHg s2 ml−1
+Rmin Minimal valve resistance mmHg s ml−1
+Rmax Maximal valve resistance mmHg s ml−1
+
+
+--- PAGE 29 ---
+2| Mathematical Models and Numerical Methods 21
+The chambers are modeled with 0-dimensional elastance relationships [32]:
+pi(t) = pex(t) + Ech(t)(Vch − V0,ch) (2.1)
+where pi(t) is the considered chamber pressure, pex(t) represents the external (to the
+heart) pressure exerted by the surrounding organs and respiration, Vch(t) is the cardiac
+volume of the chamber and V0,ch refers to the blood unstressed volume of such chamber.
+In this study the external pressure is set to zero for simplicity , pex(t) = 0.
+The elastance Ech(t) is computed as the sum of a constant value EB called passive elas-
+tance and a sinusoidal oscillating term, which amplitude EA, is called active elastance [1].
+Both EA and EB depend on the considered chamber.
+Ech(t) = EAe(t) + EB (2.2)
+A normalized, time-varying and periodic function e(t) regulates the elastance oscillating
+behaviour during the heartbeat, for ventricles this term is computed as:
+ev(t) =
+
+1
+2
+[
+1− cos
+(
+π t
+Tvc
+)]
+if 0 ⩽ t ⩽ Tvc
+1
+2
+[
+1 + cos
+(
+π t−Tvc
+Tvr
+)]
+if Tvc < t ⩽ Tvc + Tvr
+0 if Tvc + Tvr < t ⩽ THB
+(2.3)
+Whit just a time translation it can be obtained the atria version of this term :
+ea(t) =
+
+1
+2
+[
+1 + cos
+(
+π t+THB−tar
+Tar
+)]
+if 0 ⩽ t ⩽ tar + Tar − THB
+0 if tar + Tar − THB < t ⩽ tac
+1
+2
+[
+1− cos
+(
+π t−tac
+Tac
+)]
+if tac < t ⩽ tac + Tac
+1
+2
+[
+1 + cos
+(
+π t−tar
+Tar
+)]
+if tac + Tac < t ⩽ THB
+(2.4)
+Here, the subscript ‘v’ denotes the ventricles, and ‘a’ the atria, THB is the duration
+of a heartbeat. The following subscript, ‘c’ or ‘r’, refer to contraction or relaxation,
+respectively. ‘txx’ represents the chamber phase (contraction/relaxation) starting time,
+whereas ‘Txx’ is the phase duration.

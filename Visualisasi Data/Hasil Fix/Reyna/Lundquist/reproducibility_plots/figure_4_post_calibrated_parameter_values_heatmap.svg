@@ -1,0 +1,156 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="1070" height="618" viewBox="0 0 1070 618">
+<rect x="0" y="0" width="1070" height="618" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="535" y="34" font-family="Arial, Helvetica, sans-serif" font-size="21" font-weight="700" fill="#111" text-anchor="middle">Post-surgery calibrated parameter values across five simulations</text>
+<text x="535" y="58" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="400" fill="#555" text-anchor="middle">Bright cells show fitted values after post calibration; identical columns show reproducibility</text>
+<text x="280" y="74" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#111" text-anchor="middle">Sim 1</text>
+<text x="400" y="74" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#111" text-anchor="middle">Sim 2</text>
+<text x="520" y="74" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#111" text-anchor="middle">Sim 3</text>
+<text x="640" y="74" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#111" text-anchor="middle">Sim 4</text>
+<text x="760" y="74" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="700" fill="#111" text-anchor="middle">Sim 5</text>
+<text x="838" y="74" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="start">Flag / group</text>
+<text x="208" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">group.R_sys_scale</text>
+<rect x="220" y="92" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6616</text>
+<rect x="340" y="92" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6616</text>
+<rect x="460" y="92" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6616</text>
+<rect x="580" y="92" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6616</text>
+<rect x="700" y="92" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="117" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6616</text>
+<text x="838" y="117" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#222" text-anchor="start">OK / coupled_resistance_scale</text>
+<text x="208" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">group.R_pul_scale</text>
+<rect x="220" y="130" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6197</text>
+<rect x="340" y="130" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6197</text>
+<rect x="460" y="130" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6197</text>
+<rect x="580" y="130" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6197</text>
+<rect x="700" y="130" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="155" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.6197</text>
+<text x="838" y="155" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / coupled_resistance_scale</text>
+<text x="208" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">R.SVEN</text>
+<rect x="220" y="168" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.0763</text>
+<rect x="340" y="168" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.0763</text>
+<rect x="460" y="168" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.0763</text>
+<rect x="580" y="168" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.0763</text>
+<rect x="700" y="168" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="193" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.0763</text>
+<text x="838" y="193" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / resistance</text>
+<text x="208" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">C.SAR</text>
+<rect x="220" y="206" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7619</text>
+<rect x="340" y="206" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7619</text>
+<rect x="460" y="206" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7619</text>
+<rect x="580" y="206" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7619</text>
+<rect x="700" y="206" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="231" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7619</text>
+<text x="838" y="231" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#222" text-anchor="start">OK / compliance</text>
+<text x="208" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.LV.EA</text>
+<rect x="220" y="244" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">6.647</text>
+<rect x="340" y="244" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">6.647</text>
+<rect x="460" y="244" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">6.647</text>
+<rect x="580" y="244" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">6.647</text>
+<rect x="700" y="244" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="269" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">6.647</text>
+<text x="838" y="269" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / elastance</text>
+<text x="208" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.LV.EB</text>
+<rect x="220" y="282" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1610</text>
+<rect x="340" y="282" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1610</text>
+<rect x="460" y="282" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1610</text>
+<rect x="580" y="282" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1610</text>
+<rect x="700" y="282" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="307" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1610</text>
+<text x="838" y="307" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / elastance</text>
+<text x="208" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.RV.EA</text>
+<rect x="220" y="320" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">1.948</text>
+<rect x="340" y="320" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">1.948</text>
+<rect x="460" y="320" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">1.948</text>
+<rect x="580" y="320" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">1.948</text>
+<rect x="700" y="320" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="345" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">1.948</text>
+<text x="838" y="345" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#222" text-anchor="start">OK / elastance</text>
+<text x="208" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.RV.EB</text>
+<rect x="220" y="358" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1084</text>
+<rect x="340" y="358" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1084</text>
+<rect x="460" y="358" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1084</text>
+<rect x="580" y="358" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1084</text>
+<rect x="700" y="358" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="383" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.1084</text>
+<text x="838" y="383" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / elastance</text>
+<text x="208" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.LA.EA</text>
+<rect x="220" y="396" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.5787</text>
+<rect x="340" y="396" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.5787</text>
+<rect x="460" y="396" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.5787</text>
+<rect x="580" y="396" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.5787</text>
+<rect x="700" y="396" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="421" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.5787</text>
+<text x="838" y="421" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / elastance</text>
+<text x="208" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">E.RA.EA</text>
+<rect x="220" y="434" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7410</text>
+<rect x="340" y="434" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7410</text>
+<rect x="460" y="434" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7410</text>
+<rect x="580" y="434" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7410</text>
+<rect x="700" y="434" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="459" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.7410</text>
+<text x="838" y="459" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / elastance</text>
+<text x="208" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">V0.LV</text>
+<rect x="220" y="472" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.9494</text>
+<rect x="340" y="472" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.9494</text>
+<rect x="460" y="472" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.9494</text>
+<rect x="580" y="472" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.9494</text>
+<rect x="700" y="472" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="497" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">0.9494</text>
+<text x="838" y="497" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / unstressed_volume</text>
+<text x="208" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" fill="#111" text-anchor="end">V0.RV</text>
+<rect x="220" y="510" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="280" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">2.534</text>
+<rect x="340" y="510" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="400" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">2.534</text>
+<rect x="460" y="510" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="520" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">2.534</text>
+<rect x="580" y="510" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="640" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">2.534</text>
+<rect x="700" y="510" width="120" height="38" rx="0" fill="#FFFDBA" stroke="#ffffff" stroke-width="1"/>
+<text x="760" y="535" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="800" fill="#000000" text-anchor="middle">2.534</text>
+<text x="838" y="535" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="500" fill="#8a3f00" text-anchor="start">WARNING / unstressed_volume</text>
+<text x="22" y="588" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#555" text-anchor="start">Note: identical values across columns indicate exact repeatability of accepted post-calibrated parameters.</text>
+</svg>

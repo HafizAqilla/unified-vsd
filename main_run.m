@@ -257,7 +257,19 @@ end
 %  STEP 2 — Map clinical measurements (HR, SVR, PVR, R_VSD)
 %% =====================================================================
 fprintf('\n=== [Step 2/10] Mapping clinical measurements (%.1fs elapsed) ===\n', toc(run_timer));
-params0 = params_from_clinical(params0, clinical, scenario, params_reference_for_clinical, case_profile);
+% When a pre-op warm-start has been applied, run in prediction_baseline mode
+% so that the Step 3 baseline simulation uses only the pre-op calibrated
+% physiology. Post-op clinical data (HR, C.SAR, C.PAR, V0.SVEN) will be
+% used during calibration (Step 6) but NOT during the prediction baseline.
+if post_warm_start.applied
+    params0 = params_from_clinical(params0, clinical, scenario, ...
+        params_reference_for_clinical, case_profile, ...
+        'prediction_baseline', true);
+    fprintf('[main_run] Prediction baseline mode: HR, C.SAR, C.PAR, V0.SVEN retained from pre-op seed.\n');
+else
+    params0 = params_from_clinical(params0, clinical, scenario, ...
+        params_reference_for_clinical, case_profile);
+end
 if recipe_found
     params0 = apply_calibration_recipe_to_params( ...
         params0, params_reference_for_clinical, calibration_recipe, case_profile);
@@ -369,10 +381,45 @@ disp(primary_selection_table(primary_selection_table.Selected, :));
 %  STEP 6 — Calibration (masked)
 %% =====================================================================
 fprintf('\n=== [Step 6/10] Masked calibration — fmincon (%.1fs elapsed) ===\n', toc(run_timer));
-if USE_PCE_IN_CALIBRATION && exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out, primary_metrics, case_profile, registry_context);
+
+% POST-SURGERY CALIBRATION HR OVERRIDE
+% The baseline simulation (Step 3) retains the pre-op calibrated HR from the
+% warm-start seed. For calibration (Step 6), we override HR with the measured
+% post-operative heart rate so the objective function evaluates against the
+% correct cardiac cycle period. params0 (baseline seed) is not modified.
+params0_calib = params0;
+if strcmp(scenario, 'post_surgery') && ...
+        isstruct(clinical) && isfield(clinical, 'post_surgery') && ...
+        isfield(clinical.post_surgery, 'HR') && ...
+        isfinite(clinical.post_surgery.HR) && clinical.post_surgery.HR > 0
+    params0_calib.HR = clinical.post_surgery.HR;   % [bpm] — measured post-op HR
+    T_HB_post = 60 / params0_calib.HR;
+    params0_calib.Tc_LV   = params0_calib.Tc_LV_frac   * T_HB_post;
+    params0_calib.Tr_LV   = params0_calib.Tr_LV_frac   * T_HB_post;
+    params0_calib.Tc_RV   = params0_calib.Tc_RV_frac   * T_HB_post;
+    params0_calib.Tr_RV   = params0_calib.Tr_RV_frac   * T_HB_post;
+    params0_calib.t_ac_LA = params0_calib.t_ac_LA_frac * T_HB_post;
+    params0_calib.Tc_LA   = params0_calib.Tc_LA_frac   * T_HB_post;
+    params0_calib.t_ar_LA = params0_calib.t_ac_LA + params0_calib.Tc_LA;
+    params0_calib.Tr_LA   = params0_calib.Tr_LA_frac   * T_HB_post;
+    params0_calib.t_ac_RA = params0_calib.t_ac_RA_frac * T_HB_post;
+    params0_calib.Tc_RA   = params0_calib.Tc_RA_frac   * T_HB_post;
+    params0_calib.t_ar_RA = params0_calib.t_ac_RA + params0_calib.Tc_RA;
+    params0_calib.Tr_RA   = params0_calib.Tr_RA_frac   * T_HB_post;
+    fprintf('[main_run] Post-surgery calibration HR overridden to %.1f bpm (from clinical.post_surgery.HR).\n', ...
+        params0_calib.HR);
+    fprintf('[main_run] Baseline simulation retains pre-op HR = %.1f bpm.\n', params0.HR);
 else
-    [params_cal, calib_out] = run_calibration(params0, clinical, scenario, optMask, DO_FAST_CALIBRATION, [], primary_metrics, case_profile, registry_context);
+    if strcmp(scenario, 'post_surgery')
+        fprintf('[main_run] No valid post-surgery HR in clinical struct; calibration uses pre-op HR = %.1f bpm.\n', ...
+            params0.HR);
+    end
+end
+
+if USE_PCE_IN_CALIBRATION && exist('gsa_pce_out', 'var') && isfield(gsa_pce_out, 'QpQs')
+    [params_cal, calib_out] = run_calibration(params0_calib, clinical, scenario, optMask, DO_FAST_CALIBRATION, gsa_pce_out, primary_metrics, case_profile, registry_context);
+else
+    [params_cal, calib_out] = run_calibration(params0_calib, clinical, scenario, optMask, DO_FAST_CALIBRATION, [], primary_metrics, case_profile, registry_context);
 end
 
 sim_cal     = integrate_system(params_cal);
@@ -670,6 +717,14 @@ scaling_comparison_file = fullfile(run_ctx.tables_dir, ...
 writetable(scaling_comparison, scaling_comparison_file);
 co_definition_audit_file = write_co_definition_audit_exports( ...
     metrics_base, scientific_candidate, accepted_candidate, clinical, scenario, run_ctx.tables_dir);
+
+% For post-surgery runs: produce a side-by-side comparison of the
+% prediction baseline (pre-op seed, VSD closed) vs the post-op calibrated
+% parameter set, annotated with source and % change.
+if strcmp(scenario, 'post_surgery')
+    write_baseline_vs_calibrated_param_comparison( ...
+        params0, params_cal, calib_out, run_ctx.tables_dir, scenario, post_warm_start, clinical);
+end
 
 run_package = struct();
 run_package.scenario = scenario;

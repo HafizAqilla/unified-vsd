@@ -95,8 +95,8 @@ V_LA_c = XV(time_mask, sidx.V_LA);
 metrics.LVESV = min(V_LV_c);
 [metrics.RVEDV, idx_ed_rv] = max(V_RV_c);
 metrics.RVESV = min(V_RV_c);
-metrics.LVEDP = Pc.LV(idx_ed_lv);
-metrics.RVEDP = Pc.RV(idx_ed_rv);
+metrics.LVEDP = params.E.LV.EB * (metrics.LVEDV - params.V0.LV);
+metrics.RVEDP = params.E.RV.EB * (metrics.RVEDV - params.V0.RV);
 
 metrics.LVEF = (metrics.LVEDV - metrics.LVESV) / max(metrics.LVEDV, 1e-6);
 metrics.RVEF = (metrics.RVEDV - metrics.RVESV) / max(metrics.RVEDV, 1e-6);

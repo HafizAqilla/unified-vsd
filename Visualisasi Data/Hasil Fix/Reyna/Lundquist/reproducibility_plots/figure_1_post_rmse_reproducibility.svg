@@ -1,0 +1,56 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="980" height="620" viewBox="0 0 980 620">
+<rect x="0" y="0" width="980" height="620" rx="0" fill="#ffffff" stroke="none" stroke-width="0"/>
+<text x="490" y="38" font-family="Arial, Helvetica, sans-serif" font-size="22" font-weight="700" fill="#222" text-anchor="middle">Post-surgery RMSE reproducibility across five simulations</text>
+<text x="490" y="62" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="400" fill="#555" text-anchor="middle">Bars show mean; black points show individual simulations; SD = 0 for all RMSE types</text>
+<line x1="95" y1="515" x2="930" y2="515" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="519" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.000</text>
+<line x1="95" y1="429" x2="930" y2="429" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="433" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.018</text>
+<line x1="95" y1="343" x2="930" y2="343" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="347" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.036</text>
+<line x1="95" y1="257" x2="930" y2="257" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="261" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.054</text>
+<line x1="95" y1="171" x2="930" y2="171" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="175" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.072</text>
+<line x1="95" y1="85" x2="930" y2="85" stroke="#e6e6e6" stroke-width="1"/>
+<text x="83" y="89" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#222" text-anchor="end">0.090</text>
+<line x1="95" y1="85" x2="95" y2="515" stroke="#333" stroke-width="1.2"/>
+<line x1="95" y1="515" x2="930" y2="515" stroke="#333" stroke-width="1.2"/>
+<rect x="153.375" y="194.20996410027" width="92" height="320.79003589973" rx="2" fill="#4C78A8" stroke="#222" stroke-width="1"/>
+<circle cx="171.375" cy="194.20996410027" r="5" fill="#111"/>
+<circle cx="185.375" cy="194.20996410027" r="5" fill="#111"/>
+<circle cx="199.375" cy="194.20996410027" r="5" fill="#111"/>
+<circle cx="213.375" cy="194.20996410027" r="5" fill="#111"/>
+<circle cx="227.375" cy="194.20996410027" r="5" fill="#111"/>
+<text x="199.375" y="543" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#222" text-anchor="middle">Primary</text>
+<text x="199.375" y="184.20996410027" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#222" text-anchor="middle">0.067142</text>
+<text x="199.375" y="166.20996410027" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#444" text-anchor="middle">SD=0</text>
+<rect x="362.125" y="172.341173209522" width="92" height="342.658826790478" rx="2" fill="#72B7B2" stroke="#222" stroke-width="1"/>
+<circle cx="380.125" cy="172.341173209522" r="5" fill="#111"/>
+<circle cx="394.125" cy="172.341173209522" r="5" fill="#111"/>
+<circle cx="408.125" cy="172.341173209522" r="5" fill="#111"/>
+<circle cx="422.125" cy="172.341173209522" r="5" fill="#111"/>
+<circle cx="436.125" cy="172.341173209522" r="5" fill="#111"/>
+<text x="408.125" y="543" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#222" text-anchor="middle">Full</text>
+<text x="408.125" y="162.341173209522" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#222" text-anchor="middle">0.071719</text>
+<text x="408.125" y="144.341173209522" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#444" text-anchor="middle">SD=0</text>
+<rect x="570.875" y="261.022988015406" width="92" height="253.977011984594" rx="2" fill="#F58518" stroke="#222" stroke-width="1"/>
+<circle cx="588.875" cy="261.022988015406" r="5" fill="#111"/>
+<circle cx="602.875" cy="261.022988015406" r="5" fill="#111"/>
+<circle cx="616.875" cy="261.022988015406" r="5" fill="#111"/>
+<circle cx="630.875" cy="261.022988015406" r="5" fill="#111"/>
+<circle cx="644.875" cy="261.022988015406" r="5" fill="#111"/>
+<text x="616.875" y="543" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#222" text-anchor="middle">Hard-only</text>
+<text x="616.875" y="251.022988015406" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#222" text-anchor="middle">0.053158</text>
+<text x="616.875" y="233.022988015406" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#444" text-anchor="middle">SD=0</text>
+<rect x="779.625" y="270.289228166107" width="92" height="244.710771833893" rx="2" fill="#54A24B" stroke="#222" stroke-width="1"/>
+<circle cx="797.625" cy="270.289228166107" r="5" fill="#111"/>
+<circle cx="811.625" cy="270.289228166107" r="5" fill="#111"/>
+<circle cx="825.625" cy="270.289228166107" r="5" fill="#111"/>
+<circle cx="839.625" cy="270.289228166107" r="5" fill="#111"/>
+<circle cx="853.625" cy="270.289228166107" r="5" fill="#111"/>
+<text x="825.625" y="543" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" fill="#222" text-anchor="middle">Soft-only</text>
+<text x="825.625" y="260.289228166107" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" fill="#222" text-anchor="middle">0.051219</text>
+<text x="825.625" y="242.289228166107" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="400" fill="#444" text-anchor="middle">SD=0</text>
+<text x="25" y="310" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="600" fill="#222" text-anchor="middle" transform="rotate(-90 25 310)">Calibrated RMSE</text>
+</svg>

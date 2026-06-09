@@ -1,0 +1,26 @@
+Metric,Tier,IncludedInCalibration,IncludedInPrimaryRMSE,Flag,Reason
+RAP_min,unavailable,0,0,none,none
+RAP_mean,hard,1,1,none,none
+RAP_max,unavailable,0,0,none,none
+LAP_min,unavailable,0,0,none,none
+LAP_mean,unavailable,0,0,none,none
+LAP_max,unavailable,0,0,none,none
+LVEDP,unavailable,0,0,none,none
+RVEDP,unavailable,0,0,none,none
+PAP_min,validation_only,0,1,none,none
+PAP_max,validation_only,0,1,none,none
+PAP_mean,hard,1,1,none,none
+SAP_min,soft,1,1,none,none
+SAP_max,soft,1,1,none,none
+SAP_mean,hard,1,1,none,none
+QpQs,hard,1,1,none,none
+PVR,unavailable,0,0,none,none
+SVR,derived_validation,0,0,derived_validation,Derived from source pressures/flows; retained for validation only.
+CO_Lmin,hard,1,1,none,none
+VSD_frac_pct,unavailable,0,0,none,none
+LVEDV,hard,1,1,none,none
+LVESV,validation_holdout,0,0,validation_holdout,Target is retained as transparent validation holdout.
+RVEDV,validation_holdout,0,0,validation_holdout,Target is retained as transparent validation holdout.
+RVESV,validation_holdout,0,0,validation_holdout,Target is retained as transparent validation holdout.
+LVEF,hard,1,1,none,none
+RVEF,validation_only,0,1,none,none

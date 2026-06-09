@@ -1,0 +1,5 @@
+RMSE_Type,Baseline,Calibrated,Definition
+primary_governed,0.128236854211385,0.0671421005371527,"Excludes consistency-check-only, derived-validation, and validation-holdout targets"
+full_transparent,0.132051375819995,0.0717192893282395,"Includes all available clinical validation targets"
+hard_only,0.109033848511592,0.0531579792525894,"Includes hard target tier only"
+soft_only,0.16148454285281,0.051218533639652,"Includes soft target tier only"
