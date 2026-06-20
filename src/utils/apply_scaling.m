@@ -9,7 +9,8 @@ function params = apply_scaling(params_ref, patient)
 % VERSION:  3.0
 % -----------------------------------------------------------------------
 
-scaling_mode = resolve_scaling_mode(patient);
+scaling_policy = resolve_scaling_policy_from_patient(patient);
+scaling_mode = scaling_policy.ScalingMode;
 params = apply_physiological_scaling(params_ref, patient, scaling_mode);
 
 if isfield(patient, 'age_days') && ~isnan(patient.age_days)
@@ -31,6 +32,11 @@ params.ic.V = build_initial_conditions(params, patient);
 params.scaling.age_days = age_days;
 params.scaling.maturation_mode = maturation_mode;
 params.scaling.requested_mode = scaling_mode;
+params.scaling.policy = scaling_policy;
+params.scaling.role = scaling_policy.ScalingRole;
+params.scaling.citation = scaling_policy.ScalingCitation;
+params.scaling.implementation_variant = scaling_policy.ImplementationVariant;
+params.scaling.deviation_from_citation = scaling_policy.DeviationFromCitation;
 
 fprintf('[apply_scaling] weight=%.1f kg | age=%.0f days | mode=%s+%s\n', ...
     patient.weight_kg, age_days, scaling_mode, maturation_mode);
@@ -115,14 +121,29 @@ for k = 1:numel(field_names)
 end
 end
 
-% RESOLVE_SCALING_MODE - choose patient-declared or environment scaling mode.
-function scaling_mode = resolve_scaling_mode(patient)
+% RESOLVE_SCALING_POLICY_FROM_PATIENT - choose patient/env scaling policy.
+function scaling_policy = resolve_scaling_policy_from_patient(patient)
 scaling_mode = getenv('UNIFIED_VSD_SCALING_MODE');
 if isfield(patient, 'scaling_mode') && ~isempty(patient.scaling_mode)
     scaling_mode = patient.scaling_mode;
 end
-if isempty(scaling_mode)
-    scaling_mode = 'lundquist_bsa';
+
+run_mode = getenv('UNIFIED_VSD_RUN_MODE');
+if isfield(patient, 'run_mode') && ~isempty(patient.run_mode)
+    run_mode = patient.run_mode;
 end
-scaling_mode = lower(strtrim(char(scaling_mode)));
+
+scaling_role = '';
+if isfield(patient, 'scaling_role') && ~isempty(patient.scaling_role)
+    scaling_role = patient.scaling_role;
+end
+
+override_rationale = '';
+if isfield(patient, 'scaling_override_rationale') && ~isempty(patient.scaling_override_rationale)
+    override_rationale = patient.scaling_override_rationale;
+end
+
+scaling_policy = resolve_scaling_policy(scaling_mode, run_mode, ...
+    'ScalingRole', scaling_role, ...
+    'OverrideRationale', override_rationale);
 end

@@ -23,11 +23,8 @@ function params = apply_physiological_scaling(params_ref, patient, scaling_mode)
 % VERSION:  1.0
 % -----------------------------------------------------------------------
 
-if nargin < 3 || isempty(scaling_mode)
-    scaling_mode = 'zhang';
-end
-
-scaling_mode = lower(char(scaling_mode));
+policy = resolve_scaling_policy(scaling_mode, 'publication');
+scaling_mode = policy.ScalingMode;
 switch scaling_mode
     case 'zhang'
         params = apply_zhang_scaling(params_ref, patient);
@@ -40,6 +37,11 @@ switch scaling_mode
 end
 
 params.scaling.mode = scaling_mode;
+params.scaling.policy = policy;
+params.scaling.role = policy.ScalingRole;
+params.scaling.citation = policy.ScalingCitation;
+params.scaling.implementation_variant = policy.ImplementationVariant;
+params.scaling.deviation_from_citation = policy.DeviationFromCitation;
 
 end
 
