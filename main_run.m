@@ -213,6 +213,7 @@ patient.weight_kg  = clinical.common.weight_kg;
 patient.height_cm  = clinical.common.height_cm;
 patient.sex        = clinical.common.sex;
 patient.maturation_mode = 'normal';
+patient.run_mode = getenv('UNIFIED_VSD_RUN_MODE');
 if isfield(clinical.common, 'maturation_mode') && ~isempty(clinical.common.maturation_mode)
     patient.maturation_mode = clinical.common.maturation_mode;
 end
@@ -221,7 +222,9 @@ if isfield(clinical.common, 'scaling_mode') && ~isempty(clinical.common.scaling_
     patient.scaling_mode = clinical.common.scaling_mode;
 end
 if isempty(patient.scaling_mode)
-    if isfield(case_profile, 'preferredScalingMode') && ~isempty(case_profile.preferredScalingMode)
+    if strcmpi(strtrim(patient.run_mode), 'publication')
+        patient.scaling_mode = '';
+    elseif isfield(case_profile, 'preferredScalingMode') && ~isempty(case_profile.preferredScalingMode)
         patient.scaling_mode = case_profile.preferredScalingMode;
     else
         patient.scaling_mode = 'lundquist_bsa';
@@ -234,7 +237,7 @@ end
 params_scaled = apply_scaling(params_ref, patient);
 scaling_comparison = compare_scaling_methods(params_ref, patient);
 age_validity = build_age_validity_annotation( ...
-    patient.age_years, patient.scaling_mode, patient.maturation_mode);
+    patient.age_years, params_scaled.scaling.mode, patient.maturation_mode);
 registry_context = struct('params_adult', params_ref, 'params_scaled', params_scaled);
 params0 = params_scaled;
 
@@ -273,6 +276,19 @@ metrics_base = compute_clinical_indices(sim_base, params0);
 validity_base = evaluate_simulation_validity(sim_base, params0, metrics_base, scenario, clinical);
 fprintf('[main_run] Baseline complete.\n');
 print_systemic_consistency_summary(metrics_base, clinical, scenario, 'Baseline');
+scaling_policy = params0.scaling.policy;
+baseline_plausibility = baseline_plausibility_report( ...
+    metrics_base, clinical, scenario, case_profile, scaling_policy, ...
+    'ResultsDir', run_ctx.tables_dir);
+fprintf('[main_run] %s\n', baseline_plausibility.summary);
+scaling_provenance_file = write_scaling_method_provenance( ...
+    run_ctx.tables_dir, scaling_policy, baseline_plausibility.status);
+if ~baseline_plausibility.allowedDownstream
+    error('main_run:baselinePlausibilityGateFailed', ...
+        ['Publication-mode baseline plausibility gate failed (%s). ' ...
+         'See %s before running GSA/calibration.'], ...
+        baseline_plausibility.status, baseline_plausibility.tableFile);
+end
 
 %% =====================================================================
 %  STEP 4 — Initial PCE GSA
@@ -429,6 +445,9 @@ report = validation_report( ...
     'ValidationHoldoutMetrics', profile_holdout_metrics(case_profile), ...
     'TargetTiers', profile_target_tiers(case_profile), ...
     'ClinicalConsistencyAudit', profile_clinical_audit(case_profile));
+report.baseline_plausibility = baseline_plausibility;
+report.scaling_policy = scaling_policy;
+report.scaling_provenance_file = scaling_provenance_file;
 classification_thresholds = profile_classification_thresholds(case_profile);
 calibration_status = classify_calibration_run( ...
     report, calib_out.parameterPlausibility, classification_thresholds);
@@ -742,6 +761,8 @@ if strcmp(scenario, 'pre_surgery')
     pre_to_post_seed.primary_metrics = primary_metrics;
     pre_to_post_seed.primary_selection_table = primary_selection_table;
     pre_to_post_seed.case_profile = case_profile;
+    pre_to_post_seed.baseline_plausibility = baseline_plausibility;
+    pre_to_post_seed.scaling_policy = scaling_policy;
 
     % Explicit matrix/vector payload for downstream scripts.
     accepted_x_all = calib_out.xbest_all(:);
@@ -780,7 +801,7 @@ if strcmp(scenario, 'pre_surgery')
         seed_fname_timestamped, seed_fname_latest);
 end
 
-write_run_manifest(run_ctx, scenario, timestamp, clinical, patient.scaling_mode, case_profile, calibration_status, DO_GSA, DO_PLOTS, ...
+write_run_manifest(run_ctx, scenario, timestamp, clinical, params0.scaling.mode, case_profile, calibration_status, DO_GSA, DO_PLOTS, ...
     report, params_package_file, run_package_file, best_candidate_file, scientific_candidate_file, ...
     accepted_candidate_file, best_candidate, scientific_candidate, accepted_candidate, age_validity, ...
     baseline_provenance_file, baseline_provenance_summary_file);
@@ -1248,6 +1269,26 @@ fprintf(fid, 'Timestamp: %s\n', timestamp);
 fprintf(fid, 'Scenario: %s\n', scenario);
 fprintf(fid, 'PatientLabel: %s\n', run_ctx.patient_label);
 fprintf(fid, 'ScalingMode: %s\n', scaling_mode);
+if isfield(report, 'scaling_policy')
+    policy = report.scaling_policy;
+    fprintf(fid, 'ScalingRole: %s\n', policy.ScalingRole);
+    fprintf(fid, 'ScalingCitation: %s\n', policy.ScalingCitation);
+    fprintf(fid, 'ScalingImplementationVariant: %s\n', policy.ImplementationVariant);
+    fprintf(fid, 'ScalingDeviationFromCitation: %s\n', policy.DeviationFromCitation);
+    fprintf(fid, 'ScalingRunMode: %s\n', policy.RunMode);
+end
+if isfield(report, 'baseline_plausibility')
+    bp = report.baseline_plausibility;
+    fprintf(fid, 'BaselineGateStatus: %s\n', bp.status);
+    fprintf(fid, 'BaselineAllowedDownstream: %d\n', bp.allowedDownstream);
+    fprintf(fid, 'BaselinePlausibilitySummary: %s\n', bp.summary);
+    if isfield(bp, 'tableFile') && ~isempty(bp.tableFile)
+        fprintf(fid, 'BaselinePlausibilityFile: %s\n', bp.tableFile);
+    end
+end
+if isfield(report, 'scaling_provenance_file') && ~isempty(report.scaling_provenance_file)
+    fprintf(fid, 'ScalingProvenanceFile: %s\n', report.scaling_provenance_file);
+end
 fprintf(fid, 'CalibrationCaseMode: %s\n', case_profile.mode);
 fprintf(fid, 'CalibrationCaseDescription: %s\n', case_profile.description);
 if isfield(case_profile, 'recipe_id')
