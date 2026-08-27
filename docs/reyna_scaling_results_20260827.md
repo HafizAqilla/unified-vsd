@@ -92,4 +92,3 @@ single Zhang-vs-Lundquist number:
 - Operational Lundquist experiment: `results/luna_experiments/reyna_p1_scaling_v1_20260827_224007/`
 - Operational Lundquist run: `results/runs/20260827_224011_reyna_pre_surgery/`
 - GSA preflight experiment: `results/luna_experiments/reyna_p1_scaling_v1_20260827_222022/`
-

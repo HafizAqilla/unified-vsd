@@ -102,4 +102,3 @@ Stop automatic method promotion and report a blocker when:
 - the calibration status is rejected or poor-fit;
 - a parameter is out of registry bounds;
 - UQLab is absent for a run declared GSA-complete.
-

@@ -1,7 +1,7 @@
 # PRD: Luna Autonomous Reyna Scaling Experiment
 
-Status: implementation-ready and executable  
-Version: `reyna_p1_scaling_v1`  
+Status: implementation-ready and executable
+Version: `reyna_p1_scaling_v1`
 Scope: Reyna `pre_surgery` only
 
 ## Objective
@@ -112,4 +112,3 @@ that screen is not a GSA-complete result.
 - the execution plan and dated results report;
 - a GitHub PR whose body states the exact branch, controls, validation status,
   and whether the result is accepted or preliminary.
-
