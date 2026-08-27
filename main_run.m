@@ -106,10 +106,15 @@ end
 %   UNIFIED_VSD_DO_GSA=0|false|off  -> disable GSA
 %   UNIFIED_VSD_DO_GSA=1|true|on    -> enable GSA
 %   UNIFIED_VSD_GSA_PCE_N=<N>       -> override PCE training samples
+%   UNIFIED_VSD_UQLAB_PATH=<path>   -> optional external UQLab folder
+%   UNIFIED_VSD_SOBIOS_PATH=<path>  -> optional external SoBioS folder
 do_gsa_env = getenv('UNIFIED_VSD_DO_GSA');
 if ~isempty(do_gsa_env)
     DO_GSA = any(strcmpi(strtrim(do_gsa_env), {'1', 'true', 'yes', 'on'}));
 end
+
+uqlab_path = getenv('UNIFIED_VSD_UQLAB_PATH');
+sobios_path = getenv('UNIFIED_VSD_SOBIOS_PATH');
 
 do_fmincon_par_env = getenv('UNIFIED_VSD_FMINCON_PARALLEL');
 if ~isempty(do_fmincon_par_env)
@@ -175,15 +180,25 @@ validatestring(scenario, {'pre_surgery', 'post_surgery'}, ...
     'main_run', 'scenario');
 
 [calibration_recipe, recipe_found] = load_calibration_recipe(clinical, scenario);
+freeze_clinical_profile = env_flag('UNIFIED_VSD_FREEZE_CLINICAL_PROFILE', false);
 if recipe_found
-    clinical = apply_calibration_recipe_to_clinical( ...
-        clinical, scenario, calibration_recipe);
+    if freeze_clinical_profile
+        fprintf('[main_run] Clinical profile frozen; recipe metadata will not overwrite clinical values.\n');
+    else
+        clinical = apply_calibration_recipe_to_clinical( ...
+            clinical, scenario, calibration_recipe);
+    end
 end
 
 fprintf('\n[main_run] Scenario: %s\n', scenario);
 fprintf('[main_run] Patient: %.1f kg, %.1f cm, age %.2f yr\n', ...
     clinical.common.weight_kg, clinical.common.height_cm, clinical.common.age_years);
 case_profile = build_case_calibration_profile(clinical, scenario);
+disable_historical_seeds = env_flag('UNIFIED_VSD_DISABLE_HISTORICAL_SEEDS', false);
+if disable_historical_seeds
+    case_profile = disable_recipe_seeds_for_experiment(case_profile);
+    fprintf('[main_run] Historical recipe seeds disabled for this experiment arm.\n');
+end
 fprintf('[main_run] Calibration case mode: %s (%s)\n', ...
     case_profile.mode, case_profile.description);
 if isfield(case_profile, 'recipe_id')
@@ -262,9 +277,11 @@ end
 %% =====================================================================
 fprintf('\n=== [Step 2/10] Mapping clinical measurements (%.1fs elapsed) ===\n', toc(run_timer));
 params0 = params_from_clinical(params0, clinical, scenario, params_reference_for_clinical, case_profile);
-if recipe_found
+if recipe_found && ~disable_historical_seeds
     params0 = apply_calibration_recipe_to_params( ...
         params0, params_reference_for_clinical, calibration_recipe, case_profile);
+elseif recipe_found
+    fprintf('[main_run] Historical fixed parameter and IC recipe seeds skipped.\n');
 end
 
 %% =====================================================================
@@ -317,7 +334,7 @@ if DO_GSA
         gsa_pce_out  = [];
     else
         fprintf('\n[main_run] Running initial PCE GSA (pre-calibration)...\n');
-        gsa_init_cfg = gsa_pce_setup(params0, scenario);
+        gsa_init_cfg = gsa_pce_setup(params0, scenario, uqlab_path, sobios_path, registry_context);
         gsa_init_out = gsa_run_pce(gsa_init_cfg, params0);
         gsa_pce_out  = gsa_init_out;
     end
@@ -424,7 +441,9 @@ if DO_GSA
     % from the trained PCE — no additional Monte Carlo sampling required.
     % Runtime: one shared PCE training batch, not direct Sobol N*(d+2).
     fprintf('\n=== [Step 7/10] Final PCE GSA on calibrated params (%.1fs elapsed) ===\n', toc(run_timer));
-    gsa_final_cfg = gsa_pce_setup(params_cal, scenario);
+    registry_context_final = registry_context;
+    registry_context_final.params_seeded = params_cal;
+    gsa_final_cfg = gsa_pce_setup(params_cal, scenario, uqlab_path, sobios_path, registry_context_final);
     gsa_final_out = gsa_run_pce(gsa_final_cfg, params_cal);
 else
     fprintf('\n[main_run] Final PCE GSA skipped (DO_GSA=false).\n');
@@ -818,6 +837,27 @@ is_shadow = contains(root_paths, [filesep '.claude' filesep], 'IgnoreCase', true
             contains(root_paths, [filesep '.git' filesep], 'IgnoreCase', true);
 is_existing = cellfun(@isfolder, root_paths);
 project_path = strjoin(root_paths(~is_shadow & is_existing), pathsep);
+end
+
+function tf = env_flag(name, default_value)
+% ENV_FLAG - parse a boolean environment switch with an explicit default.
+value = getenv(name);
+if isempty(value)
+    tf = logical(default_value);
+    return;
+end
+tf = any(strcmpi(strtrim(value), {'1', 'true', 'yes', 'on'}));
+end
+
+function profile = disable_recipe_seeds_for_experiment(profile)
+% DISABLE_RECIPE_SEEDS_FOR_EXPERIMENT - remove method-specific historical starts.
+% Clinical fields and target tiers remain unchanged; only historical
+% candidate/fixed-IC seeds are disabled for fair-prior experiments.
+profile.historical_seed_policy = 'disabled_fair_prior';
+profile.historical_seed_disabled = true;
+profile.initialParameterValues = struct();
+profile.acceptInitialSeedIfPass = false;
+profile.acceptInitialSeedScalingModes = {};
 end
 
 function canonical_root = resolve_canonical_project_root(root)
@@ -1268,6 +1308,10 @@ fprintf(fid, '========================\n');
 fprintf(fid, 'Timestamp: %s\n', timestamp);
 fprintf(fid, 'Scenario: %s\n', scenario);
 fprintf(fid, 'PatientLabel: %s\n', run_ctx.patient_label);
+experiment_id = getenv('UNIFIED_VSD_EXPERIMENT_ID');
+if ~isempty(experiment_id)
+    fprintf(fid, 'ExperimentId: %s\n', experiment_id);
+end
 fprintf(fid, 'ScalingMode: %s\n', scaling_mode);
 if isfield(report, 'scaling_policy')
     policy = report.scaling_policy;
@@ -1296,6 +1340,21 @@ if isfield(case_profile, 'recipe_id')
 end
 if isfield(case_profile, 'recipe_version')
     fprintf(fid, 'CalibrationRecipeVersion: %s\n', case_profile.recipe_version);
+end
+if isfield(case_profile, 'historical_seed_policy')
+    fprintf(fid, 'HistoricalSeedPolicy: %s\n', case_profile.historical_seed_policy);
+else
+    fprintf(fid, 'HistoricalSeedPolicy: recipe_controlled\n');
+end
+if isfield(case_profile, 'historical_seed_disabled')
+    fprintf(fid, 'HistoricalSeedsDisabled: %d\n', case_profile.historical_seed_disabled);
+else
+    fprintf(fid, 'HistoricalSeedsDisabled: 0\n');
+end
+if env_flag('UNIFIED_VSD_FREEZE_CLINICAL_PROFILE', false)
+    fprintf(fid, 'ClinicalProfilePolicy: frozen_input_profile\n');
+else
+    fprintf(fid, 'ClinicalProfilePolicy: recipe_overrides_allowed\n');
 end
 if isfield(case_profile, 'targetGovernance')
     fprintf(fid, 'TargetGovernance: %s\n', case_profile.targetGovernance);
@@ -1326,6 +1385,18 @@ fprintf(fid, 'AgeValidityAction: %s\n', age_validity.action);
 fprintf(fid, 'MaturationMode: %s\n', age_validity.maturation_mode);
 fprintf(fid, 'PlotsEnabled: %d\n', do_plots);
 fprintf(fid, 'GSAEnabled: %d\n', do_gsa);
+gsa_n = getenv('UNIFIED_VSD_GSA_PCE_N');
+if ~isempty(gsa_n)
+    fprintf(fid, 'GSATrainingSamples: %s\n', gsa_n);
+end
+max_fun_evals = getenv('UNIFIED_VSD_MAX_FUN_EVALS');
+if ~isempty(max_fun_evals)
+    fprintf(fid, 'MaxFunctionEvaluations: %s\n', max_fun_evals);
+end
+max_iterations = getenv('UNIFIED_VSD_MAX_ITERATIONS');
+if ~isempty(max_iterations)
+    fprintf(fid, 'MaxIterations: %s\n', max_iterations);
+end
 fprintf(fid, 'RMSE_Baseline: %.6f\n', report.rmse_baseline);
 fprintf(fid, 'RMSE_Calibrated: %.6f\n', report.rmse_cal);
 if isfield(report, 'rmse_full_baseline')

@@ -1,4 +1,4 @@
-function cfg = gsa_pce_setup(params0, scenario, uqlab_path, sobios_path)
+function cfg = gsa_pce_setup(params0, scenario, uqlab_path, sobios_path, registry_context)
 % GSA_PCE_SETUP
 % -----------------------------------------------------------------------
 % Configure the PCE-based Global Sensitivity Analysis using the SoBioS
@@ -30,7 +30,15 @@ end
 if nargin >= 4 && ~isempty(sobios_path)
     addpath(genpath(sobios_path));
 end
+if nargin < 5 || isempty(registry_context)
+    registry_context = struct();
+end
 
+if exist('uqlab', 'file') ~= 2
+    error('gsa_pce_setup:missingUQLab', ...
+        ['UQLab is required for DO_GSA=1 but was not found on the MATLAB path. ', ...
+         'Set UNIFIED_VSD_UQLAB_PATH to the external UQLab core folder.']);
+end
 uqlab('-nosplash');
 
 cfg = struct();
@@ -47,13 +55,14 @@ cfg.ub = space.ub;
 d = numel(cfg.names);
 
 %% Registry-backed nominal values and bounds
-gsa_bounds = build_gsa_registry_bounds(params0, scenario, cfg.names);
+gsa_bounds = build_gsa_registry_bounds(params0, scenario, cfg.names, registry_context);
 x0 = gsa_bounds.x0;
 lb = gsa_bounds.lb;
 ub = gsa_bounds.ub;
 cfg.x0 = x0;  cfg.lb = lb;  cfg.ub = ub;
 cfg.bounds_policy = gsa_bounds.policy;
 cfg.bounds_table = gsa_bounds.table;
+cfg.registry_context = registry_context;
 
 %% Scenario-specific metrics
 switch scenario

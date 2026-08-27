@@ -1,4 +1,4 @@
-function cfg = gsa_sobol_setup(params0, scenario, N_override)
+function cfg = gsa_sobol_setup(params0, scenario, N_override, registry_context)
 % GSA_SOBOL_SETUP
 % -----------------------------------------------------------------------
 % Configure the direct Saltelli/Jansen Sobol sensitivity analysis.
@@ -26,6 +26,9 @@ function cfg = gsa_sobol_setup(params0, scenario, N_override)
 
 cfg = struct();
 cfg.scenario = scenario;
+if nargin < 4 || isempty(registry_context)
+    registry_context = struct();
+end
 
 % Base Sobol sample count per Saltelli A/B block.
 default_N = 256;
@@ -59,6 +62,13 @@ cfg.names = space.names;
 cfg.x0 = space.x0;
 cfg.lb = space.lb;
 cfg.ub = space.ub;
+gsa_bounds = build_gsa_registry_bounds(params0, scenario, cfg.names, registry_context);
+cfg.x0 = gsa_bounds.x0;
+cfg.lb = gsa_bounds.lb;
+cfg.ub = gsa_bounds.ub;
+cfg.bounds_policy = gsa_bounds.policy;
+cfg.bounds_table = gsa_bounds.table;
+cfg.registry_context = registry_context;
 
 d = numel(cfg.names);
 lb = cfg.lb;
@@ -67,10 +77,10 @@ ub = cfg.ub;
 %% Scenario-specific output metrics
 switch scenario
     case 'pre_surgery'
-        cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR', 'SAP_mean', 'CO_Lmin'};
+        cfg.primary_metrics = {'RAP_mean', 'PAP_mean', 'SAP_mean', 'QpQs', 'CO_Lmin'};
         cfg.secondary_metrics = {'RAP_mean', 'LVEDV', 'RVEDV', 'LVEF', 'SVR', 'RVEF'};
     case 'post_surgery'
-        cfg.primary_metrics = {'QpQs', 'PAP_mean', 'PVR', 'SAP_mean', 'CO_Lmin'};
+        cfg.primary_metrics = {'RAP_mean', 'PAP_mean', 'SAP_mean', 'QpQs', 'CO_Lmin'};
         cfg.secondary_metrics = {'LVEF', 'RVEF', 'SVR', 'LVEDV', 'RVEDV'};
     otherwise
         error('gsa_sobol_setup:unknownScenario', ...

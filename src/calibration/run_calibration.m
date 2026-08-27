@@ -20,6 +20,11 @@ if nargin < 7, primaryMetrics = {}; end
 if nargin < 8 || isempty(caseProfile), caseProfile = struct(); end
 if nargin < 9 || isempty(registryContext), registryContext = struct(); end
 
+screening_mode = env_flag('UNIFIED_VSD_SCREENING_MODE', false);
+if screening_mode
+    fprintf('[run_calibration] Screening mode enabled: optional D/E/F polish stages are skipped.\n');
+end
+
 if exist('fmincon', 'file') ~= 2
     error('run_calibration:missingFmincon', ...
         'fmincon is not available. Install Optimization Toolbox to run calibration.');
@@ -76,7 +81,7 @@ final_stage_metrics = calib.metricFields;
 final_calib_source = calib;
 best_stage = 3;
 
-if should_run_systemic_polish(calib, scenario)
+if should_run_systemic_polish(calib, scenario) && ~screening_mode
     stageD_calib = apply_systemic_polish_profile(calib);
     stageD_names = select_systemic_polish_names(stageD_calib);
     stageD_metrics = select_systemic_polish_metrics(stageD_calib);
@@ -113,7 +118,7 @@ if should_run_systemic_polish(calib, scenario)
     end
 end
 
-if should_run_plausibility_polish(final_calib_source)
+if should_run_plausibility_polish(final_calib_source) && ~screening_mode
     stageE_calib = apply_plausibility_polish_profile(final_calib_source);
     stageE_names = select_plausibility_polish_names(stageE_calib);
     stageE_metrics = stageE_calib.metricFields;
@@ -150,7 +155,7 @@ if should_run_plausibility_polish(final_calib_source)
     end
 end
 
-if should_run_validation_gate_polish(final_calib_source)
+if should_run_validation_gate_polish(final_calib_source) && ~screening_mode
     [params_gate, stage_history_cell{6}] = run_validation_gate_polish( ...
         params_best, clinical, scenario, final_calib_source, fastMode);
 
@@ -736,5 +741,14 @@ end
 candidate = str2double(raw);
 if isfinite(candidate) && candidate > 0
     value = candidate;
+end
+end
+
+function tf = env_flag(name, default_value)
+value = getenv(name);
+if isempty(value)
+    tf = logical(default_value);
+else
+    tf = any(strcmpi(strtrim(value), {'1','true','yes','on'}));
 end
 end

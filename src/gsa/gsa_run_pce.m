@@ -34,21 +34,20 @@ if isempty(autosave_file)
 end
 fprintf('[gsa_run_pce] Autosave checkpoint: %s\n', autosave_file);
 
-% Checkpoint validation: discard if patient x0 changed.
+checkpoint_signature = build_checkpoint_signature(cfg, N_train, all_metrics);
+
+% Checkpoint validation: names, bounds, metrics, sample count, and nominal
+% point must all match.  A matching x0 alone is insufficient because a
+% stale checkpoint can silently reuse an obsolete GSA mask or metric set.
 if exist(autosave_file, 'file')
     tmp = load(autosave_file, 'gsa_out');
     ck = tmp.gsa_out;
-    if isfield(ck, 'cfg') && isfield(ck.cfg, 'x0') && ...
-            numel(ck.cfg.x0) == numel(cfg.x0)
-        rel_diff = max(abs(ck.cfg.x0 - cfg.x0) ./ max(abs(cfg.x0), 1e-12));
-        if rel_diff <= 1e-4
-            fprintf('[Crash Recovery] Loading previous partial results...\n');
-            gsa_out = ck;
-        else
-            fprintf('[gsa_run_pce] Checkpoint x0 mismatch (max rel diff=%.2e); retraining.\n', rel_diff);
-        end
+    [checkpoint_ok, checkpoint_reason] = checkpoint_matches(ck, checkpoint_signature);
+    if checkpoint_ok
+        fprintf('[Crash Recovery] Loading matching GSA checkpoint.\n');
+        gsa_out = ck;
     else
-        fprintf('[gsa_run_pce] Checkpoint incompatible (size/field mismatch); retraining.\n');
+        fprintf('[gsa_run_pce] Checkpoint rejected (%s); retraining.\n', checkpoint_reason);
     end
 end
 
@@ -109,6 +108,7 @@ if need_batch
     gsa_out.Y_all = Y_all;
     gsa_out.scenario = cfg.scenario;
     gsa_out.cfg = cfg;
+    gsa_out.checkpoint_signature = checkpoint_signature;
     save(autosave_file, 'gsa_out', '-v7.3');
     fprintf('[gsa_run_pce] ODE batch complete. Checkpoint saved.\n');
 else
@@ -177,9 +177,66 @@ end
 
 gsa_out.scenario = cfg.scenario;
 gsa_out.cfg = cfg;
+gsa_out.checkpoint_signature = checkpoint_signature;
 
 fprintf('\n[gsa_run_pce] Complete. All %d metrics processed.\n', numel(all_metrics));
 
+end
+
+function signature = build_checkpoint_signature(cfg, N_train, all_metrics)
+% BUILD_CHECKPOINT_SIGNATURE - identity of the expensive GSA batch.
+signature = struct();
+signature.version = 1;
+signature.scenario = cfg.scenario;
+signature.names = cfg.names(:)';
+signature.x0 = cfg.x0(:);
+signature.lb = cfg.lb(:);
+signature.ub = cfg.ub(:);
+signature.all_metrics = all_metrics(:)';
+signature.N_train = N_train;
+end
+
+function [tf, reason] = checkpoint_matches(checkpoint, expected)
+tf = false;
+reason = 'missing_signature';
+if ~isstruct(checkpoint) || ~isfield(checkpoint, 'checkpoint_signature')
+    return;
+end
+actual = checkpoint.checkpoint_signature;
+required = fieldnames(expected);
+for idx = 1:numel(required)
+    if ~isfield(actual, required{idx})
+        reason = ['signature_missing_' required{idx}];
+        return;
+    end
+end
+if ~strcmp(actual.scenario, expected.scenario) || actual.N_train ~= expected.N_train
+    reason = 'scenario_or_sample_count_mismatch';
+    return;
+end
+if ~isequal(actual.names, expected.names) || ~isequal(actual.all_metrics, expected.all_metrics)
+    reason = 'parameter_or_metric_names_mismatch';
+    return;
+end
+for field_name = {'x0','lb','ub'}
+    field = field_name{1};
+    if numel(actual.(field)) ~= numel(expected.(field)) || ...
+            max(abs(actual.(field)(:) - expected.(field)(:))) > 1e-10 * ...
+            max(1, max(abs(expected.(field))))
+        reason = [field '_mismatch'];
+        return;
+    end
+end
+if ~isfield(checkpoint, 'X_train') || ~isfield(checkpoint, 'Y_all') || ...
+        size(checkpoint.X_train, 1) ~= expected.N_train || ...
+        size(checkpoint.X_train, 2) ~= numel(expected.names) || ...
+        size(checkpoint.Y_all, 1) ~= expected.N_train || ...
+        size(checkpoint.Y_all, 2) ~= numel(expected.all_metrics)
+    reason = 'batch_dimensions_mismatch';
+    return;
+end
+tf = true;
+reason = 'match';
 end
 
 function s = rmfield_safe(s, f)

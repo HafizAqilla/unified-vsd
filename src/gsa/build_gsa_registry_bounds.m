@@ -1,4 +1,4 @@
-function bounds = build_gsa_registry_bounds(params0, scenario, names)
+function bounds = build_gsa_registry_bounds(params0, scenario, names, registry_context)
 % BUILD_GSA_REGISTRY_BOUNDS
 % -----------------------------------------------------------------------
 % Builds GSA sampling bounds from the central parameter registry.
@@ -6,6 +6,9 @@ function bounds = build_gsa_registry_bounds(params0, scenario, names)
 % -----------------------------------------------------------------------
 
 names = names(:);
+if nargin < 4 || isempty(registry_context)
+    registry_context = struct();
+end
 n = numel(names);
 x0 = nan(n, 1);
 lb = nan(n, 1);
@@ -13,9 +16,24 @@ ub = nan(n, 1);
 source = strings(n, 1);
 note = strings(n, 1);
 
+params_adult = params0;
+params_scaled = params0;
+params_seeded = params0;
+if isstruct(registry_context)
+    if isfield(registry_context, 'params_adult') && isstruct(registry_context.params_adult)
+        params_adult = registry_context.params_adult;
+    end
+    if isfield(registry_context, 'params_scaled') && isstruct(registry_context.params_scaled)
+        params_scaled = registry_context.params_scaled;
+    end
+    if isfield(registry_context, 'params_seeded') && isstruct(registry_context.params_seeded)
+        params_seeded = registry_context.params_seeded;
+    end
+end
+
 registry = table();
 try
-    registry = build_parameter_registry(params0, params0, params0, ...
+    registry = build_parameter_registry(params_adult, params_scaled, params_seeded, ...
         scenario, struct(), names);
 catch ME
     registry_warning = ME.message;
@@ -56,6 +74,7 @@ bounds.x0 = x0;
 bounds.lb = lb;
 bounds.ub = ub;
 bounds.policy = 'registry_backed_with_per_parameter_fallback';
+bounds.context = registry_context;
 bounds.table = table(names, x0, lb, ub, source, note, ...
     'VariableNames', {'name','x0','lb','ub','source','note'});
 end
@@ -91,4 +110,3 @@ for k = 1:numel(parts)
     v = v.(parts{k});
 end
 end
-

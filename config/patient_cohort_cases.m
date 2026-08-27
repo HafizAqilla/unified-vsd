@@ -18,24 +18,30 @@ function cases = patient_cohort_cases()
 % -----------------------------------------------------------------------
 
 profiles = {
-    'reyna',       @patient_reyna
-    'razka',       @patient_profile_Razka
-    'fathan',      @patient_fathan
-    'azzam',       @patient_azzam
-    'ali_zhafran', @patient_ali_zhafran
-    'salman',      @patient_salman
-    'syabil',      @patient_syabil
-    'jericho',     @patient_jericho
-    'hasna_azizah', @patient_hasna_azizah
+    'reyna',       'patient_reyna'
+    'razka',       'patient_profile_Razka'
+    'fathan',      'patient_fathan'
+    'azzam',       'patient_azzam'
+    'ali_zhafran', 'patient_ali_zhafran'
+    'salman',      'patient_salman'
+    'syabil',      'patient_syabil'
+    'jericho',     'patient_jericho'
+    'hasna_azizah','patient_hasna_azizah'
     };
 
 cases = repmat(struct('label', '', 'clinical', [], 'scenario', 'pre_surgery', ...
     'can_simulate', false, 'skip_reason', ''), size(profiles, 1), 1);
 for idx = 1:size(profiles, 1)
-    clinical = profiles{idx, 2}();
     cases(idx).label = profiles{idx, 1};
-    cases(idx).clinical = clinical;
     cases(idx).scenario = 'pre_surgery';
+    function_name = profiles{idx, 2};
+    if exist(function_name, 'file') ~= 2
+        cases(idx).skip_reason = sprintf('Profile function %s is not present in this checkout.', function_name);
+        continue;
+    end
+    profile_factory = str2func(function_name);
+    clinical = profile_factory();
+    cases(idx).clinical = clinical;
     [cases(idx).can_simulate, cases(idx).skip_reason] = can_simulate_case(clinical);
 end
 end
