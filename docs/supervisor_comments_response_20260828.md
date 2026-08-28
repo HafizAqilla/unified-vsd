@@ -108,6 +108,13 @@ and the predicted chamber report now screens every model prediction against
 them, reporting "within paediatric screening range: n of N". These are broad
 plausibility bands, not normative percentiles, and the report says so.
 
+The screen is not decorative. Before it was enforced, the calibrated candidate
+returned `LVEF = 0.891` against a paediatric band of 0.40–0.85, with a 4.0 mL
+end-systolic volume — a near-empty ventricle. The current candidate is inside
+the band on **6 of 6** chamber quantities. So the answer to "does it match
+common paediatric ranges" is now yes, and it is yes because the ranges were
+made a constraint rather than a report.
+
 **First part — an important caveat before writing that comparison.** The
 Zhang-versus-Lundquist numbers as currently published are not interpretable in
 words, because the Lundquist arm's optimiser never moved: baseline and
