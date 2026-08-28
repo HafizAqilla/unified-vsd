@@ -106,9 +106,17 @@ end
 if recipe_found
     recipe_config = make_recipe_target_tier_config(recipe);
     profile = apply_target_tier_governance(profile, clinical, scenario, recipe_config);
+    profile.evidenceTiming = assert_evidence_timing_governance( ...
+        clinical, scenario, profile.targetTiers, recipe);
 else
     profile = apply_target_tier_governance(profile, clinical, scenario);
 end
+
+% Physiological screening bands, cached for the objective. Removing a target
+% removes the obligation to match a measurement, not the obligation to stay
+% physiological: without this the optimiser is free to drive an unconstrained
+% chamber to an implausible state.
+profile.referenceRanges = clinical_reference_ranges(scenario, clinical, profile);
 profile = apply_age_validity_prior_adjustment(profile, clinical);
 end
 
@@ -179,6 +187,8 @@ config.metric_weight_multipliers = struct( ...
     'LVEF', 0.85, ...
     'SAP_max', 0.45, ...
     'SAP_min', 0.40, ...
+    'PAP_max', 0.50, ...
+    'PAP_min', 0.45, ...
     'RVESV', 0.45);
 end
 
@@ -676,8 +686,17 @@ else
     metrics = unique([intersect(existing_metrics(:)', included, 'stable'), ...
         included], 'stable');
 end
-metrics = setdiff(metrics, target_tiers.consistency_only(:)', 'stable');
-metrics = setdiff(metrics, target_tiers.excluded_from_primary_rmse(:)', 'stable');
+% Report-only tiers must never be fitted.
+%
+% primary_rmse_holdout is deliberately NOT in this list. It governs membership
+% of the reported RMSE, not membership of the objective: a holdout target such
+% as Q_shunt_Lmin is an algebraic identity that should still inform the fit as
+% a consistency term while being excluded from the headline count. Removing it
+% here silently dropped it from calibration as well.
+report_only = unique([target_tiers.consistency_only(:)', ...
+    target_tiers.derived_validation(:)', ...
+    target_tiers.validation_holdout(:)'], 'stable');
+metrics = setdiff(metrics, report_only, 'stable');
 end
 
 function profile = append_governance_note(profile, note)

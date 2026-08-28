@@ -35,6 +35,23 @@ calib.invalidPenaltyScale = params0.calibration.invalid_penalty_scale;
 calib.regLambda = 0;
 calib.paramPlausibilityLambda = 0.5;
 calib.boundaryPlausibilityLambda = 20.0;
+% Patient-acceptance gate hinge: zero inside the band, quadratic outside, so
+% the objective explicitly rewards pulling worst-case metrics under the same
+% threshold the acceptance claim is reported against.
+calib.gateGate = 0.10;
+% Sized so a metric 50% past the band contributes on the order of a primary
+% fit term, rather than rounding to nothing beside it.
+calib.gateLambda = 20.0;
+calib.physiologicalSoftLambda = 50.0;
+if isfield(caseProfile, 'acceptancePrimaryErrorPct') && ...
+        isfinite(caseProfile.acceptancePrimaryErrorPct) && ...
+        caseProfile.acceptancePrimaryErrorPct > 0
+    calib.gateGate = caseProfile.acceptancePrimaryErrorPct / 100;
+end
+if isfield(caseProfile, 'gateLambda') && isfinite(caseProfile.gateLambda) && ...
+        caseProfile.gateLambda >= 0
+    calib.gateLambda = caseProfile.gateLambda;
+end
 calib.caseProfile = caseProfile;
 calib.initialSeedApplied = false;
 calib.initialSeedScalingMode = '';

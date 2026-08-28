@@ -176,4 +176,8 @@ results/**
 !results/figures/
 !results/tables/
 !results/figures/.gitkeep
+# The per-metric acceptance table is the evidence behind every published
+# "n of N within 10%" claim, so it stays reviewable in git.
+!results/**/
+!results/**/full_metric_gate_*.csv
 !results/tables/.gitkeep

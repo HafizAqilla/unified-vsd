@@ -37,6 +37,7 @@ shunt_bundle = build_shunt_fraction_bundle(clinical, scenario);
 J_primary = 0;
 J_secondary = 0;
 J_clinical_guard = 0;
+J_gate = 0;
 for k = 1:numel(calib.metricFields)
     mf = calib.metricFields{k};
     if is_consistency_only_metric(calib, mf)
@@ -54,6 +55,14 @@ for k = 1:numel(calib.metricFields)
         continue;
     end
 
+    err_rel = abs(metrics.(mf) - y_clin) / max(abs(y_clin), 1e-6);
+
+    % The acceptance gate is reported over the governed primary RMSE set, so
+    % the hinge is applied before systemic-bundle routing: otherwise SAP_mean,
+    % RAP_mean, and CO_Lmin would be graded against the gate but never pushed
+    % under it by the objective.
+    J_gate = J_gate + gate_hinge_penalty(mf, err_rel, calib);
+
     if should_route_metric_to_systemic_bundle(mf, systemic_bundle)
         % MAP, RAP, Qs, and derived SVR describe one coupled systemic load.
         % Route them through one uncertainty-aware bundle to prevent
@@ -61,7 +70,6 @@ for k = 1:numel(calib.metricFields)
         continue;
     end
 
-    err_rel = abs(metrics.(mf) - y_clin) / max(abs(y_clin), 1e-6);
     weight = calib.weights.(mf);
     tier = calibration_metric_tier(calib, mf);
     if strcmp(tier, 'hard') || (~strcmp(tier, 'soft') && ismember(mf, calib.primaryMetrics))
@@ -83,10 +91,11 @@ J_pressure = pressure_waveform_penalty(metrics, pressure_bundle, calib);
 J_shunt = shunt_fraction_penalty(metrics, shunt_bundle, calib);
 J_param_plausibility = parameter_plausibility_penalty(x, calib);
 J_boundary = boundary_plausibility_penalty(x, calib);
+J_physiological = physiological_range_penalty(metrics, targets, calib);
 
 J = J_primary + calib.secondaryLambda * J_secondary + J_systemic + ...
-    J_pressure + J_shunt + J_clinical_guard + J_reg + ...
-    J_param_plausibility + J_boundary + validity_penalty;
+    J_pressure + J_shunt + J_clinical_guard + J_gate + J_reg + ...
+    J_param_plausibility + J_boundary + J_physiological + validity_penalty;
 
 if ~isempty(sim) && ~sim.ss_reached
     J = J + calib.invalidPenaltyScale;
@@ -105,6 +114,119 @@ end
 if isfield(target, 'UseForCalibration')
     tf = ~target.UseForCalibration;
 end
+end
+
+function penalty = physiological_range_penalty(metrics, targets, calib)
+% PHYSIOLOGICAL_RANGE_PENALTY - keep untargeted outputs physiologically sane.
+%
+% Removing a metric from the target set removes the obligation to match a
+% measurement. It does not remove the obligation to remain physiological.
+% Reyna's chamber volumes are H+1 post-operative echo and are correctly not
+% pre-operative targets, but without this term nothing prevents the optimiser
+% from driving the unconstrained left ventricle to an implausible state
+% (observed: LVEF 0.89 with LVESV 4 mL, a near-empty ventricle).
+%
+% Applies ONLY to metrics with no finite clinical comparator, so a fitted
+% target is never penalised twice.
+penalty = 0;
+if ~isfield(calib, 'caseProfile') || ~isstruct(calib.caseProfile) || ...
+        ~isfield(calib.caseProfile, 'referenceRanges')
+    return;
+end
+ranges = calib.caseProfile.referenceRanges;
+if isempty(ranges)
+    return;
+end
+
+soft_lambda = 50.0;
+if isfield(calib, 'physiologicalSoftLambda') && isfinite(calib.physiologicalSoftLambda)
+    soft_lambda = calib.physiologicalSoftLambda;
+end
+hard_lambda = 8.0 * soft_lambda;
+
+target_names = {targets.Metric};
+for range_idx = 1:height(ranges)
+    range_metric = ranges.Metric{range_idx};
+    if ~isfield(metrics, range_metric) || ~isfinite(metrics.(range_metric))
+        continue;
+    end
+
+    % Skip anything the patient record can score directly.
+    target_ix = find(strcmp(target_names, range_metric), 1, 'first');
+    if ~isempty(target_ix) && isfinite(targets(target_ix).ClinicalValue)
+        continue;
+    end
+
+    range_value = metrics.(range_metric);
+    penalty = penalty + band_excess(range_value, ranges.SoftLow(range_idx), ...
+        ranges.SoftHigh(range_idx), soft_lambda);
+    penalty = penalty + band_excess(range_value, ranges.HardLow(range_idx), ...
+        ranges.HardHigh(range_idx), hard_lambda);
+end
+end
+
+function penalty = band_excess(value, low, high, lambda)
+% BAND_EXCESS - quadratic hinge outside [low, high], normalised by band width.
+penalty = 0;
+if ~isfinite(low) || ~isfinite(high) || high <= low
+    return;
+end
+width = high - low;
+excess = max(0, low - value) + max(0, value - high);
+if excess <= 0
+    return;
+end
+penalty = lambda * (excess / width)^2;
+end
+
+function penalty = gate_hinge_penalty(metric_name, err_rel, calib)
+% GATE_HINGE_PENALTY - patient-acceptance hinge on governed RMSE metrics.
+%
+% Zero inside the acceptance band and quadratic outside it, so the term
+% reshapes the basin only where a metric is actually failing the gate. The
+% band is read from the recipe/case-profile policy, never hard-coded, and the
+% penalty is normalised by gate^2 so lambda is scale-free.
+%
+% The hinge is C^1 at the knot: d/d(err) of max(0, err-g)^2 is 0 at err = g.
+penalty = 0;
+if ~isfield(calib, 'gateLambda') || ~isfinite(calib.gateLambda) || calib.gateLambda <= 0
+    return;
+end
+gate = 0.10;
+if isfield(calib, 'gateGate') && isfinite(calib.gateGate) && calib.gateGate > 0
+    gate = calib.gateGate;
+end
+if ~metric_in_primary_rmse(calib, metric_name)
+    return;
+end
+
+excess = max(0, err_rel - gate);
+if excess <= 0
+    return;
+end
+
+% Deliberately NOT scaled by the metric's tier weight. Tier weights express
+% how much a metric should influence the fit; the acceptance band is a
+% per-metric threshold that applies equally to every governed metric.
+% Weighting the hinge made it negligible for exactly the low-weight soft
+% metrics (SAP_max at 0.45, PAP_max at 0.50) that were failing the gate.
+penalty = calib.gateLambda * (excess / gate)^2;
+end
+
+function tf = metric_in_primary_rmse(calib, metric_name)
+% METRIC_IN_PRIMARY_RMSE - membership of the governed RMSE mask.
+% Defaults to true so a missing tier table does not silently disable the gate.
+tf = true;
+if ~isfield(calib, 'targetTiers') || ~isstruct(calib.targetTiers) || ...
+        ~isfield(calib.targetTiers, 'table') || isempty(calib.targetTiers.table)
+    return;
+end
+tier_tbl = calib.targetTiers.table;
+idx = find(strcmp(tier_tbl.Metric, metric_name), 1, 'first');
+if isempty(idx)
+    return;
+end
+tf = logical(tier_tbl.IncludedInPrimaryRMSE(idx));
 end
 
 function tier = calibration_metric_tier(calib, metric_name)
@@ -406,13 +528,19 @@ if bundle.has_systemic_shape
 
     penalty = penalty + 0.8 * (sap_max_err_rel / calib.secondaryTarget)^2;
     penalty = penalty + 0.6 * (sap_min_err_rel / calib.secondaryTarget)^2;
-    penalty = penalty + 0.5 * (sap_pulse_err_rel / calib.secondaryTarget)^2;
+    % Pulse pressure is the quantity that couples systolic and diastolic, so
+    % it is weighted alongside them rather than below them.
+    penalty = penalty + 0.8 * (sap_pulse_err_rel / calib.secondaryTarget)^2;
 end
 
 if bundle.has_pulmonary_shape
     pap_pulse_err_rel = abs(metrics.PAP_pulse - bundle.PAP_pulse_target_mmHg) / ...
         max(abs(bundle.PAP_pulse_target_mmHg), 1e-6);
-    penalty = penalty + 0.2 * (pap_pulse_err_rel / calib.secondaryTarget)^2;
+    % Matched to the systemic pulse weight: there is no physiological reason
+    % for the pulmonary circulation's pulse to count 4x less than the
+    % systemic one, and PAP_max/PAP_min are now fitted targets in their own
+    % right.
+    penalty = penalty + 0.8 * (pap_pulse_err_rel / calib.secondaryTarget)^2;
 end
 end
 

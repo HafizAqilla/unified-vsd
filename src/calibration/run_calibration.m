@@ -64,6 +64,161 @@ if should_accept_initial_seed(calib)
         seed_summary.co_abs_error_pct);
 end
 
+% ---- multi-start driver -------------------------------------------------
+% A 14-parameter calibration under a single local start cannot distinguish
+% "this prior is worse" from "the solver did not leave its start point".
+% Sampling several starts over the registry bounds makes that difference
+% visible and is reported as a distribution, not only as a best value.
+ms = build_multistart_plan(calib, params_start);
+start_records = repmat(empty_start_record(), 1, ms.num_starts);
+best_seq = [];
+best_rank = [Inf Inf Inf];
+
+for start_idx = 1:ms.num_starts
+    if start_idx == 1
+        params_this_start = params_start;
+        start_label = 'seed';
+    else
+        params_this_start = apply_initial_vector_to_params(params0, ...
+            calib.referenceParams, calib.names, ms.starts(:, start_idx), ...
+            calib.caseProfile);
+        start_label = sprintf('sobol_%d', start_idx - 1);
+    end
+
+    seq = run_stage_sequence(params_this_start, clinical, scenario, ...
+        calib, do_parallel, pce_surrogate, fastMode, screening_mode);
+
+    seq_summary = validation_summary_for_params(seq.params_best, clinical, ...
+        scenario, calib.primaryMetrics, calib.caseProfile);
+    rank = [seq_summary.primary_fail_count, seq_summary.gate_fail_count, ...
+        seq_summary.rmse];
+
+    start_records(start_idx) = make_start_record(start_idx, start_label, ...
+        seq_summary, seq.best_stage);
+
+    if ms.num_starts > 1
+        fprintf(['[run_calibration] Start %d/%d (%s): RMSE %.6g, ', ...
+            'primary_fail %d, gate_fail %d.\n'], start_idx, ms.num_starts, ...
+            start_label, seq_summary.rmse, seq_summary.primary_fail_count, ...
+            seq_summary.gate_fail_count);
+    end
+
+    if is_better_rank(rank, best_rank)
+        best_rank = rank;
+        best_seq = seq;
+        best_seq.start_index = start_idx;
+        best_seq.start_label = start_label;
+    end
+end
+
+if isempty(best_seq)
+    % Every start failed to produce a scorable candidate; fall back to the
+    % seed sequence so the caller still receives a valid structure.
+    best_seq = run_stage_sequence(params_start, clinical, scenario, ...
+        calib, do_parallel, pce_surrogate, fastMode, screening_mode);
+    best_seq.start_index = 1;
+    best_seq.start_label = 'seed';
+end
+
+params_best = best_seq.params_best;
+stage_history_cell = best_seq.stage_history_cell;
+last_stage = best_seq.last_stage;
+final_stage_names = best_seq.final_stage_names;
+final_stage_metrics = best_seq.final_stage_metrics;
+final_calib_source = best_seq.final_calib_source;
+best_stage = best_seq.best_stage;
+
+multistart_out = struct( ...
+    'num_starts', ms.num_starts, ...
+    'seed', ms.seed, ...
+    'sampler', ms.sampler, ...
+    'starts', ms.starts, ...
+    'records', start_records, ...
+    'best_start_index', best_seq.start_index, ...
+    'best_start_label', best_seq.start_label, ...
+    'table', build_multistart_table(start_records));
+
+if ms.num_starts > 1
+    fprintf('\n[run_calibration] Multi-start summary (%d starts, seed %d):\n', ...
+        ms.num_starts, ms.seed);
+    disp(multistart_out.table);
+    finite_rmse = [start_records.rmse];
+    finite_rmse = finite_rmse(isfinite(finite_rmse));
+    if numel(finite_rmse) > 1
+        fprintf(['[run_calibration] RMSE across starts: min %.6g, median %.6g, ', ...
+            'max %.6g, IQR %.6g.\n'], min(finite_rmse), median(finite_rmse), ...
+            max(finite_rmse), iqr(finite_rmse));
+    end
+    fprintf('[run_calibration] Winning start: %s (#%d).\n', ...
+        best_seq.start_label, best_seq.start_index);
+end
+
+calib_out = build_calibration_output(params0, params_best, calib, ...
+    final_calib_source, final_stage_names, final_stage_metrics, clinical, ...
+    scenario, pce_surrogate, J0, last_stage, best_stage, stage_history_cell, ...
+    do_parallel, multistart_out);
+
+end
+
+% =========================================================================
+function ms = build_multistart_plan(calib, params_start)
+% BUILD_MULTISTART_PLAN - deterministic start points over registry bounds.
+%
+% Start 1 is always the recipe/demographic seed, so enabling multi-start can
+% never lose the previously reported operating point. Starts 2..N are drawn
+% from a scrambled Sobol sequence over [lb, ub], which covers the box more
+% evenly than independent uniform draws at small sample counts.
+x_seed = pack_x(params_start, calib.referenceParams, calib.names, calib.caseProfile);
+ms = build_multistart_starts(x_seed, calib.lb, calib.ub, ...
+    env_numeric_or_default('UNIFIED_VSD_NUM_STARTS', 1), ...
+    env_numeric_or_default('UNIFIED_VSD_MULTISTART_SEED', 20260828));
+end
+
+% =========================================================================
+function record = empty_start_record()
+record = struct('index', 0, 'label', '', 'rmse', Inf, ...
+    'primary_fail_count', Inf, 'gate_fail_count', Inf, ...
+    'co_abs_error_pct', Inf, 'best_stage', NaN);
+end
+
+function record = make_start_record(idx, label, summary, best_stage)
+record = struct( ...
+    'index', idx, ...
+    'label', label, ...
+    'rmse', summary.rmse, ...
+    'primary_fail_count', summary.primary_fail_count, ...
+    'gate_fail_count', summary.gate_fail_count, ...
+    'co_abs_error_pct', summary.co_abs_error_pct, ...
+    'best_stage', best_stage);
+end
+
+function tf = is_better_rank(candidate, incumbent)
+% IS_BETTER_RANK - lexicographic: primary gate failures, then full-set gate
+% failures, then governed primary RMSE.
+tf = false;
+for k = 1:numel(candidate)
+    if candidate(k) < incumbent(k)
+        tf = true;
+        return;
+    elseif candidate(k) > incumbent(k)
+        return;
+    end
+end
+end
+
+function tbl = build_multistart_table(records)
+tbl = table([records.index]', {records.label}', [records.rmse]', ...
+    [records.primary_fail_count]', [records.gate_fail_count]', ...
+    [records.best_stage]', ...
+    'VariableNames', {'Start','Label','PrimaryRMSE','PrimaryFail', ...
+    'GateFail','BestStage'});
+tbl = sortrows(tbl, {'PrimaryFail','GateFail','PrimaryRMSE'});
+end
+
+% =========================================================================
+function seq = run_stage_sequence(params_start, clinical, scenario, ...
+    calib, do_parallel, pce_surrogate, fastMode, screening_mode)
+% RUN_STAGE_SEQUENCE - one full A->F staged solve from a given start point.
 params_stage = params_start;
 stage_history_cell = cell(1, 6);
 
@@ -181,7 +336,24 @@ if should_run_validation_gate_polish(final_calib_source) && ~screening_mode
     end
 end
 
-stage_history_cell = trim_empty_stage_history(stage_history_cell);
+seq = struct( ...
+    'params_best', params_best, ...
+    'stage_history_cell', {trim_empty_stage_history(stage_history_cell)}, ...
+    'last_stage', last_stage, ...
+    'final_stage_names', {final_stage_names}, ...
+    'final_stage_metrics', {final_stage_metrics}, ...
+    'final_calib_source', final_calib_source, ...
+    'best_stage', best_stage, ...
+    'start_index', 1, ...
+    'start_label', 'seed');
+end
+
+% =========================================================================
+function calib_out = build_calibration_output(params0, params_best, calib, ...
+    final_calib_source, final_stage_names, final_stage_metrics, clinical, ...
+    scenario, pce_surrogate, J0, last_stage, best_stage, stage_history_cell, ...
+    do_parallel, multistart_out)
+% BUILD_CALIBRATION_OUTPUT - assemble the calibration result structure.
 
 final_calib = make_stage_calib(final_calib_source, params_best, final_stage_names, final_stage_metrics);
 final_x = pack_x(params_best, final_calib.referenceParams, final_calib.names, final_calib.caseProfile);
@@ -216,6 +388,20 @@ calib_out.exitflag = last_stage.exitflag;
 calib_out.output = last_stage.output;
 calib_out.objective_breakdown = build_objective_breakdown(params_best, clinical, scenario, final_calib_source);
 calib_out.use_parallel = do_parallel;
+calib_out.multistart = multistart_out;
+
+% An optimiser that returns its start point is not evidence about the prior;
+% it is evidence that the budget or the basin prevented any movement. Flag it
+% explicitly so such a run can never be promoted to a comparison candidate.
+calib_out.optimizer_moved = isfinite(J0) && isfinite(fbest) && ...
+    abs(J0 - fbest) > 1e-6;
+if ~calib_out.optimizer_moved
+    calib_out.optimizer_status = 'OPTIMIZER_DID_NOT_MOVE';
+    fprintf(2, ['[run_calibration] OPTIMIZER_DID_NOT_MOVE: objective %.6g ', ...
+        'unchanged from start. This run is not a valid comparison candidate.\n'], J0);
+else
+    calib_out.optimizer_status = 'OPTIMIZER_MOVED';
+end
 
 end
 
@@ -277,6 +463,15 @@ calib_out.objective_breakdown = table();
 calib_out.use_parallel = false;
 calib_out.rollback_applied = 0;
 calib_out.rollback_reason = '';
+% The seed shortcut bypasses optimisation entirely; report that plainly
+% rather than leaving the multi-start/movement fields undefined.
+calib_out.multistart = struct( ...
+    'num_starts', 0, 'seed', NaN, 'sampler', 'recipe_seed_accepted', ...
+    'starts', [], 'records', empty_start_record(), ...
+    'best_start_index', 0, 'best_start_label', 'recipe_seed', ...
+    'table', table());
+calib_out.optimizer_moved = false;
+calib_out.optimizer_status = 'RECIPE_SEED_ACCEPTED_WITHOUT_OPTIMISATION';
 end
 
 function tf = should_run_systemic_polish(calib, scenario)
@@ -419,7 +614,7 @@ end
 
 function summary = validation_summary_for_params(params, clinical, scenario, primary_metrics, case_profile)
 summary = struct('rmse', Inf, 'primary_fail_count', Inf, ...
-    'co_abs_error_pct', Inf, 'svr_abs_error_pct', Inf, ...
+    'gate_fail_count', Inf, 'co_abs_error_pct', Inf, 'svr_abs_error_pct', Inf, ...
     'systemic_pair_score', Inf);
 if nargin < 5
     case_profile = struct();
@@ -455,6 +650,12 @@ end
 relative_error = (model_values(valid) - clinical_values(valid)) ./ ...
     max(abs(clinical_values(valid)), 1e-9);
 summary.rmse = sqrt(mean(relative_error.^2));
+
+% Acceptance count across the whole governed RMSE set, not only the five
+% gated primary metrics: this is the quantity the publication claim reports
+% as "n of N within 10%".
+gate_pct = profile_scalar(case_profile, 'acceptancePrimaryErrorPct', 10);
+summary.gate_fail_count = sum(100 * abs(relative_error) > gate_pct);
 
 primary_mask = ismember(metric_names, primary_metrics(:)');
 primary_valid = primary_mask & valid;
@@ -713,8 +914,31 @@ for k = 1:numel(calib.metricFields)
     end
 end
 
-breakdown = table(rows, tiers, unweighted, weighted, ...
-    'VariableNames', {'Metric','Tier','RelativeError','WeightedContribution'});
+% Surface the acceptance-gate hinge per metric so it is auditable next to the
+% fit contribution it is meant to reshape.
+gate_pct = 100 * profile_scalar(calib.caseProfile, 'acceptancePrimaryErrorPct', 10);
+gate_frac = gate_pct / 100;
+gate_hinge = zeros(numel(rows), 1);
+within_gate = false(numel(rows), 1);
+for k = 1:numel(rows)
+    if ~isfinite(unweighted(k))
+        gate_hinge(k) = NaN;
+        continue;
+    end
+    within_gate(k) = unweighted(k) <= gate_frac;
+    excess = max(0, unweighted(k) - gate_frac);
+    if excess > 0 && isfield(calib, 'gateLambda')
+        weight = 1.0;
+        if isfield(calib.weights, rows{k})
+            weight = calib.weights.(rows{k});
+        end
+        gate_hinge(k) = calib.gateLambda * weight * (excess / gate_frac)^2;
+    end
+end
+
+breakdown = table(rows, tiers, unweighted, weighted, gate_hinge, within_gate, ...
+    'VariableNames', {'Metric','Tier','RelativeError','WeightedContribution', ...
+    'GateHinge','WithinGate'});
 end
 
 function x = pack_x(params, reference_params, names, case_profile)

@@ -191,6 +191,32 @@ report.primary_metric_governance = primary_policy;
 report.validation_holdout_metrics = opts.ValidationHoldoutMetrics(:)';
 report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline, report.primary_metrics);
 
+%% Full-metric acceptance count over every clinical validation target.
+% The five-metric gate above answers "did the selected primaries pass".
+% This answers "n of N of everything we can compare", which is the number a
+% publication claim has to quote.
+report.full_metric_gate = export_full_metric_gate( ...
+    report, scenario, opts.ResultsDir, opts.PrimaryGatePct);
+
+%% Model-predicted chamber state (no comparator in this scenario).
+% Chamber volumes removed as targets are still model outputs. Report them as
+% predictions, screened against paediatric ranges and direction-checked
+% against post-operative evidence where it exists.
+metrics_for_prediction = metrics_cal;
+if isempty(metrics_for_prediction)
+    metrics_for_prediction = metrics_baseline;
+end
+try
+    report.predicted_chamber_state = predicted_chamber_state_report( ...
+        metrics_for_prediction, clinical, scenario, ...
+        recipe_excluded_evidence(clinical, scenario), opts.ResultsDir);
+catch chamber_err
+    % Supplementary reporting must never abort a completed calibration.
+    report.predicted_chamber_state = struct('error', chamber_err.message);
+    fprintf(2, '[validation_report] Predicted chamber state skipped: %s\n', ...
+        chamber_err.message);
+end
+
 %% Print to console
 fprintf('\n==========================================================\n');
 fprintf('  VALIDATION REPORT — %s\n', upper(strrep(scenario,'_',' ')));
@@ -243,6 +269,7 @@ addParameter(parser, 'PrimaryMetrics', {}, @(x) iscell(x) || isstring(x));
 addParameter(parser, 'ValidationHoldoutMetrics', {}, @(x) iscell(x) || isstring(x));
 addParameter(parser, 'TargetTiers', [], @(x) isempty(x) || isstruct(x));
 addParameter(parser, 'ClinicalConsistencyAudit', [], @(x) isempty(x) || isstruct(x));
+addParameter(parser, 'PrimaryGatePct', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(parser, 'CaseProfile', struct(), @(x) isempty(x) || isstruct(x));
 addParameter(parser, 'AllowPrimaryMetricOverride', false, @(x) islogical(x) || isnumeric(x));
 parse(parser, varargin{:});
@@ -295,6 +322,25 @@ policy.primaryMetrics = allowed(:)';
 policy.blockedMetrics = blocked(:)';
 policy.blockedReasons = blocked_reason(:)';
 policy.allowOverride = allow_override;
+end
+
+function evidence = recipe_excluded_evidence(clinical, scenario)
+% RECIPE_EXCLUDED_EVIDENCE - retrieve documented non-target evidence.
+% Values a recipe deliberately removed from the target set are still useful
+% for direction checks; they travel on the clinical struct as provenance.
+evidence = [];
+if ~isstruct(clinical) || ~isfield(clinical, 'calibration_recipes') || ...
+        ~isstruct(clinical.calibration_recipes)
+    return;
+end
+key = char(scenario);
+if ~isfield(clinical.calibration_recipes, key)
+    return;
+end
+recipe = clinical.calibration_recipes.(key);
+if isstruct(recipe) && isfield(recipe, 'excluded_evidence')
+    evidence = recipe.excluded_evidence;
+end
 end
 
 function [tier, included_cal, included_primary_rmse, flag] = target_tier_metadata(target_tiers, metric_name)
