@@ -180,9 +180,14 @@ report.sorted_errors = table( ...
 %% Primary metric fit bands: 5% excellent, 10% patient-acceptance gate
 primary_metrics = opts.PrimaryMetrics;
 if isempty(primary_metrics)
-    [primary_metrics, ~] = select_primary_metrics(clinical, opts.GsaInitOut, scenario);
+    [primary_metrics, ~] = select_primary_metrics( ...
+        clinical, opts.GsaInitOut, scenario, opts.CaseProfile);
 end
+primary_policy = enforce_primary_metric_governance( ...
+    primary_metrics, report.table_baseline, opts.AllowPrimaryMetricOverride);
+primary_metrics = primary_policy.primaryMetrics;
 report.primary_metrics = primary_metrics(:)';
+report.primary_metric_governance = primary_policy;
 report.validation_holdout_metrics = opts.ValidationHoldoutMetrics(:)';
 report.primary_gate = primary_metric_gate(report.table_cal, report.table_baseline, report.primary_metrics);
 
@@ -238,8 +243,11 @@ addParameter(parser, 'PrimaryMetrics', {}, @(x) iscell(x) || isstring(x));
 addParameter(parser, 'ValidationHoldoutMetrics', {}, @(x) iscell(x) || isstring(x));
 addParameter(parser, 'TargetTiers', [], @(x) isempty(x) || isstruct(x));
 addParameter(parser, 'ClinicalConsistencyAudit', [], @(x) isempty(x) || isstruct(x));
+addParameter(parser, 'CaseProfile', struct(), @(x) isempty(x) || isstruct(x));
+addParameter(parser, 'AllowPrimaryMetricOverride', false, @(x) islogical(x) || isnumeric(x));
 parse(parser, varargin{:});
 opts = parser.Results;
+opts.AllowPrimaryMetricOverride = logical(opts.AllowPrimaryMetricOverride);
 if ischar(opts.PrimaryMetrics)
     opts.PrimaryMetrics = {opts.PrimaryMetrics};
 elseif isstring(opts.PrimaryMetrics)
@@ -250,6 +258,43 @@ if ischar(opts.ValidationHoldoutMetrics)
 elseif isstring(opts.ValidationHoldoutMetrics)
     opts.ValidationHoldoutMetrics = cellstr(opts.ValidationHoldoutMetrics);
 end
+end
+
+function policy = enforce_primary_metric_governance(primary_metrics, table_baseline, allow_override)
+% ENFORCE_PRIMARY_METRIC_GOVERNANCE - prevent silent promotion of holdouts.
+primary_metrics = cellstr(primary_metrics(:));
+allowed = {};
+blocked = {};
+blocked_reason = {};
+for idx = 1:numel(primary_metrics)
+    metric = primary_metrics{idx};
+    row = find(strcmp(table_baseline.Metric, metric), 1);
+    if isempty(row)
+        blocked{end + 1} = metric; %#ok<AGROW>
+        blocked_reason{end + 1} = 'metric_not_in_validation_table'; %#ok<AGROW>
+        continue;
+    end
+    if table_baseline.IncludedInPrimaryRMSE(row)
+        allowed{end + 1} = metric; %#ok<AGROW>
+    elseif allow_override
+        allowed{end + 1} = metric; %#ok<AGROW>
+        blocked{end + 1} = metric; %#ok<AGROW>
+        blocked_reason{end + 1} = ['override_included_from_tier_' ...
+            char(table_baseline.Tier{row})]; %#ok<AGROW>
+    else
+        blocked{end + 1} = metric; %#ok<AGROW>
+        blocked_reason{end + 1} = ['excluded_tier_' ...
+            char(table_baseline.Tier{row})]; %#ok<AGROW>
+    end
+end
+if isempty(allowed)
+    allowed = table_baseline.Metric(table_baseline.IncludedInPrimaryRMSE);
+end
+policy = struct();
+policy.primaryMetrics = allowed(:)';
+policy.blockedMetrics = blocked(:)';
+policy.blockedReasons = blocked_reason(:)';
+policy.allowOverride = allow_override;
 end
 
 function [tier, included_cal, included_primary_rmse, flag] = target_tier_metadata(target_tiers, metric_name)

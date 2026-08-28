@@ -79,14 +79,16 @@ ev(m2) = 0.5 * (1 + cos(pi * (phi(m2) - Tvc) / Tvr));
 % diastolic phase: ev = 0 (already initialised by zeros)
 end  % ev_activation
 
-function ea = ea_activation(phi, t_ac, Tc, t_ar, Tr, ~)
+function ea = ea_activation(phi, t_ac, Tc, t_ar, Tr, T_HB)
 % EA_ACTIVATION — Atrial normalised activation  e_a ∈ [0,1]  [Eq. 2.4]
 %   Fully vectorised: phi may be scalar or any array.
 %   t_ac = contraction start, t_ar = relaxation start (= t_ac + Tc)
 ea = zeros(size(phi));
-m1 = (phi >= t_ac) & (phi < t_ar);
-m2 = (phi >= t_ar) & (phi < t_ar + Tr);
-ea(m1) = 0.5 * (1 - cos(pi * (phi(m1) - t_ac) / Tc));
-ea(m2) = 0.5 * (1 + cos(pi * (phi(m2) - t_ar) / Tr));
+Tc_eff = max(t_ar - t_ac, Tc);
+tau = mod(phi - t_ac, T_HB);
+m1 = tau < Tc_eff;
+m2 = (tau >= Tc_eff) & (tau < Tc_eff + Tr);
+ea(m1) = 0.5 * (1 - cos(pi * tau(m1) / Tc_eff));
+ea(m2) = 0.5 * (1 + cos(pi * (tau(m2) - Tc_eff) / Tr));
 % resting phase: ea = 0 (already initialised by zeros)
 end  % ea_activation
