@@ -81,6 +81,22 @@ the acceptance band — and it did. `export_full_metric_gate` now writes a
 per-metric table on every run and reports the count as *n of N* against a
 disclosed denominator.
 
+**Update, 2026-08-29.** There is now a sharper answer to "bedanya apa,
+implikasinya apa" than "primary governed" vs "full transparent" — both are
+still percentage-based RMSE, and a percentage treats a pressure measured three
+times identically the same as one known only to ±20%. A χ² goodness-of-fit
+statistic is now computed and printed on every run: each residual is expressed
+in units of that metric's own declared measurement uncertainty (σ), not a
+single global percentage, and `χ²/N` states directly whether the fit is *as
+good as the data allows* (χ²/N ≈ 1), *worse than the data supports* (χ²/N ≫ 1,
+model or data inconsistent), or *fitting the noise* (χ²/N ≪ 1, overfitting or
+overstated uncertainties). This is the standard practice in fields that face
+the same "different units, different confidence" problem — see
+`docs/reyna_statistical_calibration_prd.md` and the physics/geophysics
+citations there. The PR #24 candidate reads χ²/N = 1.47, inside the
+`consistent` band — a single number answering exactly the "implikasinya apa"
+half of the question that "primary governed vs full transparent" could not.
+
 ### [242] / [243] / [252] "Perbanyak grafik dibanding tabel... jadikan grafik"
 
 *Use more graphs than tables; make the error comparison a line/bar graph; this table is hard to read, make it a graph.*

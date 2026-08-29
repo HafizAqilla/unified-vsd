@@ -198,6 +198,44 @@ report.primary_gate = primary_metric_gate(report.table_cal, report.table_baselin
 report.full_metric_gate = export_full_metric_gate( ...
     report, scenario, opts.ResultsDir, opts.PrimaryGatePct);
 
+%% Chi-squared goodness-of-fit (PRD reyna_statistical_calibration_v1 Phase 2).
+% A percentage acceptance gate treats a pressure known to a repeated +-0.5
+% mmHg the same as one known only to +-20%. Chi-squared, normalised by each
+% metric's own declared measurement uncertainty, answers whether the fit is
+% as good as the data allows -- a criterion that cannot be improved by
+% redefining which metrics are counted.
+report.chi_squared = compute_chi_squared_report( ...
+    report.full_metric_gate.table, opts.NumActiveParameters);
+if ~isempty(opts.ResultsDir)
+    % A reporting/export failure here must never be able to discard a
+    % completed calibration. Concretely: an earlier bug in this exact
+    % export (struct2table choking on an empty-char field) crashed a
+    % finished 6-start, ~3.4-hour calibration run before its results could
+    % be saved (2026-08-29), because this call sat unguarded in the main
+    % validation_report path. It is now supplementary and non-fatal, like
+    % the chamber-state and identifiability exports elsewhere in the
+    % pipeline.
+    try
+        report.chi_squared.csv_path = export_chi_squared_summary( ...
+            report.chi_squared, scenario, opts.ResultsDir);
+    catch chi2_export_err
+        report.chi_squared.csv_path = '';
+        fprintf(2, '[validation_report] Chi-squared CSV export skipped: %s\n', ...
+            chi2_export_err.message);
+    end
+end
+
+%% Validation holdout (PRD reyna_statistical_calibration_v1 Phase 5).
+% A metric explicitly held out of BOTH the objective and the governed RMSE,
+% reported separately as a genuine out-of-sample prediction test. Distinct
+% from a derived_validation metric (e.g. SVR = (SAP_mean-RAP_mean)/CO_Lmin):
+% a derived quantity computed from targets that ARE fitted is not
+% independent information, so it cannot serve as a holdout no matter how
+% well it lands -- see docs/reyna_statistical_calibration_prd.md Phase 5
+% deviation note for why SVR is not designated here.
+report.validation_holdout_report = print_validation_holdout( ...
+    report.full_metric_gate.table);
+
 %% Model-predicted chamber state (no comparator in this scenario).
 % Chamber volumes removed as targets are still model outputs. Report them as
 % predictions, screened against paediatric ranges and direction-checked
@@ -272,6 +310,7 @@ addParameter(parser, 'ClinicalConsistencyAudit', [], @(x) isempty(x) || isstruct
 addParameter(parser, 'PrimaryGatePct', 10, @(x) isnumeric(x) && isscalar(x) && x > 0);
 addParameter(parser, 'CaseProfile', struct(), @(x) isempty(x) || isstruct(x));
 addParameter(parser, 'AllowPrimaryMetricOverride', false, @(x) islogical(x) || isnumeric(x));
+addParameter(parser, 'NumActiveParameters', NaN, @(x) isnumeric(x) && isscalar(x));
 parse(parser, varargin{:});
 opts = parser.Results;
 opts.AllowPrimaryMetricOverride = logical(opts.AllowPrimaryMetricOverride);
@@ -322,6 +361,19 @@ policy.primaryMetrics = allowed(:)';
 policy.blockedMetrics = blocked(:)';
 policy.blockedReasons = blocked_reason(:)';
 policy.allowOverride = allow_override;
+end
+
+function csv_path = export_chi_squared_summary(chi2_report, scenario, results_dir)
+% EXPORT_CHI_SQUARED_SUMMARY - one-row CSV so the discrepancy-principle
+% statistic (PRD reyna_statistical_calibration_v1 Phase 2) is a standalone
+% artifact per run, not only a console line.
+if ~exist(results_dir, 'dir')
+    mkdir(results_dir);
+end
+csv_path = fullfile(results_dir, sprintf('chi_squared_%s.csv', scenario));
+tbl = struct2table(rmfield(chi2_report, ...
+    intersect(fieldnames(chi2_report), {'csv_path'})));
+writetable(tbl, csv_path);
 end
 
 function evidence = recipe_excluded_evidence(clinical, scenario)

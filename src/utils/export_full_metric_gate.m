@@ -73,16 +73,24 @@ within_excellent = ~isnan(abs_err) & abs_err <= 0.5 * gate_pct;
 in_objective = logical(rows.IncludedInCalibration);
 in_primary = logical(rows.IncludedInPrimaryRMSE);
 
+sigma = resolve_row_sigma(rows);
+z_score = (rows.(value_col) - rows.Clinical) ./ sigma;
+z_score_sq = z_score .^ 2;
+
 gate_tbl = table( ...
     rows.Metric, rows.Unit, rows.Tier, rows.Clinical, rows.(value_col), ...
-    rows.Error_pct, abs_err, in_objective, in_primary, ...
+    rows.Error_pct, abs_err, sigma, z_score, z_score_sq, in_objective, in_primary, ...
     within_gate, within_excellent, rows.Flag, ...
     'VariableNames', {'Metric','Unit','Tier','Clinical','Model', ...
-    'Error_pct','AbsError_pct','InObjective','InPrimaryRMSE', ...
-    'WithinGate','WithinExcellent','Flag'});
+    'Error_pct','AbsError_pct','Sigma','ZScore','ZScoreSquared', ...
+    'InObjective','InPrimaryRMSE','WithinGate','WithinExcellent','Flag'});
 
-gate_tbl = sortrows(gate_tbl, 'AbsError_pct', 'descend', ...
-    'MissingPlacement', 'first');
+% Sorted worst-first by |z|, the statistically meaningful ranking (PRD
+% reyna_statistical_calibration_v1 Phase 2): a metric known to +-0.5 units
+% that misses by 1 unit is a worse fit than one known to +-10 units that
+% misses by 5, even though both may show the same or a smaller percent error.
+gate_tbl = sortrows(gate_tbl, 'ZScoreSquared', 'descend', ...
+    'MissingPlacement', 'last');
 
 gate.table = gate_tbl;
 gate.gate_pct = gate_pct;
@@ -111,6 +119,42 @@ end
 
 print_full_metric_gate(gate, scenario);
 
+end
+
+% =========================================================================
+function sigma = resolve_row_sigma(rows)
+% RESOLVE_ROW_SIGMA - measurement uncertainty per row, same resolution order
+% as build_target_sigma_map in build_case_calibration_profile.m:
+% UncertaintyAbs, then UncertaintyFraction*|Clinical|, then a 10% fallback.
+% Kept independent of that function (rather than calling it) because this
+% export works directly off the validation_report table, which already
+% carries UncertaintyAbs/UncertaintyFraction per row.
+n = height(rows);
+sigma = nan(n, 1);
+
+has_abs_col = ismember('UncertaintyAbs', rows.Properties.VariableNames);
+has_frac_col = ismember('UncertaintyFraction', rows.Properties.VariableNames);
+
+for idx = 1:n
+    abs_sigma = NaN;
+    if has_abs_col
+        abs_sigma = rows.UncertaintyAbs(idx);
+    end
+    frac_sigma = NaN;
+    if has_frac_col && isfinite(rows.UncertaintyFraction(idx)) && ...
+            rows.UncertaintyFraction(idx) > 0
+        frac_sigma = abs(rows.Clinical(idx)) * rows.UncertaintyFraction(idx);
+    end
+
+    if isfinite(abs_sigma) && abs_sigma > 0
+        sigma(idx) = abs_sigma;
+    elseif isfinite(frac_sigma) && frac_sigma > 0
+        sigma(idx) = frac_sigma;
+    else
+        sigma(idx) = 0.10 * abs(rows.Clinical(idx));
+    end
+end
+sigma = max(sigma, 1e-9);
 end
 
 % =========================================================================

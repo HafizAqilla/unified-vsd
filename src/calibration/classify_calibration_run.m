@@ -90,6 +90,12 @@ status.plausibility_warning_ok = status.warning_fraction <= thresholds.max_warni
 [status.governed_gate_ok, status.n_governed_fail, status.governed_gate_total, ...
     status.governed_gate_failures] = evaluate_governed_gate(report);
 
+% Chi-squared goodness-of-fit, recorded for visibility only (PRD
+% reyna_statistical_calibration_v1 Phase 2). NOT used to gate ACCEPT in this
+% phase: changing the objective (Phase 1) and the acceptance rule in the same
+% change would make neither attributable. Observe chi2/N across runs first.
+[status.chi2_per_obs, status.chi2_interpretation] = extract_chi2_summary(report);
+
 if status.fit_ok && status.governed_gate_ok && status.plausibility_ok && ...
         status.rmse_not_worse
     status.label = 'ACCEPT';
@@ -114,6 +120,22 @@ if status.n_governed_fail > 0
     status.summary = sprintf('%s | governed_gate_failures=%s', ...
         status.summary, strjoin(status.governed_gate_failures, ','));
 end
+if isfinite(status.chi2_per_obs)
+    status.summary = sprintf('%s | chi2_per_obs=%.2f (%s)', ...
+        status.summary, status.chi2_per_obs, status.chi2_interpretation);
+end
+end
+
+% =========================================================================
+function [chi2_per_obs, interpretation] = extract_chi2_summary(report)
+chi2_per_obs = NaN;
+interpretation = 'unavailable';
+if ~isstruct(report) || ~isfield(report, 'chi_squared') || ...
+        ~isstruct(report.chi_squared)
+    return;
+end
+chi2_per_obs = report.chi_squared.chi2_per_obs;
+interpretation = report.chi_squared.interpretation;
 end
 
 % =========================================================================

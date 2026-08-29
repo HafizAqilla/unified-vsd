@@ -107,3 +107,32 @@ verifyEqual(tc, status.n_governed_fail, 0);
 verifyEqual(tc, status.governed_gate_total, 0);
 verifyEqual(tc, status.label, 'ACCEPT');
 end
+
+function test_chi2_is_recorded_but_does_not_gate_accept(tc)
+% PRD reyna_statistical_calibration_v1 Phase 2: chi2/N is recorded on status
+% for visibility, but must NOT influence the ACCEPT/REJECT label in this
+% phase. A run whose percentage gate and plausibility both pass must stay
+% ACCEPT even when chi2/N reports 'underfit', and the chi2 fields must still
+% be populated so the number is visible in status.summary.
+report = report_fixture(struct('names', {{'PAP_min','SAP_min'}}, ...
+    'values', [7.0; 6.5]));
+report.chi_squared = struct('chi2_per_obs', 9.5, 'interpretation', 'underfit');
+
+status = classify_calibration_run(report, clean_plausibility());
+
+verifyEqual(tc, status.label, 'ACCEPT', ...
+    'chi2/N must not gate ACCEPT in Phase 2; it is reporting-only.');
+verifyEqual(tc, status.chi2_per_obs, 9.5, 'AbsTol', 1e-9);
+verifyEqual(tc, status.chi2_interpretation, 'underfit');
+verifySubstring(tc, status.summary, 'chi2_per_obs=9.50 (underfit)');
+end
+
+function test_missing_chi_squared_field_is_reported_as_unavailable(tc)
+report = report_fixture(struct('names', {{}}, 'values', []));
+status = classify_calibration_run(report, clean_plausibility());
+
+verifyTrue(tc, isnan(status.chi2_per_obs));
+verifyEqual(tc, status.chi2_interpretation, 'unavailable');
+verifyFalse(tc, contains(status.summary, 'chi2_per_obs'), ...
+    'Summary must not print a chi2 clause when chi2 is unavailable.');
+end

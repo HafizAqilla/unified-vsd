@@ -61,6 +61,31 @@ else
     calib.targetTiers = struct();
 end
 
+% Sigma-weighted (chi-squared) objective, PRD reyna_statistical_calibration_v1
+% Phase 1. Default 'legacy' preserves the existing percentage-normalised
+% objective exactly; set 'sigma' via UNIFIED_VSD_OBJECTIVE_WEIGHTING or the
+% case-profile field to weight residuals by declared measurement uncertainty.
+calib.objectiveWeighting = 'legacy';
+if isfield(caseProfile, 'objectiveWeighting') && ...
+        (ischar(caseProfile.objectiveWeighting) || isstring(caseProfile.objectiveWeighting))
+    calib.objectiveWeighting = char(caseProfile.objectiveWeighting);
+end
+weighting_env = getenv('UNIFIED_VSD_OBJECTIVE_WEIGHTING');
+if ~isempty(weighting_env)
+    calib.objectiveWeighting = lower(strtrim(weighting_env));
+end
+if ~ismember(calib.objectiveWeighting, {'legacy', 'sigma'})
+    warning('calibration_param_sets:unknownObjectiveWeighting', ...
+        'Unknown objectiveWeighting "%s"; falling back to legacy.', ...
+        calib.objectiveWeighting);
+    calib.objectiveWeighting = 'legacy';
+end
+if isfield(caseProfile, 'targetSigma') && isstruct(caseProfile.targetSigma)
+    calib.targetSigma = caseProfile.targetSigma;
+else
+    calib.targetSigma = struct();
+end
+
 switch scenario
     case 'pre_surgery'
         calib.names_all = {

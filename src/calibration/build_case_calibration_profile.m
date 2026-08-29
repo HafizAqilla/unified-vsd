@@ -117,7 +117,49 @@ end
 % physiological: without this the optimiser is free to drive an unconstrained
 % chamber to an implausible state.
 profile.referenceRanges = clinical_reference_ranges(scenario, clinical, profile);
+
+% Per-metric measurement uncertainty (sigma), cached for the objective so a
+% sigma-weighted fit expresses "close" in units of how well each target is
+% actually known, rather than one global percentage. Resolution order:
+% UncertaintyAbs, then UncertaintyFraction*|ClinicalValue|, then a 10%
+% fallback with a named warning (a target with no declared uncertainty is a
+% governance gap, not a silent default).
+profile.targetSigma = build_target_sigma_map(scenario, clinical);
+
 profile = apply_age_validity_prior_adjustment(profile, clinical);
+end
+
+function sigma_map = build_target_sigma_map(scenario, clinical)
+% BUILD_TARGET_SIGMA_MAP - metric -> measurement sigma, from
+% get_calibration_targets (the single source of truth for target metadata).
+targets = get_calibration_targets(scenario, clinical);
+sigma_map = struct();
+for idx = 1:numel(targets)
+    metric_name = targets(idx).Metric;
+    clinical_value = targets(idx).ClinicalValue;
+    if ~isfinite(clinical_value)
+        continue;
+    end
+
+    has_abs = isfield(targets, 'UncertaintyAbs') && ...
+        isfinite(targets(idx).UncertaintyAbs) && targets(idx).UncertaintyAbs > 0;
+    has_frac = isfield(targets, 'UncertaintyFraction') && ...
+        isfinite(targets(idx).UncertaintyFraction) && targets(idx).UncertaintyFraction > 0;
+
+    if has_abs
+        sigma = targets(idx).UncertaintyAbs;
+    elseif has_frac
+        sigma = abs(clinical_value) * targets(idx).UncertaintyFraction;
+    else
+        sigma = 0.10 * abs(clinical_value);
+        warning('build_target_sigma_map:noDeclaredUncertainty', ...
+            ['%s has no declared UncertaintyAbs or UncertaintyFraction; ', ...
+             'defaulting sigma to 10%% of the clinical value. This is a ', ...
+             'target-governance gap, not an intended default.'], metric_name);
+    end
+
+    sigma_map.(metric_name) = max(sigma, 1e-9);
+end
 end
 
 function profile = apply_recipe_governance(profile, recipe)

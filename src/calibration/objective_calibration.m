@@ -38,6 +38,8 @@ J_primary = 0;
 J_secondary = 0;
 J_clinical_guard = 0;
 J_gate = 0;
+is_sigma_weighted = isfield(calib, 'objectiveWeighting') && ...
+    strcmp(calib.objectiveWeighting, 'sigma');
 for k = 1:numel(calib.metricFields)
     mf = calib.metricFields{k};
     if is_consistency_only_metric(calib, mf)
@@ -72,10 +74,25 @@ for k = 1:numel(calib.metricFields)
 
     weight = calib.weights.(mf);
     tier = calibration_metric_tier(calib, mf);
-    if strcmp(tier, 'hard') || (~strcmp(tier, 'soft') && ismember(mf, calib.primaryMetrics))
-        J_primary = J_primary + weight * (err_rel / calib.primaryTarget)^2;
+
+    if is_sigma_weighted
+        % PRD reyna_statistical_calibration_v1 Phase 1: every fitted residual
+        % expressed in units of its own declared measurement uncertainty, so
+        % "close" means the same thing for a pressure known to +-5% and a
+        % flow known to +-15%. Tier still separates primary from secondary
+        % bookkeeping, but no longer rescales by a single global percentage.
+        z = sigma_weighted_residual(mf, metrics.(mf), y_clin, calib);
+        if strcmp(tier, 'hard') || (~strcmp(tier, 'soft') && ismember(mf, calib.primaryMetrics))
+            J_primary = J_primary + weight * z^2;
+        else
+            J_secondary = J_secondary + weight * z^2;
+        end
     else
-        J_secondary = J_secondary + weight * (err_rel / calib.secondaryTarget)^2;
+        if strcmp(tier, 'hard') || (~strcmp(tier, 'soft') && ismember(mf, calib.primaryMetrics))
+            J_primary = J_primary + weight * (err_rel / calib.primaryTarget)^2;
+        else
+            J_secondary = J_secondary + weight * (err_rel / calib.secondaryTarget)^2;
+        end
     end
 
     J_clinical_guard = J_clinical_guard + clinical_guard_penalty(mf, err_rel, metrics.(mf), y_clin, calib);
@@ -114,6 +131,47 @@ end
 if isfield(target, 'UseForCalibration')
     tf = ~target.UseForCalibration;
 end
+end
+
+function z = sigma_weighted_residual(metric_name, y_model, y_clin, calib)
+% SIGMA_WEIGHTED_RESIDUAL - residual in units of the metric's own sigma.
+%
+% Resolution order for sigma: calib.targetSigma (built by
+% build_case_calibration_profile.m from get_calibration_targets, honouring
+% UncertaintyAbs then UncertaintyFraction), then a 10% fallback with a named
+% warning. Never silently defaults without saying which metric was ungoverned.
+%
+% Every fitted metric in calib.metricFields should already have an entry in
+% calib.targetSigma (build_target_sigma_map builds one for every target with
+% a finite clinical value, unconditionally), so the fallback below is a
+% defensive path that should not fire in normal operation. This function
+% runs inside the objective, i.e. potentially thousands of times per
+% calibration run, so the warning is throttled to once per metric per
+% MATLAB session rather than once per evaluation.
+persistent warned_metrics
+if isempty(warned_metrics)
+    warned_metrics = {};
+end
+
+sigma = NaN;
+if isfield(calib, 'targetSigma') && isstruct(calib.targetSigma) && ...
+        isfield(calib.targetSigma, metric_name)
+    sigma = calib.targetSigma.(metric_name);
+end
+if ~isfinite(sigma) || sigma <= 0
+    sigma = max(abs(y_clin), 1e-6) * 0.10;
+    if ~ismember(metric_name, warned_metrics)
+        warned_metrics{end+1} = metric_name;
+        warning('objective_calibration:noSigmaForMetric', ...
+            ['%s has no resolved sigma in calib.targetSigma; defaulting to ', ...
+             '10%% of the clinical value for this evaluation. This indicates ', ...
+             'the case profile did not build targetSigma for this metric. ', ...
+             '(This warning fires once per metric per session.)'], ...
+            metric_name);
+    end
+end
+sigma = max(sigma, 1e-9);
+z = (y_model - y_clin) / sigma;
 end
 
 function penalty = physiological_range_penalty(metrics, targets, calib)

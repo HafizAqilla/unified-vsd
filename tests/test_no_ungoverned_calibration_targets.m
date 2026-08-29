@@ -164,3 +164,46 @@ verifyError(tc, ...
     @() build_target_tiers(clinical, 'pre_surgery', [], bad_config), ...
     'build_target_tiers:ungovernedCalibrationTarget');
 end
+
+function test_svr_is_excluded_from_calibration_and_primary_rmse(tc)
+% PRD reyna_statistical_calibration_v1 Phase 5 asked to relabel SVR as
+% validation_holdout, on the premise that it is "a genuine prediction test
+% rather than a fitted result". That premise does not survive checking the
+% derivation: SVR_target = (SAP_mean - RAP_mean) / CO_Lmin
+% (objective_calibration.m build_systemic_bundle, line ~395), and all three
+% of SAP_mean, RAP_mean, CO_Lmin are hard-tier targets already fitted. SVR
+% carries no information independent of what is already in the objective,
+% so relabelling it validation_holdout would misrepresent algebraic closure
+% as generalisation -- the same error already correctly avoided for
+% Q_shunt_Lmin. SVR therefore stays derived_validation; this test locks in
+% the exclusion outcome both tiers share (excluded from fitting and from
+% the governed RMSE) without asserting the (deviated-from) holdout label.
+clinical = patient_reyna();
+[recipe, ~] = load_calibration_recipe(clinical, 'pre_surgery');
+clinical = apply_calibration_recipe_to_clinical(clinical, 'pre_surgery', recipe);
+profile = build_case_calibration_profile(clinical, 'pre_surgery');
+tbl = profile.targetTiers.table;
+
+row = find(strcmp(tbl.Metric, 'SVR'), 1, 'first');
+verifyNotEmpty(tc, row, 'SVR must appear in the tier table.');
+verifyFalse(tc, tbl.IncludedInCalibration(row), ...
+    'SVR must not be fitted: it is algebra over three already-fitted targets.');
+verifyFalse(tc, tbl.IncludedInPrimaryRMSE(row), ...
+    'SVR must not count toward the governed primary RMSE.');
+verifyEqual(tc, tbl.Tier{row}, 'derived_validation', ...
+    'SVR is a derived quantity, not an independent holdout candidate.');
+end
+
+function test_no_current_metric_is_designated_a_genuine_validation_holdout(tc)
+% Locks in the honest state of Phase 5: nothing in the current Reyna
+% pre-surgery recipe is a genuinely independent held-out prediction test.
+% This is expected to change only when a metric is identified that is (a)
+% an independent measurement, not an algebraic function of other fitted
+% targets, and (b) deliberately excluded from the objective for that
+% reason. If this test starts failing because recipe.validation_holdout is
+% no longer empty, verify the new entry is actually independent before
+% updating this assertion.
+clinical = patient_reyna();
+[recipe, ~] = load_calibration_recipe(clinical, 'pre_surgery');
+verifyEmpty(tc, recipe.validation_holdout);
+end
