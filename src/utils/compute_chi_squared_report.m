@@ -80,18 +80,30 @@ if report.n_obs == 0
 end
 
 report.chi2 = sum(scored_tbl.ZScoreSquared);
-report.dof = max(report.n_obs - report.n_parameters, 0);
+% Report the TRUE degrees of freedom, including when it is negative. A
+% clamped 0 reads as "exactly determined" when the reality may be "more
+% parameters than observations", which is the single most important caveat
+% on any fit reported here -- suppressing it hides the finding a reviewer
+% most needs. chi2_reduced still guards on dof > 0 below, so nothing divides
+% by a non-positive number.
+report.dof = report.n_obs - report.n_parameters;
 report.chi2_per_obs = report.chi2 / report.n_obs;
 if report.dof > 0
     report.chi2_reduced = report.chi2 / report.dof;
 else
     report.chi2_reduced = NaN;
 end
-if report.dof <= 2
+if report.dof <= 0
+    report.dof_note = 'over_parameterised';
+elseif report.dof <= 2
     report.dof_note = 'insufficient_dof';
 end
 
-report.interpretation = classify_chi2_per_obs(report.chi2_per_obs);
+% The discrepancy-principle bands assume the residuals retain some freedom to
+% disagree with the data. With dof <= 0 the model has at least as many free
+% parameters as observations, so a low chi2/N is guaranteed by construction
+% rather than earned; labelling it 'consistent' would overstate the evidence.
+report.interpretation = classify_chi2_per_obs(report.chi2_per_obs, report.dof);
 
 [max_z2, worst_ix] = max(scored_tbl.ZScoreSquared);
 report.worst_metric = scored_tbl.Metric{worst_ix};
@@ -127,11 +139,22 @@ report = struct( ...
 end
 
 % =========================================================================
-function label = classify_chi2_per_obs(chi2_per_obs)
+function label = classify_chi2_per_obs(chi2_per_obs, dof)
 % CLASSIFY_CHI2_PER_OBS - discrepancy-principle bands.
 %   > 2.0        underfit   (model or data inconsistent)
 %   0.5 - 2.0    consistent (residuals match measurement noise)
 %   < 0.5        overfit    (fitting below the noise floor)
+%
+% The bands only carry their usual meaning when the fit has degrees of
+% freedom left. At dof <= 0 there are at least as many free parameters as
+% observations, so small residuals are guaranteed by construction; the label
+% is qualified rather than asserted, so that a chi2/N inside the band cannot
+% be quoted as evidence the model is validated. An 'underfit' verdict stays
+% as-is: failing to match the data despite excess freedom is still a genuine
+% and interpretable failure.
+if nargin < 2
+    dof = NaN;
+end
 if ~isfinite(chi2_per_obs)
     label = 'unavailable';
 elseif chi2_per_obs > 2.0
@@ -140,6 +163,11 @@ elseif chi2_per_obs < 0.5
     label = 'overfit';
 else
     label = 'consistent';
+end
+
+if isfinite(dof) && dof <= 0 && ~strcmp(label, 'unavailable') && ...
+        ~strcmp(label, 'underfit')
+    label = [label '_but_underdetermined'];
 end
 end
 
@@ -153,8 +181,13 @@ end
 fprintf('\n');
 fprintf('  p (active parameters)     : %d\n', report.n_parameters);
 fprintf('  dof = N - p               : %d', report.dof);
-if strcmp(report.dof_note, 'insufficient_dof')
-    fprintf('  [dof <= 2: reduced chi2 is not statistically stable]');
+switch report.dof_note
+    case 'over_parameterised'
+        fprintf(['  [dof <= 0: MORE FREE PARAMETERS THAN OBSERVATIONS -- ', ...
+            'a low chi2/N is guaranteed here and is not evidence of fit ', ...
+            'quality]']);
+    case 'insufficient_dof'
+        fprintf('  [dof <= 2: reduced chi2 is not statistically stable]');
 end
 fprintf('\n');
 fprintf('  chi2                      : %.3f\n', report.chi2);
@@ -165,7 +198,9 @@ else
     fprintf('  chi2 / dof (reduced)      : n/a (dof <= 0)\n');
 end
 fprintf('  interpretation             : %s\n', report.interpretation);
-switch report.interpretation
+% Match on the base band so the qualified '<band>_but_underdetermined'
+% labels still print their explanation rather than falling through silently.
+switch strrep(report.interpretation, '_but_underdetermined', '')
     case 'underfit'
         fprintf(['  [chi2/N > 2.0] Residuals exceed measurement noise: ', ...
             'model or data inconsistent.\n']);
@@ -173,8 +208,14 @@ switch report.interpretation
         fprintf(['  [chi2/N < 0.5] Fitting below the noise floor: ', ...
             'overfitting, or declared uncertainties are too generous.\n']);
     case 'consistent'
-        fprintf(['  [0.5 <= chi2/N <= 2.0] Residuals are consistent with ', ...
-            'declared measurement noise.\n']);
+        fprintf(['  [0.5 <= chi2/N <= 2.0] Residuals are within the band ', ...
+            'of declared measurement noise.\n']);
+end
+if endsWith(report.interpretation, '_but_underdetermined')
+    fprintf(['  [QUALIFIED] dof <= 0, so this band does not establish fit ', ...
+        'quality: with at least as many free parameters as observations, ', ...
+        'residuals this small are expected regardless of whether the model ', ...
+        'is correct. Do not quote chi2/N alone as validation.\n']);
 end
 if ~isempty(report.worst_metric)
     fprintf('  Worst metric (by |z|)     : %s (z = %+.2f)\n', ...

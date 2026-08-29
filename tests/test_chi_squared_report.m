@@ -55,11 +55,48 @@ end
 
 function test_dof_le_zero_gives_nan_reduced_chi2_no_error(tc)
 tbl = make_table([1, 1, 1]);
-% 3 observations, 7 parameters -> dof = 0.
+% 3 observations, 7 parameters -> dof = -4.
 report = compute_chi_squared_report(tbl, 7);
-verifyEqual(tc, report.dof, 0);
+verifyEqual(tc, report.dof, -4);
 verifyTrue(tc, isnan(report.chi2_reduced));
 verifyTrue(tc, isfinite(report.chi2), 'chi2 itself must still compute.');
+end
+
+function test_negative_dof_is_reported_not_clamped_to_zero(tc)
+% A clamped dof of 0 reads as "exactly determined" when the truth may be
+% "more free parameters than observations" -- the single most important
+% caveat on any fit reported here. Reporting 0 for N=9,p=12 also prints a
+% line that is arithmetically false. Regression guard for that behaviour.
+tbl = make_table(ones(9, 1));
+report = compute_chi_squared_report(tbl, 12);
+verifyEqual(tc, report.dof, -3, ...
+    'dof must be the true N - p, including when negative.');
+verifyEqual(tc, report.dof_note, 'over_parameterised');
+verifyTrue(tc, isnan(report.chi2_reduced), ...
+    'reduced chi2 must still refuse to divide by a non-positive dof.');
+end
+
+function test_interpretation_is_qualified_when_underdetermined(tc)
+% chi2/N inside the "consistent" band means nothing when the model has at
+% least as many free parameters as observations: residuals that small are
+% guaranteed by construction. The label must not read as validation.
+tbl = make_table(ones(9, 1));           % chi2/N = 1.0, squarely "consistent"
+under = compute_chi_squared_report(tbl, 12);   % dof = -3
+verifyEqual(tc, under.interpretation, 'consistent_but_underdetermined');
+
+% With real degrees of freedom the plain band label is correct and kept.
+ok = compute_chi_squared_report(tbl, 3);       % dof = 6
+verifyEqual(tc, ok.interpretation, 'consistent');
+end
+
+function test_underfit_verdict_is_never_softened_by_low_dof(tc)
+% Failing to match the data DESPITE having excess freedom is a genuine and
+% interpretable failure -- qualifying it would weaken a real signal rather
+% than prevent an overclaim.
+tbl = make_table(3 * ones(9, 1));       % chi2/N = 9, well above 2.0
+report = compute_chi_squared_report(tbl, 12);  % dof = -3
+verifyEqual(tc, report.interpretation, 'underfit', ...
+    'an underfit verdict must survive dof <= 0 unqualified.');
 end
 
 function test_dof_le_two_sets_insufficient_dof_note(tc)
