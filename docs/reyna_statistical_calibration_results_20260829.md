@@ -1,14 +1,24 @@
 # Reyna Statistical Calibration — Results, 2026-08-29
 
-> ## ⚠ SUPERSEDED — read §0 before quoting any number in this document
+> ## ⚠ Read §0 before quoting any number in this document
 >
 > On 2026-08-29 the source catheterisation record (RSAB Harapan Kita
 > PROCEDURE LOG, MRN 01008971, 06/04/2026) was obtained and revealed three
 > errors in the clinical inputs — including **HR and BSA, which are model
-> inputs, not just report labels**. Every calibration number below §0 was
-> produced against the uncorrected data and is **superseded**. The
-> methodology, the code, and the process findings all stand; the numbers must
-> be regenerated. See §0 for what changed and what it invalidates.
+> inputs, not just report labels**.
+>
+> **The authoritative result is §3.5** (corrected data). §3.2 and §7's
+> original numbers were produced against the uncorrected inputs and are
+> **superseded** — they are retained because the process findings around them
+> matter, not because the numbers do.
+>
+> **The one-line honest summary:** on corrected data the model reproduces
+> **8 of 9 governed clinical targets within 10%** (10 of 11 across all
+> targets), best primary RMSE **0.0480** across 6 starts. χ²/N = 0.784 sits
+> inside the nominal "consistent" band but **carries no evidential weight**,
+> because at `p = 12` against `N = 9` the fit has `dof = −3` — more free
+> parameters than observations. The gate count and per-metric table are
+> defensible; χ²/N is not. See §3.5 and §4.
 
 ## 0. Clinical data correction, 2026-08-29 (supersedes all results below)
 
@@ -135,7 +145,7 @@ is deliberately blocked — see §6.
 
 | Phase | Status | Summary |
 |---|---|---|
-| 1 — σ-weighted objective | **Complete, A/B run done** | Residuals normalised by declared measurement uncertainty instead of one global percentage; opt-in via `objectiveWeighting`, default remains `legacy`. 6-start run complete (§3): governed gate 7/9 vs legacy's 8/9, primary RMSE 0.0780 vs 0.0873 — not promoted to the default recipe on this evidence, see §3.3 |
+| 1 — σ-weighted objective | **Complete; re-run on corrected data** | Residuals normalised by declared measurement uncertainty instead of one global percentage; opt-in via `objectiveWeighting`, default remains `legacy`. Authoritative result in **§3.5**: governed gate **8/9**, best RMSE **0.0480** across 6 starts. (§3.2's 7/9 is superseded — wrong clinical inputs.) |
 | 2 — χ² reporting | **Complete** | Discrepancy-principle goodness-of-fit statistic, printed and exported every run; does not gate `ACCEPT` |
 | 3 — parameter identifiability | **Complete** | Scaled sensitivity matrix, condition number, pairwise correlation; report-only |
 | 4 — joint pre/post inversion | **Governance resolved, awaiting data** | The three governance questions are answered (§6); `clinical.post_surgery` is currently all-`NaN` and the study owner is retrieving the post-operative record. Value depends on which rows it yields — see §6.0 |
@@ -752,10 +762,23 @@ Every run now writes, into its run folder's `tables/`:
 ## 9. What this does not establish
 
 - **n = 1.** Still one patient.
-- **Phase 4 is unresolved.** DOF stays at `N - p = 0` (9 observations, 12
-  active parameters) until it lands — `dof <= 2` means the reduced χ² is
-  flagged `insufficient_dof` and not statistically stable on its own; χ²/N is
-  reported instead and is the number both arms should be compared on.
+- **The fit is underdetermined, and this is the binding limitation.**
+  `N = 9` governed observations against `p = 12` free parameters gives
+  `dof = −3`. A low χ²/N is *guaranteed* in that regime and is not evidence
+  the model is correct — the report now says so explicitly (§4). Any claim
+  from this branch must rest on the gate count and per-metric residuals, and
+  must state the parameter/observation ratio alongside. Two levers exist and
+  probably both are needed: raise `N` via Phase 4 joint pre/post inversion
+  (now viable, §6.0 — would give `N = 16`, `dof = 4`), and lower `p` below
+  12 (stages D–F currently use a broader mask than the GSA screen's 7).
+- **The better fit came partly at the cost of identifiability.** Condition
+  number rose from 232 to 2.06 × 10³ between the superseded and corrected
+  runs, and a new `E.LV.EA` ↔ `vsd.Cd` collinearity (ρ = −0.917) appeared.
+  A fit that improves while its parameters become less separable is a
+  warning, not a success.
+- **Single seed.** §3.5 is one seed (`20260828`). A second (`20260830`) is
+  running for a spread estimate; until it lands there is no confidence
+  interval, and §5.1 of the 2026-08-28 assessment requires one.
 - **The identifiability report in §7 is now a governed-set analysis** (9
   metrics × 12 parameters, at this run's actual calibrated operating point)
   — no longer just the earlier 2-parameter smoke test, but still a single
