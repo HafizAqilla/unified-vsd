@@ -180,4 +180,11 @@ results/**
 # "n of N within 10%" claim, so it stays reviewable in git.
 !results/**/
 !results/**/full_metric_gate_*.csv
+# Same reasoning extended to the statistical evidence added by PRD
+# reyna_statistical_calibration_v1. A chi-squared or condition-number claim is
+# no more verifiable than a gate-count claim if the table behind it is not in
+# the repository, and these are the artefacts a reviewer would ask for first.
+!results/**/chi_squared_*.csv
+!results/**/parameter_identifiability_*.csv
+!results/**/parameter_identifiability_pairs_*.csv
 !results/tables/.gitkeep
