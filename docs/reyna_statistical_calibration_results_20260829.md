@@ -166,10 +166,24 @@ measure, and the percentage gate passes it while failing a metric that fits
 *better* in σ units. This is not a fitting failure — it is the gate measuring
 the wrong thing.
 
-By the proper statistical measure, the PR #24 candidate is already close to
-appropriately fit: `χ² = 13.22`, `N = 9`, `p = 7`, `χ²/N = 1.47` — inside the
-`consistent` band (0.5–2.0), meaning the residuals are broadly consistent with
-declared measurement noise, not badly wrong.
+By the proper statistical measure, the PR #24 candidate had
+`χ² = 13.22`, `N = 9`, `p = 7`, `χ²/N = 1.47` — inside the nominal
+`consistent` band (0.5–2.0).
+
+> **Correction, 2026-08-29.** The original wording here read that this meant
+> "the residuals are broadly consistent with declared measurement noise, not
+> badly wrong". That is precisely the inference §4 now forbids, and it is
+> withdrawn. Even at that candidate's `p = 7`, `dof = 2` — inside the
+> `insufficient_dof` band, where the reduced statistic is not stable. Being
+> inside the χ²/N band is a *necessary* condition for a good fit, not
+> evidence of one, and this document should not have implied otherwise while
+> arguing for more statistical rigour. The point §2 actually establishes
+> stands unaffected: the **percentage gate ranks the wrong metric worst**,
+> which is what motivated Phase 1.
+>
+> Note also that these PR #24 figures were computed against the uncorrected
+> clinical inputs (§0), so the specific σ values and errors in the table above
+> would differ if recomputed today.
 
 ## 3. Phase 1 — σ-weighted objective
 
