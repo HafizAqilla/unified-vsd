@@ -347,6 +347,39 @@ while it is executing.
 
 ## 4. Phase 2 — χ² reporting
 
+> **Two defects found in review, 2026-08-29 — fix queued, not yet applied.**
+> Both were found while preparing this branch for publication and both affect
+> how the headline statistic reads to a reviewer. Neither could be fixed
+> immediately because `compute_chi_squared_report.m` is on the calibration
+> path and a run was in flight (§10.1); they are to be applied as soon as it
+> completes, followed by a regeneration of the χ² numbers.
+>
+> **4.D1 — reported `dof` is clamped to 0 and prints a false statement.**
+> `compute_chi_squared_report.m:83` computes
+> `dof = max(n_obs - n_parameters, 0)`. On the actual governed set
+> (`N = 9`, `p = 12`) the true value is **−3**, but the console prints
+> `dof = N - p : 0`, which is arithmetically wrong as written. Worse, it
+> conceals the finding that matters most: `dof = 0` reads as *exactly
+> determined*, whereas `dof = −3` reads as **over-parameterised** — which is
+> precisely the central criticism in
+> `reyna_zhang_scientific_assessment_20260828.md` §2.1. The clamp suppresses
+> the signal the reader most needs. Fix: keep the true (possibly negative)
+> value for reporting; retain the clamp only where a non-negative divisor is
+> required.
+>
+> **4.D2 — the `consistent` label does not account for `dof`.**
+> `classify_chi2_per_obs` assigns `underfit` / `consistent` / `overfit` from
+> `χ²/N` alone. When `p > N` the model has more freedom than data, so small
+> residuals are guaranteed rather than earned; labelling `χ²/N = 1.60`
+> "consistent — residuals match measurement noise" therefore overstates the
+> evidence. The band is only meaningful with positive `dof`. Fix: qualify the
+> label when `dof <= 0` so the statistic cannot be quoted as validation of a
+> model that is over-parameterised.
+>
+> Note both defects are *reporting* faults, not errors in the χ² arithmetic
+> itself: `chi2` and `chi2_per_obs` are computed correctly.
+
+
 Every run now exports:
 
 - `full_metric_gate_<scenario>.csv` with three new columns: `Sigma`, `ZScore`,
