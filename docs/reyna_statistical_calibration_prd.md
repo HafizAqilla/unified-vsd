@@ -335,6 +335,35 @@ member to fix, and that judgement is the user's.
 
 ## 7. Phase 4 — joint pre/post inversion
 
+> **Status update, 2026-08-29 — §7.2's blocking question is ANSWERED and this
+> phase's premise has improved. Read this before implementing §7.**
+>
+> The §7.2 questions were put to the study owner and answered, and the source
+> catheterisation record (RSAB Harapan Kita, MRN 01008971, 06/04/2026) was
+> then retrieved. Two things changed:
+>
+> 1. **Real post-closure haemodynamics exist**, from the *same* session as the
+>    pre-closure readings (device released 12.06.23; readings 12.15–12.32 under
+>    unchanged anaesthesia). `clinical.post_surgery` now holds 7 finite
+>    pressure targets — `PAP` 17/9 (13), `SAP` 89/68 (79), `RAP` mean 5. This
+>    is a genuine paired dataset, which is a **stronger** basis for §7.1's
+>    shared-parameter assumption than the volume relocation this section was
+>    written around. `N = 16` against `p = 12` gives `dof = 4`, not 2.
+> 2. **The "60% internal stroke-volume inconsistency" in §7.2 item 3 is
+>    withdrawn.** It was never internal to the H+1 block (`SV_LV` 21.7 vs
+>    `SV_RV` 18.5, 14.7% apart, `LVEF` self-consistent). The 60% came from
+>    comparing post-closure volumes against pre-closure flows — the shunt
+>    itself. With the block excluded the audit returns severity `none`.
+>
+> Two amendments to §7 follow. **Do not relocate the H+1 echo volumes into
+> `post_surgery`**: they are a ward echo at a different timepoint from the
+> in-lab catheter pressures now stored there, and merging them would recreate
+> the timing mismatch this project has repeatedly been bitten by. And note
+> there is still **no post-closure flow** (see the open `PARI`/`FR` question),
+> so the post state constrains pressures only.
+>
+> Full detail: `docs/reyna_statistical_calibration_results_20260829.md` §0, §6.
+
 **Goal (O4).** The largest available win. Raises observation count without new
 data collection and resolves the volume problem by putting the volumes where
 their timing is valid.
