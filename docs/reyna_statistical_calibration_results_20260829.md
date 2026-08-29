@@ -331,8 +331,93 @@ clinical data correction is the *only* changed variable and its effect is
 cleanly attributable.
 
 Log: `results/runs/_logs/sigma_correcteddata_20260828seed.log`
+Run folder: `results/runs/20260829_225931_reyna_pre_surgery`
+Wall time: 16 265 s (~4.5 h).
 
-<!-- CORRECTED_RUN_RESULTS -->
+**The corrected data fits substantially better on every measure.** This is
+itself evidence that the correction was right: fitting the patient who was
+actually measured produces a better fit than fitting a mis-specified one.
+
+| | Superseded (§3.2) | **Corrected (authoritative)** |
+|---|---:|---:|
+| Governed gate | 7 / 9 | **8 / 9** |
+| All clinical targets | 9 / 11 | **10 / 11** |
+| Within 5% excellent band | 5 / 11 | **8 / 11** |
+| Best RMSE (of 6 starts) | 0.0780 | **0.0480** |
+| RMSE spread (min–max) | 0.0780 – 0.1144 | **0.0480 – 0.1053** |
+| RMSE improvement vs baseline | 70.8% | **83.5%** |
+| χ² | 14.371 | **7.059** |
+| χ²/N | 1.597 | **0.784** |
+| Gate failures | `PAP_max`, `SAP_min` | **`PAP_min` only** |
+| Worst by \|z\| | `PAP_max` (+2.61) | **`PAP_min` (+2.14)** |
+
+Per-start (seed `20260828`, identical to the superseded run):
+
+| Start | Label | RMSE | primary_fail | gate_fail |
+|---|---|---:|---:|---:|
+| 1/6 | seed | 0.0905017 | 0 | 3 |
+| 2/6 | sobol_1 | 0.0778811 | 0 | 2 |
+| **3/6** | **sobol_2** | **0.0480448** | **0** | **1** ← winner |
+| 4/6 | sobol_3 | 0.0778811 | 0 | 2 |
+| 5/6 | sobol_4 | 0.0778811 | 0 | 2 |
+| 6/6 | sobol_5 | 0.105326 | 1 | 2 |
+
+min 0.0480448, median 0.0778811, max 0.105326, IQR 0.0126206.
+
+### Per-metric, governed set, worst-first by \|z\|
+
+| Metric | Tier | Clinical | Model | Error % | σ | z | 10% gate |
+|---|---|---:|---:|---:|---:|---:|---|
+| `PAP_min` | soft | 10 | 11.07 | +10.72 | 0.50 | **+2.14** | **FAIL** |
+| `RAP_mean` | hard | 5 | 5.26 | +5.20 | 0.25 | +1.04 | PASS |
+| `PAP_max` | soft | 20 | 19.00 | −5.00 | 1.00 | −1.00 | PASS |
+| `SAP_min` | soft | 57 | 59.43 | +4.27 | 5.70 | +0.43 | PASS |
+| `SAP_max` | soft | 100 | 96.05 | −3.95 | 10.00 | −0.39 | PASS |
+| `CO_Lmin` | hard | 3.423 | 3.334 | −2.59 | 0.50 | −0.18 | PASS |
+| `PAP_mean` | hard | 15 | 14.94 | −0.40 | 0.75 | −0.08 | PASS |
+| `SAP_mean` | hard | 77 | 76.85 | −0.19 | 3.85 | −0.04 | PASS |
+| `QpQs` | — | 1.194 | 1.1946 | +0.05 | 0.0597 | +0.01 | PASS |
+
+Notably **`SAP_min` moved from the worst failure (−13.85%) to a comfortable
+pass (+4.27%)**, and `SAP_mean` now fits to 0.19%. Both are direct consequences
+of the §0 corrections — `SAP_min` was being pulled by an `SAP_mean` target that
+was 5.7 mmHg too low, and the whole systemic waveform was being fitted at the
+wrong heart rate.
+
+### χ² after the §4 reporting fix
+
+```
+  N (governed observations) : 9
+  p (active parameters)     : 12
+  dof = N - p               : -3  [dof <= 0: MORE FREE PARAMETERS THAN
+                                   OBSERVATIONS -- a low chi2/N is guaranteed
+                                   here and is not evidence of fit quality]
+  chi2 / N                  : 0.784
+  interpretation            : consistent_but_underdetermined
+  [QUALIFIED] ... Do not quote chi2/N alone as validation.
+```
+
+**This is the honest reading and it must not be softened in the write-up.**
+χ²/N = 0.784 sits inside the nominal `consistent` band, but with `dof = −3`
+that band carries no evidential weight: the model has three more free
+parameters than observations, so residuals this small are expected whether or
+not the model is correct. The gate count (8/9) and the per-metric table above
+are the defensible results; χ²/N is not.
+
+### Identifiability at the corrected operating point
+
+Condition number **2.06 × 10³** — flagged `near-dependence: cond > 1e3`, and
+notably *worse* than the superseded run's 232. Two collinear pairs:
+
+- `E.LV.EA` ↔ `E.LV.EB` (ρ = −0.921)
+- `E.LV.EA` ↔ `vsd.Cd` (ρ = −0.917)
+
+The LV elastance pair reappears, confirming it as structural rather than an
+artefact of the wrong data. The new `E.LV.EA` ↔ `vsd.Cd` coupling is
+consistent with a better-fitting shunt: as the fit improves, LV contractility
+and orifice discharge trade off more sharply against each other. **This
+strengthens rather than weakens the case that `p` must come down** — the
+better fit is being bought partly with parameter redundancy.
 
 ### 3.4 Process lesson
 
