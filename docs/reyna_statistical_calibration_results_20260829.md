@@ -163,6 +163,13 @@ declared measurement noise, not badly wrong.
 
 ## 3. Phase 1 — σ-weighted objective
 
+> **⚠ Every numeric result in §3 is SUPERSEDED by the §0 data correction.**
+> These runs used `HR = 119` (should be 136) and `BSA = 0.6173` (should be
+> 0.588) — both model inputs, so the fits are to a mis-specified patient. The
+> *code*, the *method*, and the *process findings* in this section stand and
+> are not affected; the numbers must be regenerated. A re-run on corrected
+> data with the identical seed (`20260828`) is what §3.5 will report.
+
 ### 3.1 What changed
 
 `objective_calibration.m` gained a second data-term mode. Residuals are now,
@@ -315,6 +322,17 @@ owners on which regime should be authoritative. What this run does establish
 is that the sigma-weighted code path is real, executes end-to-end, and
 produces defensible, differently-weighted results — not that it is strictly
 better.
+
+### 3.5 Corrected-data re-run (authoritative result)
+
+Launched 2026-08-29 after the §0 correction, with **the identical seed
+(`20260828`) and identical settings** as the superseded run above, so that the
+clinical data correction is the *only* changed variable and its effect is
+cleanly attributable.
+
+Log: `results/runs/_logs/sigma_correcteddata_20260828seed.log`
+
+<!-- CORRECTED_RUN_RESULTS -->
 
 ### 3.4 Process lesson
 
@@ -547,7 +565,15 @@ worth reporting. Not implemented; recorded as a concrete follow-up.
 
 Phases 1, 2, 3, and 5 do not depend on this and are complete without it.
 
-## 7. Parameter identifiability (Phase 3) — preliminary finding
+## 7. Parameter identifiability (Phase 3)
+
+> **⚠ The numbers in §7 are SUPERSEDED by the §0 data correction** (same
+> reason as §3: `HR` and `BSA` were wrong, and both are model inputs). The
+> *structural* finding — that the elastance and unstressed-volume parameters
+> are strongly collinear, and that `p = 12` rather than the GSA screen's 7 —
+> is a property of the model's parameterisation rather than of the clinical
+> values, so it is expected to persist; but the specific condition number and
+> correlations must be regenerated before being quoted.
 
 A 2-parameter, 2-metric smoke check during test development (`R.SVEN` vs
 `C.SAR`, evaluated at `RAP_mean`/`SAP_mean`) showed **ρ = −1.000** — perfect
