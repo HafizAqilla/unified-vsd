@@ -1,5 +1,33 @@
 # Scientific Assessment: Is the Reyna Zhang Result Publishable?
 
+> **Update, 2026-08-29 — three of this assessment's open items are now closed
+> by the source clinical record, and one finding below is withdrawn.**
+> The RSAB Harapan Kita procedure log (MRN 01008971, 06/04/2026) was
+> retrieved. See `docs/reyna_statistical_calibration_results_20260829.md` §0.
+>
+> - **§2.3's "60% internal stroke-volume inconsistency" is withdrawn as
+>   stated.** The H+1 block is internally coherent: `SV_LV` = 41.0 − 19.3 =
+>   21.7 and `SV_RV` = 30.5 − 12.0 = 18.5 mL/beat, 14.7% apart, with `LVEF`
+>   checking exactly (21.7/41.0 = 0.529 vs 0.528 stated). The 60% arises only
+>   from comparing those post-closure volumes against *pre*-closure flow-derived
+>   stroke volumes — i.e. it is the shunt, the expected physiology, not a data
+>   defect. With the block excluded the audit now returns severity `none`.
+> - **§6's MAP question ("a reviewer will ask why MAP=95 became 71.3") is
+>   answered by measurement, not a sensitivity arm.** The catheter stamps its
+>   own mean: `RFA 100/57 (77)`. The form-factor reconstruction was
+>   under-reading ~5–6 mmHg systematically (the same offset recurs
+>   post-closure: formula 75 vs stamped 79). `SAP_mean` is now 77.
+> - **§2.1's degrees-of-freedom problem is materially improved.** The same log
+>   carries post-closure pressures from the same session, giving
+>   `clinical.post_surgery` 7 finite targets where it had none. A joint
+>   pre/post inversion now has `N = 16` against `p = 12`, i.e. `dof = 4`
+>   rather than 0. Still not comfortable, but no longer structurally
+>   impossible — and it is a genuine paired dataset, not relocated echo rows.
+> - **Separately, two model *inputs* were found to be wrong** (`HR` 119 → 136,
+>   BSA 0.6173 → 0.588), so every calibration number cited in this assessment
+>   and its companion results documents is superseded and must be regenerated.
+>   The reasoning in this assessment stands; its numbers do not.
+
 Date: 2026-08-28
 Subject: PR #23 `codex/luna-reyna-publishability-20260827`, fair-prior Zhang arm
 Assessed candidate: governed primary RMSE `0.060445`, full RMSE `0.063985`,

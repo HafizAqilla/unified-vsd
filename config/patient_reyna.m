@@ -33,12 +33,28 @@ clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
 %% =====================================================================
 %  COMMON — patient demographics, measured for any scenario
 %% =====================================================================
+% Source of record for demographics and HR: RSAB Harapan Kita PROCEDURE LOG,
+% MRN 01008971, CaseID HA000557, dated 06/04/2026 — the catheterisation
+% session that produced every pre- and post-closure pressure below.
+%
+% These superseded an earlier "Keisya 2026-05-11 revision" (14.0 kg, 98.0 cm,
+% BSA 0.6173 by Mosteller, HR 119). That revision is dated five weeks AFTER
+% this catheterisation: the child had grown, so pairing May anthropometry
+% with April haemodynamics mis-scaled every demographically scaled parameter.
+% The measurement-day values are the correct ones for this fit.
 clinical.common.age_years  = 3.17;    % [years] 3 years 2 months [cite: 80]
-clinical.common.weight_kg  = 14.0;    % [kg] Keisya 2026-05-11 revision
-clinical.common.height_cm  = 98.0;    % [cm] Keisya 2026-05-11 revision
+clinical.common.weight_kg  = 13.4;    % [kg] procedure log 06/04/2026 07.53.01
+clinical.common.height_cm  = 95.0;    % [cm] procedure log 06/04/2026 07.53.09
 clinical.common.sex        = 0;       % 0 = female, 1 = male — AGENTS.md §3.10
-clinical.common.BSA        = 0.6173419726; % [m^2] Keisya 2026-05-11 revision, Mosteller: sqrt(98*14/3600)
-clinical.common.HR         = 119;     % [bpm] [cite: 81]
+% BSA as stamped by the hospital system (DuBois: 0.007184*95^0.725*13.4^0.425
+% = 0.5879). Note the prior config value used Mosteller instead; the stamped
+% value is retained here so the model matches the source record exactly.
+clinical.common.BSA        = 0.588;   % [m^2] procedure log 06/04/2026 07.53.20
+% HR from the procedure log's own pulse row. The prior value of 119 coincides
+% exactly with the NIBP SYSTOLIC on the adjacent log line (NIBP 119/83 (95)),
+% which is the likely origin of the error. HR sets cycle length, so this is a
+% model input, not just a reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s.
+clinical.common.HR         = 136;     % [bpm] procedure log 06/04/2026 09.24.57 "Nadi 136 bpm"
 
 %% =====================================================================
 %  PRE-SURGERY — haemodynamics in the presence of the open VSD
@@ -65,10 +81,17 @@ pre.PVR_WU            = NaN;     % [WU] protocol row 24 blank; not used as clini
 % MAP is recomputed from catheter sys/dia using MAP = dia + (sys-dia)/3.
 % The protocol MAP of 95 mmHg used NIBP cuff (119/83) — different method, not used here.
 % NIBP reference only: sys=119, dia=83, MAP_nibp=95 mmHg (row 10–11, 20)
-pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12)
-pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13)
-pre.SAP_mean_mmHg     = 71.3;    % [mmHg] recomputed: 57 + (100-57)/3 = 71.3
-                                  %        Source: catheter RFA, consistent with sys/dia above
+pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12; log 10.39.12)
+pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13; log 10.39.12)
+% MEAN: use the catheter's OWN stamped mean, not a form-factor reconstruction.
+% The procedure log records this reading as "RFA 100/57 (77)" — the transducer
+% reports 77 mmHg directly. The previous value of 71.3 came from applying
+% MAP = dia + (sys-dia)/3, which assumes a form factor this patient's waveform
+% does not have; the same ~5-6 mmHg offset recurs post-closure (formula 75 vs
+% stamped 79), so it is systematic, not noise.
+% Three MAP candidates existed: NIBP cuff 95 (different method, rejected),
+% form-factor 71.3 (reconstructed, rejected), catheter-stamped 77 (used).
+pre.SAP_mean_mmHg     = 77;      % [mmHg] procedure log 06/04/2026 10.39.12 "RFA 100/57 (77)"
 
 pre.SVR_WU            = NaN;     % [WU] protocol row 25 blank; not used as clinical target
 
@@ -116,21 +139,49 @@ post = struct();
 % QpQs should be ~1.0; residual shunt is modelled by a small, finite R_VSD
 post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
 
+% ======================================================================
+% SOURCE: RSAB Harapan Kita PROCEDURE LOG, MRN 01008971, CaseID HA000557,
+% 06/04/2026. Same catheterisation session as the pre-surgery block above.
+% The VSD closure device was placed at 11.50.19 and released at 12.06.23;
+% every value below is stamped AFTER that release (12.15-12.32), with the
+% patient under the same anaesthesia and ventilator settings as the
+% pre-closure readings. This is a genuine paired pre/post dataset rather
+% than two separate studies, which is why the two states are directly
+% comparable.
+%
+% Repeated measures are recorded as the hospital reported them; where three
+% consecutive readings exist the modal/mean value is taken, matching the
+% convention already used for the pre-surgery rows.
+%
+% DIRECTION CHECK (expected physiology after closure): PA pressure falls
+% (20/10 mean 15 -> 17/9 mean 13), RAP unchanged (5 -> 5). Both consistent
+% with removal of the left-to-right shunt.
+% ======================================================================
+
 % ---- Pulmonary circulation (normalised post-surgery) -----------------
-post.PAP_sys_mmHg     = NaN;   % [mmHg]
-post.PAP_dia_mmHg     = NaN;   % [mmHg]
-post.PAP_mean_mmHg    = NaN;   % [mmHg]
-post.PVR_WU           = NaN;   % [WU]     should be lower than pre-surgery
+% log 12.26.48 / 12.27.00 / 12.27.11: PA 17/8 (13), 17/9 (13), 17/9 (13)
+post.PAP_sys_mmHg     = 17;    % [mmHg] post-closure PA systolic
+post.PAP_dia_mmHg     = 9;     % [mmHg] post-closure PA diastolic
+post.PAP_mean_mmHg    = 13;    % [mmHg] post-closure PA mean
+post.PVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
 
 % ---- Systemic circulation --------------------------------------------
-post.SAP_sys_mmHg     = NaN;   % [mmHg]
-post.SAP_dia_mmHg     = NaN;   % [mmHg]
-post.MAP_mmHg         = NaN;   % [mmHg]   mean arterial pressure
-post.SVR_WU           = NaN;   % [WU]
+% log 12.31.35 / 12.32.10 / 12.32.39: RFA 91/68 (79), 89/68 (78), 89/68 (79)
+% RFA is used for consistency with the pre-surgery systemic rows, which also
+% come from the right femoral artery rather than the descending aorta.
+post.SAP_sys_mmHg     = 89;    % [mmHg] post-closure RFA systolic
+post.SAP_dia_mmHg     = 68;    % [mmHg] post-closure RFA diastolic
+% Catheter-stamped mean, same policy as pre.SAP_mean_mmHg above. The
+% form-factor reconstruction would give 68 + (89-68)/3 = 75, again ~4 mmHg
+% below the transducer's own figure - the same systematic offset seen
+% pre-closure (71.3 vs 77).
+post.MAP_mmHg         = 79;    % [mmHg] mean arterial pressure (maps to SAP_mean target)
+post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
 
 % ---- Atrial pressures ------------------------------------------------
-post.RAP_mean_mmHg    = NaN;
-post.LAP_mean_mmHg    = NaN;
+% log 12.28.14 / 12.28.24 / 12.28.35: RA 8/5 (5), 8/5 (5), 7/5 (5)
+post.RAP_mean_mmHg    = 5;     % [mmHg] post-closure RA mean
+post.LAP_mean_mmHg    = NaN;   % [mmHg] not measured
 
 % ---- Ventricular volumes and function (normalised post-surgery) ------
 post.LVEDV_mL         = NaN;

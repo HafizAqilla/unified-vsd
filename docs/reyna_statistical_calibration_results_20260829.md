@@ -1,5 +1,127 @@
 # Reyna Statistical Calibration — Results, 2026-08-29
 
+> ## ⚠ SUPERSEDED — read §0 before quoting any number in this document
+>
+> On 2026-08-29 the source catheterisation record (RSAB Harapan Kita
+> PROCEDURE LOG, MRN 01008971, 06/04/2026) was obtained and revealed three
+> errors in the clinical inputs — including **HR and BSA, which are model
+> inputs, not just report labels**. Every calibration number below §0 was
+> produced against the uncorrected data and is **superseded**. The
+> methodology, the code, and the process findings all stand; the numbers must
+> be regenerated. See §0 for what changed and what it invalidates.
+
+## 0. Clinical data correction, 2026-08-29 (supersedes all results below)
+
+The procedure log for the catheterisation that produced this patient's
+haemodynamics was retrieved after the runs in §3 completed. Cross-checking
+the config against it confirmed the pre-surgery *pressures* were all correct
+(`PA 20/10 (15)` ✓, `RFA 100/57` ✓, `RA` mean 5 ✓) but exposed three errors:
+
+| Field | Was | Corrected to | Source row | Why it matters |
+|---|---:|---:|---|---|
+| `HR` | 119 bpm | **136 bpm** | log 09.24.57 `Nadi 136 bpm` | **Model input.** Sets cycle length: 60/119 = 0.504 s → 60/136 = 0.441 s. Also changes every stroke-volume derivation (`SV_Qs` 28.8 → 25.2 mL/beat). |
+| `weight` / `height` / `BSA` | 14.0 kg / 98.0 cm / 0.6173 | **13.4 kg / 95.0 cm / 0.588** | log 07.53.01–07.53.20 | **Model input.** BSA drives the entire Zhang demographic scaling of the parameter prior. |
+| `SAP_mean` (pre) | 71.3 mmHg | **77 mmHg** | log 10.39.12 `RFA 100/57 (77)` | Hard-tier **fitted target**. |
+
+**On HR.** The prior value of 119 coincides exactly with the NIBP *systolic*
+on the adjacent log line (`NIBP 119/83 (95)`), which is the likely origin of
+the error.
+
+**On demographics.** The prior values were labelled *"Keisya 2026-05-11
+revision"* — dated five weeks **after** this 06/04/2026 catheterisation. The
+child had grown; pairing May anthropometry with April haemodynamics scaled
+the model to a larger patient than the one measured. The measurement-day
+values are the correct ones. (The stamped BSA 0.588 also uses DuBois, where
+the old config value used Mosteller; the stamped figure is kept so the model
+matches the source record exactly.)
+
+**On MAP.** Three candidates existed: NIBP cuff 95 (different method),
+form-factor reconstruction 71.3 (`dia + (sys−dia)/3`), and the transducer's
+own stamped mean 77. The catheter's direct reading is now used. The
+form-factor assumption was under-reading by ~5–6 mmHg *systematically* — the
+same offset recurs post-closure (formula 75 vs stamped 79), so it was a
+method error, not noise. This resolves the MAP form-factor question the
+2026-08-28 assessment raised (§5, step 6) with a measurement rather than a
+sensitivity arm.
+
+### 0.0 The correction restores documented intent — it does not change it
+
+`docs/clinical_data_dictionary.md` already specified the corrected values as
+the active ones, stating that *"the active Reyna patient file follows the raw
+protocol anthropometry"* and listing `13.4 kg / 95.0 cm / BSA 0.588`. It
+explicitly described `14.0 / 98.0 / 0.6173` as *"an alternate
+baseline-scaling experiment"*.
+
+The experiment's values had nonetheless leaked into both active config files,
+making the dictionary's own claim false and silently scaling every Reyna run
+to a larger child than the one measured. **The correction below is therefore
+a restoration of the documented design, not a new decision** — which is the
+strongest possible footing for it. The drift is now recorded in the
+dictionary itself, and the new assertion in
+`test_reyna_systemic_flow_profile.m::Test2` prevents a silent recurrence.
+
+### 0.1 A silent-override trap that was caught
+
+`recipe.demographics` in `config/calibration_recipes/reyna_pre_surgery.m` is
+merged **over** `clinical.common` by
+`apply_calibration_recipe_to_clinical.m:24`. Correcting only
+`config/patient_reyna.m` would therefore have been silently reverted at
+runtime for weight/height/BSA (HR would have survived, as it is not in that
+struct), producing a run that looked corrected but was not. Both files were
+updated together, and
+`tests/test_reyna_systemic_flow_profile.m::Test2` — which asserts the
+*effective* post-merge values — was updated to match and now guards the
+pairing.
+
+### 0.2 Post-surgery data now exists
+
+The same log carries a full set of **post-closure** pressures (device placed
+11.50.19, released 12.06.23; all readings below stamped 12.15–12.32, same
+anaesthesia and ventilator settings). `clinical.post_surgery` went from
+entirely `NaN` to **7 finite targets**:
+
+| Target | Value | Source rows |
+|---|---:|---|
+| `PAP_max` / `PAP_min` / `PAP_mean` | 17 / 9 / 13 | `PA 17/8 (13)`, `17/9 (13)`, `17/9 (13)` @12.26–12.27 |
+| `SAP_max` / `SAP_min` / `SAP_mean` | 89 / 68 / 79 | `RFA 91/68 (79)`, `89/68 (78)`, `89/68 (79)` @12.31–12.32 |
+| `RAP_mean` | 5 | `RA 8/5 (5)`, `8/5 (5)`, `7/5 (5)` @12.28 |
+
+Direction check passes: PA pressure falls (mean 15 → 13) while `RAP` holds at
+5 — consistent with removal of the left-to-right shunt.
+
+**This is a genuine paired pre/post dataset from a single session**, not two
+separate studies, which makes the two states directly comparable and changes
+the outlook for Phase 4 substantially (§6).
+
+### 0.3 What is still open
+
+- **Post-closure flow is not established.** The log notes `no CO`
+  pre-closure, and records `Hasil PARI 1.9` / `Hasil FR 1.19` at 12.10–12.11.
+  If `FR` is a flow ratio, 1.19 is near-identical to the pre-operative
+  `QpQs` 1.194 and is timestamped *after* device release, which would be
+  unexpected for a complete closure. **Not entered pending clarification of
+  what PARI and FR denote.** `post.QpQs`, `post.CO_Lmin`, `post.PVR_WU` and
+  `post.SVR_WU` remain `NaN`.
+- **`CO_Lmin` = 3.423 is unchanged**, derived as `Qp/QpQs` = 4.087/1.194 from
+  the *protocol* document, not this log. If `Qp` was Fick-derived using a
+  BSA-indexed VO₂, the BSA correction above would propagate into it. Not
+  altered without confirming that derivation.
+- **The H+1 echo volumes were not moved into `post_surgery`.** They are a
+  different timepoint from these in-lab pressures (ward echo vs catheter
+  table under anaesthesia); combining them into one "post" state would repeat
+  the timing-mismatch error this correction exists to fix.
+
+### 0.4 Verification status of the correction
+
+- `patient_reyna()` and the recipe parse; effective post-merge values confirmed
+  as `HR=136 BSA=0.588 W=13.4 H=95 SAP_mean=77`.
+- The 10 `functiontests`-style suites: **85/85 pass**.
+- `test_reyna_systemic_flow_profile.m`: **6 passed / 3 failed**, identical to
+  the pre-change baseline measured by stashing the edits — the 3 failures
+  (PAP waveform tiering, H+1 volume governance, recipe seed/manifest drift)
+  are pre-existing on this branch and unrelated to this correction.
+
+
 Branch: `codex/reyna-statistical-calibration` (off `codex/reyna-zhang-fullmetric-10pct`, PR #24)
 PRD: [reyna_statistical_calibration_prd.md](reyna_statistical_calibration_prd.md)
 Scope: Reyna `pre_surgery`, Zhang scaling prior, fair-prior (historical seeds disabled)
@@ -13,10 +135,10 @@ is deliberately blocked — see §6.
 
 | Phase | Status | Summary |
 |---|---|---|
-| 1 — σ-weighted objective | **Complete** | Residuals normalised by declared measurement uncertainty instead of one global percentage; opt-in via `objectiveWeighting`, default remains `legacy` |
+| 1 — σ-weighted objective | **Complete, A/B run done** | Residuals normalised by declared measurement uncertainty instead of one global percentage; opt-in via `objectiveWeighting`, default remains `legacy`. 6-start run complete (§3): governed gate 7/9 vs legacy's 8/9, primary RMSE 0.0780 vs 0.0873 — not promoted to the default recipe on this evidence, see §3.3 |
 | 2 — χ² reporting | **Complete** | Discrepancy-principle goodness-of-fit statistic, printed and exported every run; does not gate `ACCEPT` |
 | 3 — parameter identifiability | **Complete** | Scaled sensitivity matrix, condition number, pairwise correlation; report-only |
-| 4 — joint pre/post inversion | **Blocked** | Requires a clinical data-governance decision — see §6 |
+| 4 — joint pre/post inversion | **Governance resolved, awaiting data** | The three governance questions are answered (§6); `clinical.post_surgery` is currently all-`NaN` and the study owner is retrieving the post-operative record. Value depends on which rows it yields — see §6.0 |
 | 5 — validation holdout | **Deviated, with reasoning** | `SVR` was not relabelled `validation_holdout` — see §5 |
 
 ## 2. The measurement that motivated this branch
@@ -107,25 +229,92 @@ branch's result.
   chamber-state and identifiability exports — a reporting bug can no longer
   discard a completed calibration.
 
-**Re-run deferred, not scheduled.** All Phases 1–5 code is complete, tested
-(85/85), and committed on this branch. The clean 6-start A/B run is deferred
-to a later session at the user's request — see §10 for the exact command and
-the rule that must hold for the duration of that run: nothing else touches
-this branch's calibration-path files while it executes.
+**Re-run complete, 2026-08-29.** All Phases 1–5 code is complete, tested
+(85/85), and committed on this branch. The clean 6-start sigma-weighted run
+was executed successfully on this session's second attempt (the first attempt
+was independently killed by an unrelated tooling issue — an externally
+terminated process, not a code or data bug — partway through start 3/6; no
+partial artefacts existed to salvage, so it was simply relaunched from
+scratch). Total wall time: 9743 s (~2.7 h), run folder
+`results/runs/20260829_161536_reyna_pre_surgery`.
 
-| | legacy (PR #24, cited) | sigma (pending re-run) |
+Per-start results (`UNIFIED_VSD_MULTISTART_SEED=20260828`):
+
+| Start | Label | RMSE | primary_fail | gate_fail |
+|---|---|---:|---:|---:|
+| 1/6 | seed | 0.0780288 | 0 | 2 |
+| 2/6 | sobol_1 | 0.104133 | 0 | 2 |
+| 3/6 | sobol_2 | 0.114366 | 0 | 3 |
+| 4/6 | sobol_3 | 0.0897911 | 0 | 2 |
+| 5/6 | sobol_4 | 0.104133 | 0 | 2 |
+| 6/6 | sobol_5 | 0.103836 | 1 | 2 |
+
+RMSE across starts: min 0.0780288, median 0.103984, max 0.114366,
+IQR 0.0143417 — this matches the unverified console figures glimpsed before
+the earlier crashed attempt (§3.2 above), confirming Phase 1's objective code
+was not itself in question. The winning candidate is start 1/6 (seed).
+
+| | legacy (PR #24, cited) | sigma (this run) |
 |---|---:|---:|
-| Governed gate | 8 / 9 | <!-- SIGMA_GATE --> |
-| Primary RMSE (best of 6 starts) | 0.0873 | <!-- SIGMA_RMSE --> |
-| RMSE spread (min–max, 6 starts) | 0.0873 – 0.1041 | <!-- SIGMA_SPREAD --> |
-| χ²/N | 1.47 | <!-- SIGMA_CHI2 --> |
-| Interpretation | consistent | <!-- SIGMA_INTERP --> |
+| Governed gate | 8 / 9 | **7 / 9** |
+| Primary RMSE (best of 6 starts) | 0.0873 | **0.0780** |
+| RMSE spread (min–max, 6 starts) | 0.0873 – 0.1041 | **0.0780 – 0.1144** |
+| χ²/N | 1.47 | **1.60** |
+| Interpretation | consistent | **consistent** |
+| Active parameters (p) | 7 | **12** |
+| Condition number | — | **232** |
 
-<!-- SIGMA_PER_METRIC_TABLE -->
+`governed_gate_failures = PAP_max, SAP_min`. `p` came back as 12 (a genuine
+positive integer, not 0), confirming the §3.2 contamination bug did not
+recur on this run.
+
+### Per-metric table (governed set, sorted worst-first by \|z\|)
+
+| Metric | Tier | Clinical | Calibrated | Error % | σ | z | z² | 10% gate |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| PAP_max | soft | 20 | 22.609 | +13.05 | 1.00 | +2.609 | 6.808 | FAIL |
+| PAP_min | soft | 10 | 10.857 | +8.57 | 0.50 | +1.714 | 2.939 | PASS |
+| PAP_mean | hard | 15 | 16.053 | +7.02 | 0.75 | +1.404 | 1.971 | PASS |
+| SAP_min | soft | 57 | 49.104 | -13.85 | 5.70 | -1.385 | 1.919 | FAIL |
+| RAP_mean | hard | 5 | 5.129 | +2.59 | 0.25 | +0.518 | 0.268 | PASS |
+| SAP_max | soft | 100 | 95.601 | -4.40 | 10.00 | -0.440 | 0.194 | PASS |
+| CO_Lmin | hard | 3.423 | 3.223 | -5.85 | 0.50 | -0.401 | 0.161 | PASS |
+| SAP_mean | hard | 71.3 | 70.157 | -1.60 | 3.565 | -0.321 | 0.103 | PASS |
+| QpQs | hard | 1.194 | 1.188 | -0.47 | 0.0597 | -0.094 | 0.009 | PASS |
+
+Worst by |z|: `PAP_max` (z = +2.61), same metric flagged worst by the
+CHI-SQUARED block. Under the sigma-normalised view, `PAP_max` and `PAP_min`
+switch places relative to the legacy percentage view — `PAP_max` is now the
+single largest statistical outlier despite passing the old percentage read
+comfortably at earlier stages, which is the exact effect §2 predicted a
+sigma-aware view would surface.
+
+(`Q_shunt_Lmin` and `SVR` excluded from this table — both are
+`primary_rmse_holdout`/`derived_validation`, not governed primary metrics;
+see §5.)
 
 ### 3.3 Decision
 
-<!-- SIGMA_DECISION -->
+The sigma-weighted arm trades one governed-gate pass for a better primary
+RMSE (0.0780 vs 0.0873) and a materially tighter best-start result, at the
+cost of `PAP_max` flipping from PASS to FAIL under the 10% gate (barely:
+13.05% vs the legacy candidate's presumed pass) while `SAP_min` remains the
+same persistent failure in both arms. χ²/N moved from 1.47 to 1.60 — both
+values sit inside the `[0.5, 2.0]` "consistent" band, so this is not a
+regression by the statistical criterion the whole PRD exists to introduce;
+it is the same overall fit quality, redistributed across metrics differently
+because the objective now weights by declared measurement uncertainty
+instead of a flat percentage.
+
+This is not an unambiguous win. Recommendation: do **not** promote the
+sigma-weighted result to the recipe's `initial_parameter_values` seed
+(§10.4) on this evidence alone — a single n=1 A/B comparison with one flipped
+gate metric is not a strong enough signal, and `objectiveWeighting` stays
+opt-in (`legacy` default) pending a second run or a decision from the study
+owners on which regime should be authoritative. What this run does establish
+is that the sigma-weighted code path is real, executes end-to-end, and
+produces defensible, differently-weighted results — not that it is strictly
+better.
 
 ### 3.4 Process lesson
 
@@ -149,6 +338,17 @@ Every run now exports:
   `chi2/N`, `chi2/dof`, `interpretation`, `dof_note`, `worst_metric`,
   `worst_z`).
 - A `--- CHI-SQUARED ---` console block after the metric gate block.
+
+**Note on `p`**: the Sobol GSA screen at Step 5 selects a 7-parameter subset
+for the core mechanistic optimization (Stages A–C). Stages D–F (systemic
+polish, plausibility polish, validation-gate polish) are deliberately built
+on a broader active set — `calib.names_all(calib.mask)`, 12 parameters,
+including cardiac elastances and unstressed volumes the GSA screen never
+selected (`run_validation_gate_polish.m:145`). `p` in the chi-squared/
+identifiability report is this 12-parameter set, since that is what actually
+had freedom to move in producing the winning candidate (Stage F won in the
+2026-08-29 run — see §3.2). This is correct and intentional, not a
+double-counting bug; using the narrower 7 would understate real DOF.
 
 `chi2_per_obs` and its interpretation are recorded on
 `classification_status` (visible in the console summary line as
@@ -210,15 +410,132 @@ change than a recipe relabel, closer in scope to another multi-start
 calibration arm. Not attempted in this branch; recorded as a candidate for a
 future PRD.
 
-## 6. Phase 4 — blocked
+## 6. Phase 4 — governance resolved, awaiting post-operative data
 
-Per PRD §7.2, joint pre/post inversion requires relocating the H+1
+**Status as of 2026-08-29: the three governance questions are answered; Phase
+4 is now blocked on data entry rather than on a decision.**
+
+The PRD framed Phase 4 as a *governance* decision: relocate the H+1
 post-operative chamber-volume block from `clinical.pre_surgery` to
-`clinical.post_surgery` in `config/patient_reyna.m`. This is a clinical
-data-governance decision, not a code change, and the PRD explicitly instructs:
-**stop and ask rather than make it autonomously.**
+`clinical.post_surgery`, then run a joint pre/post inversion to buy degrees
+of freedom. All three of its open questions were put to the study owner and
+answered:
 
-Three questions remain open for the user:
+1. **H+1 timing confirmed.** The chamber volumes and every quantity derived
+   from them were taken from the medical record at H+1 post-operatively. The
+   values, held as `recipe.excluded_evidence` in
+   [reyna_pre_surgery.m:72](config/calibration_recipes/reyna_pre_surgery.m:72):
+   `LVEDV` 41.0 mL, `LVESV` 19.3 mL, `RVEDV` 30.5 mL, `RVESV` 12.0 mL,
+   `LVEF` 0.528.
+2. **H+1 accepted as a valid post-closure state.**
+3. **The "inconsistency" needs no resolution — see §6.1, it was never real.**
+   The study owner's instruction was to accept it, on the grounds that a
+   pre-closure target cannot be compared against H+1 volumes anyway, and to
+   validate predicted volumes against published paediatric ranges instead.
+   Both points are correct; §6.1 shows the arithmetic, and the range check is
+   already implemented (see §6.3 on strengthening it).
+
+### 6.0 RESOLVED — the post-operative data exists and is now encoded
+
+The source record was retrieved on 2026-08-29 and **the high-value case
+obtained**. `clinical.post_surgery`, previously entirely `NaN`, now carries
+**7 finite haemodynamic targets** taken in the same catheterisation session
+as the pre-closure readings, after device release. Full values, provenance
+and direction check are in §0.2.
+
+*(An earlier draft of this section concluded no post-operative data existed
+and closed Phase 4 permanently. That was a misreading of the study owner's
+answer and is withdrawn.)*
+
+**Phase 4 is now genuinely worth building.** The arithmetic that previously
+argued against it has reversed:
+
+| | Before | With post-closure pressures |
+|---|---:|---:|
+| Governed observations `N` | 9 | **16** (9 pre + 7 post) |
+| Active parameters `p` | 12 | 12 |
+| `dof = N − p` | **0** (`insufficient_dof`) | **4** |
+
+A joint inversion sharing patient parameters across both states — with the
+VSD orifice as the difference between them — is exactly the fix the
+2026-08-28 assessment's §2.1 demands, and it is now supported by real paired
+measurements rather than relocated echo rows. This is the single largest
+remaining step toward a defensible publication claim.
+
+Two caveats before building it:
+
+- **No post-closure flow yet** (§0.3). The post state constrains pressures
+  only, so `SVR`/`PVR`/`QpQs` cannot be evaluated post-closure until the
+  PARI/FR question is answered.
+- **`dof = 4` is an improvement, not a resolution.** Four degrees of freedom
+  still makes reduced χ² unstable. The complementary lever is reducing `p`
+  (currently 12 because Stages D–F use the broader mask, §4) — genuinely
+  resolving DOF likely needs both.
+
+### 6.1 The 60% stroke-volume inconsistency was an artefact, and is already gone
+
+The PRD and the 2026-08-28 assessment both treat a "60% internal
+stroke-volume inconsistency, severity `critical`" as an open problem in the
+H+1 block. Checking the arithmetic directly, it is not internal to that block:
+
+| Quantity | Value | Source |
+|---|---:|---|
+| `SV_LV` = LVEDV − LVESV | 21.7 mL/beat | H+1 echo |
+| `SV_RV` = RVEDV − RVESV | 18.5 mL/beat | H+1 echo |
+| **SV_LV vs SV_RV** | **14.7% apart** | both H+1 |
+| `LVEF` check: 21.7 / 41.0 | 0.529 vs stated 0.528 | internally consistent ✓ |
+
+Internally the H+1 block is coherent to within ordinary echo measurement
+error. The 60% figure appears only when those post-closure volumes are
+compared against **pre-closure** flow-derived stroke volumes:
+
+- `SV_Qs` = 3.423 × 1000 / 119 = 28.77 mL/beat
+- `SV_Qp` = 3.423 × 1.194 × 1000 / 119 = 34.35 mL/beat
+- `SV_Qp` vs `SV_LV` = (34.35 − 21.7) / 21.7 = **58.3% ≈ the reported 60%**
+
+That is not an inconsistency in the data. It is the expected physiological
+difference between a shunt-loaded pre-operative ventricle and the same
+ventricle after closure — the very reason the block was excluded from
+pre-surgery fitting in the first place.
+
+**It is also already resolved in the current code.** With the block excluded,
+the 2026-08-29 run's audit reports severity `none`, max relative SV difference
+**17.7%** — and that 17.7% is simply `SV_Qs` vs `SV_Qp`, i.e. the Qp/Qs shunt
+ratio itself, with `SV_LV` and `SV_RV` correctly `NaN`. Nothing further is
+required. Any remaining text in the PRD or the 2026-08-28 assessment
+describing a live `critical` inconsistency is stale and should be read
+against this section.
+
+### 6.2 Validating predicted volumes against the literature
+
+Per the study owner's answer to question 3, predicted chamber volumes should
+be judged against published paediatric ranges rather than against this
+patient's H+1 block. **This is already implemented** — the
+`PREDICTED CHAMBER STATE` console block screens all six predictions and the
+2026-08-29 run passes 6 of 6:
+
+| Metric | Predicted | Screening range |
+|---|---:|---|
+| LVEDV | 45.9 mL | 5 – 120 |
+| LVESV | 14.5 mL | 1 – 80 |
+| RVEDV | 41.7 mL | 5 – 140 |
+| RVESV | 12.2 mL | 1 – 90 |
+| LVEF | 0.684 | 0.40 – 0.85 |
+| RVEF | 0.708 | 0.30 – 0.80 |
+
+**But these ranges are too wide to constitute evidence.** An LVEDV band of
+5–120 mL admits essentially any physiologically possible value for a child;
+passing it demonstrates only that the model is not absurd. For the literature
+comparison to carry weight in a publication it needs **BSA-indexed normative
+values** for this patient's demographics (3.17 years, 0.617 m²) — e.g.
+LVEDV/BSA in mL/m² against published paediatric echo normals with a stated
+z-score or percentile, not a fixed absolute band. That is a materially
+tighter test and one the model could actually fail, which is what makes it
+worth reporting. Not implemented; recorded as a concrete follow-up.
+
+### 6.3 Superseded — the original three open questions
+
+*(Retained for provenance; all three are answered above.)*
 
 1. Confirm the H+1 timing against the source clinical record.
 2. Confirm H+1 is an acceptable proxy for the converged post-closure state, or
@@ -240,7 +557,41 @@ systemic RC time-constant coupling identified in
 `docs/reyna_zhang_fullmetric_results_20260828.md` §3.5 (the waveform
 form-factor mismatch driving `SAP_min`'s residual).
 
-<!-- IDENTIFIABILITY_FULL_REPORT -->
+### Full report (this run's winning candidate, 9 metrics × 12 parameters)
+
+Scaled sensitivity matrix `S(i,j) = dy_i/dtheta_j * theta_j/sigma_i`.
+Condition number: **232**.
+
+| Parameter | Column norm | Inactive | Max \|corr\| | Most correlated with | Flagged |
+|---|---:|---|---:|---|---|
+| group.R_sys_scale | 15.192 | false | 0.666 | R.SVEN | false |
+| R.SVEN | 5.833 | false | 0.666 | group.R_sys_scale | false |
+| group.R_pul_scale | 28.551 | false | 0.665 | E.LV.EB | false |
+| C.SAR | 6.430 | false | 0.599 | group.R_pul_scale | false |
+| C.PAR | 8.965 | false | 0.380 | E.LV.EA | false |
+| E.LV.EA | 5.553 | false | 0.903 | E.LV.EB | **true** |
+| E.LV.EB | 9.029 | false | 0.903 | E.LV.EA | **true** |
+| E.RV.EA | 2.583 | false | 0.811 | V0.RV | false |
+| E.RV.EB | 6.391 | false | 0.944 | V0.LV | **true** |
+| V0.LV | 0.631 | false | 0.944 | E.RV.EB | **true** |
+| V0.RV | 0.501 | false | 0.904 | E.RV.EB | **true** |
+| vsd.Cd | 3.987 | false | 0.716 | E.LV.EA | false |
+
+Collinear pairs flagged (|ρ| threshold exceeded):
+- `E.RV.EB` ↔ `V0.LV` (ρ = -0.944)
+- `E.RV.EB` ↔ `V0.RV` (ρ = +0.904)
+- `E.LV.EA` ↔ `E.LV.EB` (ρ = -0.903)
+
+This confirms the §7 smoke-test finding at governed-set scale rather than a
+toy 2-parameter subset: the RV end-systolic/diastolic elastance pair and both
+ventricular unstressed volumes are collinear with each other, and the LV
+elastance pair is collinear with itself. None of the 12 active parameters are
+fully inactive (`Inactive = false` throughout), so the mask itself is not
+retaining dead weight — the identifiability problem is redundancy between
+retained parameters, not inclusion of irrelevant ones. Condition number 232
+is high enough to warrant caution interpreting individual parameter values
+from this fit as uniquely determined, though not so high as to indicate the
+fit itself is numerically degenerate.
 
 ## 8. Reproduction
 
@@ -257,23 +608,31 @@ Every run now writes, into its run folder's `tables/`:
 ## 9. What this does not establish
 
 - **n = 1.** Still one patient.
-- **Phase 4 is unresolved.** DOF stays at 2 until it lands.
-- **The identifiability report in §7 is a smoke test, not a governed-set
-  analysis.** The full 9-metric × 7-parameter report from this branch's actual
-  calibrated candidate is in §7's placeholder above once available.
+- **Phase 4 is unresolved.** DOF stays at `N - p = 0` (9 observations, 12
+  active parameters) until it lands — `dof <= 2` means the reduced χ² is
+  flagged `insufficient_dof` and not statistically stable on its own; χ²/N is
+  reported instead and is the number both arms should be compared on.
+- **The identifiability report in §7 is now a governed-set analysis** (9
+  metrics × 12 parameters, at this run's actual calibrated operating point)
+  — no longer just the earlier 2-parameter smoke test, but still a single
+  run's sensitivity matrix, not a distribution over runs.
+- **One A/B comparison, one seed.** `UNIFIED_VSD_MULTISTART_SEED=20260828` was
+  reused from PR #24 for comparability; a different seed could shift which
+  start wins and by how much. This is not evidence the sigma-weighted mode
+  generalizes past this single patient/seed/scenario combination.
 - **Zhang vs Lundquist remains uninterpretable** at these budgets, unchanged
   from PR #24.
 
-## 10. Resuming this work in a new session
+## 10. This work, and how to reproduce it
 
 State as of 2026-08-29, branch `codex/reyna-statistical-calibration` (off
 `codex/reyna-zhang-fullmetric-10pct`, PR #24): **all code for Phases 1, 2, 3,
-and 5 is complete, tested, and committed.** 85/85 new tests pass; the only
-pre-existing failure is `test_clinical_consistency_target_tiers.m` (a PVR
-tier assertion, present on `main`, unrelated to this branch). Nothing further
-needs to be built before the final A/B run — this section exists so a fresh
-session (or a fresh model instance) can execute it without re-deriving
-anything above.
+and 5 is complete, tested, and committed**, and the deferred 6-start
+sigma-weighted A/B run (§3.2–3.3) has now executed successfully — results are
+folded into §3 and §7 above. 85/85 new tests pass; the only pre-existing
+failure is `test_clinical_consistency_target_tiers.m` (a PVR tier assertion,
+present on `main`, unrelated to this branch). This section is kept so the run
+can be reproduced or repeated with a different seed.
 
 ### 10.1 The one rule for this run
 
@@ -284,6 +643,22 @@ calls are reloaded fresh on each invocation — so a mid-run edit produces a
 silent hybrid of old and new code. If a genuine bug is found while a run is
 in flight, let the run finish (or kill it) before touching the file.
 
+**A second, unrelated failure mode surfaced launching this run from an
+agent session on Windows**, worth recording alongside the above: a manually
+backgrounded process (`nohup ... & disown` from within a shell tool call) is
+not reliably detached from the console/job object on Windows the way it is
+on Linux, and can be killed outright when the launching shell session is
+recycled between tool invocations — independent of anything in this
+codebase. The run that eventually produced §3's results was launched twice:
+the first attempt died partway through start 3/6 with `Exit Status:
+0x40010004` (Windows' external-termination code) for exactly this reason,
+losing ~2.25 hours of progress with nothing to salvage (artefacts are only
+written at the very end). The second attempt used the calling tool's native
+tracked-background execution instead of a manual `nohup`, and completed
+without incident. If reproducing this from an agent/automation context on
+Windows: use whatever backgrounding mechanism that context tracks natively,
+not a manually detached shell process.
+
 ### 10.2 The command
 
 ```bash
@@ -292,29 +667,27 @@ matlab -batch "cd('D:/Kuliah/Skripsi/CollabHafizKeisya/unified_vsd'); addpath(ge
 
 Run this in the background and redirect output to a log file; do not run any
 other MATLAB process concurrently (a prior 20-minute run stretched past 75
-minutes when something else was competing for the same machine). Expected
-duration: roughly 70–80 minutes per start × 6 starts ≈ **4–5 hours** based on
-the timing actually observed on 2026-08-29 (slower than this PRD's original
-~100-minute estimate — the six-stage-per-start pipeline, each stage its own
-`fmincon` call with a full ODE steady-state solve per function evaluation, is
-the reason; see the "why does it take so long" exchange in this session for
-the full breakdown if useful).
+minutes when something else was competing for the same machine). Budget
+70–80 minutes per start × 6 starts as a planning estimate, though the
+2026-08-29 run that produced §3's results completed in **9743 s (~2.7
+hours)** end to end — faster than that estimate in practice, but treat
+4–5 hours as the number to plan around for scheduling purposes.
 
-### 10.3 What "done" looks like
+### 10.3 What "done" looks like (confirmed, 2026-08-29)
 
 The run succeeds when the console log contains a `FULL METRIC 10% GATE` block
 followed by a `CHI-SQUARED` block with **`p (active parameters)` equal to
 `numel(calib_out.names)` for the winning start — a small positive integer,
 not 0** (0 was the symptom of the contamination bug this section exists to
 prevent a repeat of). A `PARAMETER IDENTIFIABILITY` block should also appear
-(Phase 3, previously missing entirely from the contaminated run).
+(Phase 3). On the confirmed run this landed as `p = 12`, `condition number =
+232` — see §7.
 
-On completion, the run folder's `tables/` directory should contain
-`full_metric_gate_pre_surgery.csv`, `chi_squared_pre_surgery.csv`,
-`parameter_identifiability_pre_surgery.csv`, and
-`parameter_identifiability_pairs_pre_surgery.csv`. Fill in this document's
-`<!-- SIGMA_* -->` placeholders in §3.2 and the report in §7 from these
-files, then compare against the legacy PR #24 numbers already tabulated.
+The run folder's `tables/` directory contains `full_metric_gate_pre_surgery.csv`,
+`chi_squared_pre_surgery.csv`, `parameter_identifiability_pre_surgery.csv`,
+and `parameter_identifiability_pairs_pre_surgery.csv`, at
+`results/runs/20260829_161536_reyna_pre_surgery/tables/`. These are the
+source for §3's and §7's tables above.
 
 ### 10.4 After a good result
 

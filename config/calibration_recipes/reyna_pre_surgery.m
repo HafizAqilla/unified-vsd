@@ -26,10 +26,20 @@ recipe.description = ['Reyna pre-surgery explicit pressure-flow recipe; ', ...
     'direct hemodynamics drive calibration while inconsistent chamber rows ', ...
     'remain transparent consistency evidence.'];
 
+% Measurement-day anthropometry from the RSAB Harapan Kita PROCEDURE LOG,
+% MRN 01008971, 06/04/2026 07.53 — the same session that produced every
+% pre- and post-closure pressure this recipe fits.
+%
+% These values are merged OVER clinical.common by
+% apply_calibration_recipe_to_clinical.m:24, so they must stay in step with
+% config/patient_reyna.m. The previous entry (14.0 kg, 98.0 cm, Mosteller BSA
+% 0.6173) came from a 2026-05-11 revision recorded five weeks after this
+% catheterisation, and silently re-scaled the model to a larger child than
+% the one who was measured.
 recipe.demographics = struct( ...
-    'weight_kg', 14.0, ...
-    'height_cm', 98.0, ...
-    'BSA', 0.6173419726);
+    'weight_kg', 13.4, ...
+    'height_cm', 95.0, ...
+    'BSA', 0.588);
 
 pre = struct();
 pre.VSD_diameter_mm = 3.025;       % [mm] accepted effective RV-side diameter

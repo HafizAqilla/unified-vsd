@@ -45,9 +45,16 @@ end
 %% Test 2: recipe demographics are applied before scaling
 [recipe, recipe_found] = load_calibration_recipe(clinical, 'pre_surgery');
 clinical_recipe = apply_calibration_recipe_to_clinical(clinical, 'pre_surgery', recipe);
-if recipe_found && clinical_recipe.common.weight_kg == 14.0 && ...
-        clinical_recipe.common.height_cm == 98.0 && ...
-        abs(clinical_recipe.common.BSA - 0.6173419726) < 1e-12
+% Measurement-day anthropometry from the RSAB Harapan Kita procedure log
+% (MRN 01008971, 06/04/2026 07.53) — the session that produced the pressures
+% this recipe fits. Superseded a 2026-05-11 revision (14.0 kg / 98.0 cm /
+% Mosteller BSA 0.6173) recorded five weeks later, which scaled the model to
+% a larger child than the one who was measured. This assertion exists because
+% recipe.demographics is merged OVER clinical.common, so a mismatch between
+% the recipe and patient_reyna silently wins here rather than erroring.
+if recipe_found && clinical_recipe.common.weight_kg == 13.4 && ...
+        clinical_recipe.common.height_cm == 95.0 && ...
+        abs(clinical_recipe.common.BSA - 0.588) < 1e-12
     fprintf('  [PASS] Recipe demographics are deterministic.\n');
     n_pass = n_pass + 1;
 else
