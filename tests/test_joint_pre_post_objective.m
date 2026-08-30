@@ -237,6 +237,38 @@ verifyGreaterThan(tc, info_base.chi2_total, info_base.chi2_pre, ...
      'state is not constraining the fit and the DOF gain is illusory.']);
 end
 
+function test_pre_governed_count_matches_the_production_governed_set(tc)
+% chi2_pre must be computed over exactly the metrics the reported governed
+% RMSE uses, or the joint statistic and the single-scenario one describe
+% different observation sets and cannot be compared.
+%
+% This is a live trap rather than a hypothetical: a bare
+% build_target_tiers(clinical, scenario) call does not honour
+% recipe.primary_rmse_holdout, so it governs 10 pre-surgery rows where the
+% production path governs 9 -- silently readmitting Q_shunt_Lmin, the
+% algebraically-derived metric deliberately excluded. See
+% reyna_zhang_scientific_assessment_20260828.md §3 on the two code paths.
+ctx = fixture();
+
+profile = build_case_calibration_profile(ctx.clinical, 'pre_surgery');
+expected = sum(logical(profile.targetTiers.table.IncludedInPrimaryRMSE) & ...
+    ismember(profile.targetTiers.table.Metric, ...
+        arrayfun(@(t) string(t.Metric), get_calibration_targets('pre_surgery', ctx.clinical))'));
+
+ctx.calib.targetTiersByScenario = struct( ...
+    'pre_surgery', profile.targetTiers, ...
+    'post_surgery', profile.targetTiers);
+[~, info] = evalc_obj(ctx, ctx.x);
+
+verifyLessThanOrEqual(tc, info.n_pre, expected, ...
+    ['joint chi2_pre must not count MORE metrics than the governed set: ', ...
+     'a bare build_target_tiers call readmits Q_shunt_Lmin and would make ', ...
+     'chi2_pre incomparable with the reported governed RMSE.']);
+verifyEqual(tc, info.n_pre, 9, ...
+    ['Reyna pre-surgery governs exactly 9 metrics; a change here means the ', ...
+     'observation count behind every chi2 claim has moved.']);
+end
+
 function [J, info] = evalc_obj(ctx, x)
 % EVALC_OBJ - run the objective while suppressing solver console output.
 J = []; info = [];
