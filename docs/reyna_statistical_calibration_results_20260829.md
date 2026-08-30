@@ -12,13 +12,19 @@
 > **superseded** — they are retained because the process findings around them
 > matter, not because the numbers do.
 >
-> **The one-line honest summary:** on corrected data the model reproduces
-> **8 of 9 governed clinical targets within 10%** (10 of 11 across all
-> targets), best primary RMSE **0.0480** across 6 starts. χ²/N = 0.784 sits
-> inside the nominal "consistent" band but **carries no evidential weight**,
-> because at `p = 12` against `N = 9` the fit has `dof = −3` — more free
-> parameters than observations. The gate count and per-metric table are
-> defensible; χ²/N is not. See §3.5 and §4.
+> **The one-line honest summary:** on corrected data, two independent 6-start
+> selections gave **8 of 9** and **9 of 9** governed targets within 10%
+> (RMSE 0.0480 and 0.0434). **The 9/9 arm is the less trustworthy one** — its
+> χ²/N fell to 0.494, below the overfitting threshold, while the one metric
+> excluded from grading (`Q_shunt_Lmin`) degraded from −2.3% to −22.9%. See
+> §3.6: chasing the gate count made the science worse, exactly as this
+> project's own assessment warned.
+>
+> In both arms `dof = N − p = 9 − 12 = −3`, so χ²/N **carries no evidential
+> weight** in either direction — a low value is guaranteed when the model has
+> more free parameters than observations. The gate count, the per-metric
+> residuals, and the excluded-metric behaviour are the defensible results;
+> χ²/N is not. See §3.5–§3.7 and §4.
 
 ## 0. Clinical data correction, 2026-08-29 (supersedes all results below)
 
@@ -443,6 +449,81 @@ and orifice discharge trade off more sharply against each other. **This
 strengthens rather than weakens the case that `p` must come down** — the
 better fit is being bought partly with parameter redundancy.
 
+### 3.6 Second seed — a better gate score that is *worse* science
+
+Seed `20260830`, corrected data, otherwise identical settings.
+Run folder: `results/runs/20260830_033638_reyna_pre_surgery`. Wall time 12 950 s.
+
+| | Seed `20260828` | Seed `20260830` |
+|---|---:|---:|
+| Governed gate | 8 / 9 | **9 / 9** |
+| Best RMSE (6 starts) | 0.0480 | **0.0434** |
+| χ²/N | 0.784 | **0.494** |
+| χ² interpretation | `consistent_but_underdetermined` | **`overfit_but_underdetermined`** |
+| `Q_shunt_Lmin` (excluded from gate) | −2.26% | **−22.90%** |
+| Worst by \|z\| | `PAP_min` (+2.14) | `RAP_mean` (+1.38) |
+
+Per-start: 0.0905, 0.0434, 0.0489, 0.0444, 0.0779, 0.0979
+(min 0.0434, median 0.0634, max 0.0979, IQR 0.0461).
+
+**The seed that scored a perfect 9/9 is the one that should worry us.** Three
+independent signals say the same thing:
+
+1. **χ²/N fell to 0.494, crossing below the 0.5 overfit threshold** — the
+   model is now fitting *below the declared noise floor*. It is reproducing
+   measurement error, not just signal.
+2. **`Q_shunt_Lmin` degraded ten-fold, from −2.26% to −22.90%** — and this is
+   the one metric deliberately excluded from the governed RMSE
+   (`primary_rmse_holdout`). The governed set went *up* while the ungraded
+   metric collapsed. That is the signature of fitting to the scoreboard.
+3. The perfect gate score coincides with both of the above rather than with
+   any improvement in the underlying physiology.
+
+This is the empirical demonstration of the warning in
+`reyna_zhang_scientific_assessment_20260828.md` §6 — *"maximising the count of
+metrics under 10% is not by itself a scientific objective, and optimising for
+it directly is a way to get a worse paper."* It is no longer a theoretical
+concern; both arms are on the table above.
+
+**Why `Q_shunt_Lmin` is such a sensitive detector.** It is
+`CO × (QpQs − 1)`, and `QpQs − 1 = 0.194` is a small difference of two
+near-equal quantities. A −2.71% error in `QpQs` becomes ≈ −16.6% in the
+difference, which compounds with `CO`'s −7.51% to give the observed −22.9% —
+roughly a **6× amplification** of `QpQs` error. It was excluded from the
+governed RMSE for sound reasons (it is algebraically derived, §5), but that
+same algebra makes it an unusually sharp *overfitting detector*. **It should
+be reported alongside the gate count in any publication, precisely because it
+is not fitted.**
+
+### 3.7 Cross-seed spread, and why this is not yet a confidence interval
+
+| Statistic | Value |
+|---|---|
+| Best-of-6, seed `20260828` | 0.0480 |
+| Best-of-6, seed `20260830` | 0.0434 |
+| Range of the two | 0.0434 – 0.0480 (≈ 10% of the value) |
+| Pooled 12 starts | min 0.0434, median 0.0779, max 0.1053 |
+
+`reyna_zhang_scientific_assessment_20260828.md` §5.1 asks for
+"*x* (95% CI *a–b* across 16 starts)". **This does not yet meet that bar, and
+the gap is not merely one of sample size:**
+
+- **Two seeds cannot support a 95% interval.** Two numbers give a range, not
+  a distribution.
+- **More importantly, the reported result is a best-of-6 selection, i.e. an
+  extremum, not a mean.** A naive confidence interval computed over the 12
+  pooled starts would describe the spread of *attempts*, not the uncertainty
+  of the *reported figure*. Quoting one as if it were the other would
+  overstate precision. The honest statistic for a best-of-N selection is
+  either the range across independent repetitions of the whole selection
+  procedure (2 samples here), or a bootstrap over the start distribution that
+  explicitly models the max operation.
+
+The defensible statement today is: **two independent 6-start selections gave
+0.0434 and 0.0480**, and the difference between them changed the gate count
+from 9/9 to 8/9 — i.e. **run-to-run variation is large enough to move the
+headline claim**, which is itself a result worth reporting.
+
 ### 3.4 Process lesson
 
 This project's own PRD (§9) already warned against exactly this failure mode,
@@ -790,9 +871,17 @@ Every run now writes, into its run folder's `tables/`:
   runs, and a new `E.LV.EA` ↔ `vsd.Cd` collinearity (ρ = −0.917) appeared.
   A fit that improves while its parameters become less separable is a
   warning, not a success.
-- **Single seed.** §3.5 is one seed (`20260828`). A second (`20260830`) is
-  running for a spread estimate; until it lands there is no confidence
-  interval, and §5.1 of the 2026-08-28 assessment requires one.
+- **Two seeds are a range, not a confidence interval.** §3.7 explains why the
+  §5.1 bar is still unmet, and why it is not purely a sample-size problem: the
+  reported figure is a best-of-6 *selection*, so a naive interval over pooled
+  starts would describe the spread of attempts rather than the uncertainty of
+  the result.
+- **Run-to-run variation moves the headline.** 8/9 vs 9/9 between two seeds is
+  not a rounding difference — it changes what could be claimed. Any single-run
+  number quoted without this spread would misrepresent the result's stability.
+- **A perfect gate score is evidence against the model, not for it, at this
+  parameter count.** §3.6 documents the 9/9 arm simultaneously crossing into
+  the overfit band and degrading the ungraded metric ten-fold.
 - **The identifiability report in §7 is now a governed-set analysis** (9
   metrics × 12 parameters, at this run's actual calibrated operating point)
   — no longer just the earlier 2-parameter smoke test, but still a single
