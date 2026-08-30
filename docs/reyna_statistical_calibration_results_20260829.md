@@ -154,7 +154,7 @@ is deliberately blocked — see §6.
 | 1 — σ-weighted objective | **Complete; re-run on corrected data** | Residuals normalised by declared measurement uncertainty instead of one global percentage; opt-in via `objectiveWeighting`, default remains `legacy`. Authoritative result in **§3.5**: governed gate **8/9**, best RMSE **0.0480** across 6 starts. (§3.2's 7/9 is superseded — wrong clinical inputs.) |
 | 2 — χ² reporting | **Complete** | Discrepancy-principle goodness-of-fit statistic, printed and exported every run; does not gate `ACCEPT` |
 | 3 — parameter identifiability | **Complete** | Scaled sensitivity matrix, condition number, pairwise correlation; report-only |
-| 4 — joint pre/post inversion | **Governance resolved, awaiting data** | The three governance questions are answered (§6); `clinical.post_surgery` is currently all-`NaN` and the study owner is retrieving the post-operative record. Value depends on which rows it yields — see §6.0 |
+| 4 — joint pre/post inversion | **Objective built and tested; not yet run** | Post-closure data obtained and encoded (§0.2). `objective_joint_pre_post.m` gives **N = 16** and positive DOF (+4 at the masked `p = 12`, vs −3 pre-only). Driver and calibration run still outstanding — see §6.4 |
 | 5 — validation holdout | **Deviated, with reasoning** | `SVR` was not relabelled `validation_holdout` — see §5 |
 
 ## 2. The measurement that motivated this branch
@@ -746,6 +746,80 @@ ratio itself, with `SV_LV` and `SV_RV` correctly `NaN`. Nothing further is
 required. Any remaining text in the PRD or the 2026-08-28 assessment
 describing a live `critical` inconsistency is stale and should be read
 against this section.
+
+### 6.4 Phase 4 objective — BUILT (2026-08-30)
+
+`src/calibration/objective_joint_pre_post.m` implements the joint objective
+per PRD §7.3, with `tests/test_joint_pre_post_objective.m` covering §7.4.
+Measured at the demographically scaled baseline:
+
+```
+N_pre = 9   N_post = 7   N_total = 16
+```
+
+**Degrees of freedom are now positive**, which was the whole point:
+
+| Parameter set | `p` | `dof = N − p` |
+|---|---:|---:|
+| Pre-only (previous state) | 12 | **−3** |
+| Joint, full recipe set (unmasked) | 14 | **+2** |
+| Joint, GSA-masked set (as the real runs use) | 12 | **+4** |
+
+Design decisions worth reviewing:
+
+- **The parameter vector is genuinely shared.** Both simulations are written
+  from one vector through `set_calibration_param_value`; a test asserts every
+  parameter except the shunt is bit-identical across the two structs. Without
+  this the observation counts could not legitimately be pooled.
+- **Regularisation is applied once, not per scenario.** Charging the shared
+  vector twice would double its weight relative to the single-scenario
+  objective and make joint and pre-only results incomparable. Pinned by test.
+- **σ resolution is identical to Phase 1** (`UncertaintyAbs`, else
+  `UncertaintyFraction × |value|`, else 10%), so `χ²_pre` here is directly
+  comparable with the χ² reported by `compute_chi_squared_report`.
+- **Absent post targets degrade to pre-only with a warning**, not an error —
+  but the warning states explicitly that the DOF benefit does not apply, so a
+  caller cannot quietly inherit a claim that no longer holds.
+
+#### 6.4.1 A latent bug this exposed: "closed VSD" was mode-dependent
+
+Writing the closure step surfaced a real defect in existing code.
+`vsd_shunt_model` dispatches on `params.vsd.mode`:
+
+| Mode | Flow law | How closure works |
+|---|---|---|
+| resistive / `*_diode` | `Q = dP / R.vsd` | large `R.vsd` |
+| **`orifice_bidirectional`** | `Q = Cd·A·√(2ΔP/ρ)` | **`R.vsd` is never read** — needs `vsd.area_mm2 = 0` |
+
+**Reyna runs in `orifice_bidirectional` mode.** So closing the shunt by
+setting `R.vsd = 1e6` alone is a *no-op* for this patient: the "post-closure"
+simulation would keep shunting at full strength, and a joint fit would
+silently be fitting two open-VSD states.
+
+`objective_joint_pre_post` closes both channels. The test asserts closure
+**behaviourally** — probing `vsd_shunt_model` at a 70 mmHg gradient and
+requiring exactly zero flow — rather than checking that a field was assigned,
+precisely because a field-based assertion would have passed while the physics
+was wrong.
+
+> **This affects existing code beyond Phase 4.** `main_run.m:839` builds the
+> pre-to-post seed package with `post_seed_params.R.vsd = 1e6` and nothing
+> else, so for an orifice-mode patient **that seed is not a closed-VSD model**.
+> Any post-surgery run warm-started from it would begin from a still-shunting
+> state. Not fixed here — it sits outside this PRD's scope and on the
+> post-surgery path this branch does not otherwise touch — but it should be
+> fixed before any post-closure result is published from that seed.
+
+#### 6.4.2 Not yet done
+
+The objective exists and is tested; **no joint calibration has been run**.
+The remaining work is the driver (PRD §7.3's
+`scripts/run_joint_pre_post_calibration.m`), target-governance wiring so the
+post-op rows carry proper tiers, and then the run itself. The PRD §7.5
+acceptance criteria (DOF ≥ 6, combined χ²/N in band, pre-op gate no worse
+than 7/9) are **not yet evaluated**. Note DOF ≥ 6 is not reachable at
+`p = 12`–`14` with `N = 16`; either `p` must come down or that criterion
+needs revising against what the data can support.
 
 ### 6.2 Validating predicted volumes against the literature
 
