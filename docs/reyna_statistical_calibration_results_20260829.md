@@ -927,10 +927,42 @@ conflated:**
    account for on its own.
 
 Separating these requires running the joint objective at comparable budget
-and multi-start depth. **Until that is done, no conclusion about the
-shared-parameter assumption may be drawn from this number** — and §6.5's
-out-of-sample result, which needs no optimisation at all, is the better
-evidence on that question in the meantime.
+and multi-start depth. **That run has now been done.**
+
+**Multi-start result (4 starts, 1500 evals each):**
+
+| Start | Origin | `J` |
+|---|---|---:|
+| 1 | `x0` baseline | **96.1514** ← best |
+| 2 | warm start from pre-only fit | 205.8968 |
+| 3 | bound-interior perturbation | 515.8069 |
+| 4 | bound-interior perturbation | 115.5764 |
+
+**The single-start result reproduced exactly and was not beaten.** Four
+independent starts converge no lower than `J = 96.15`, so explanation (2) —
+under-convergence — is **ruled out** at this budget. `χ²/N = 6.01` is a
+genuine optimum of this objective, not an artefact of insufficient search.
+
+That leaves explanation (1): **with one shared parameter set, this model
+cannot reproduce both haemodynamic states within declared measurement
+uncertainty.** Stated plainly, because it is the kind of negative result that
+is easy to bury and important to report — the single-scenario fit looked
+excellent (χ²/N = 0.78) largely because it was underdetermined, and adding
+genuine constraints exposes that.
+
+Two caveats keep this honest rather than overstated:
+
+- **The warm start was degraded** (§6.4.3), so the sharpest version of the
+  test — holding a known-good pre-op fit while explaining post — still has
+  not been run exactly as intended.
+- **This is a single-stage optimiser** against a single-scenario result built
+  from a 6-stage pipeline. Structure, not just budget, still differs.
+
+§6.5 remains the better evidence on the underlying question, since it needs
+no optimisation at all: the pre-calibrated parameters *do* predict the post
+state to within ~15% without any refitting. The tension between that and
+`χ²/N = 6.01` is itself informative — the model gets the post state roughly
+right, but not to within the tight σ the pressure measurements declare.
 
 Note also PRD §7.5's `dof ≥ 6` is unreachable at `N = 16` with `p` of 12–14;
 either `p` comes down or that criterion needs revising against what the data
