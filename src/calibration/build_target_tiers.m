@@ -80,6 +80,14 @@ if all(ismember({'LVEDV','LVESV','LVEF'}, available_metrics))
         'LVESV; excluded from fitting to avoid double-counting echo volumes.'];
 end
 
+% RVEF stands in the same algebraic relation to RVEDV and RVESV. Apply the
+% identical rule so the right heart is governed the same way as the left.
+if all(ismember({'RVEDV','RVESV','RVEF'}, available_metrics))
+    consistency_only = unique([consistency_only, {'RVEF'}], 'stable');
+    consistency_reasons.RVEF = ['RVEF is directly derived from RVEDV and ', ...
+        'RVESV; excluded from fitting to avoid double-counting echo volumes.'];
+end
+
 % In sparse catheterisation records without echo volume anchors, direct
 % ventricular EDPs are clinically visible but weakly identifiable in this
 % lumped model. Report them as holdout rows instead of letting them dominate
@@ -145,6 +153,39 @@ target_config.holdout_reasons = holdout_reasons;
 target_config.table = build_tier_table(targets, hard, soft, ...
     consistency_only, derived_validation, validation_holdout, ...
     primary_rmse_holdout, audit, consistency_reasons, holdout_reasons);
+
+assert_no_ungoverned_calibration_targets(targets, target_config);
+end
+
+function assert_no_ungoverned_calibration_targets(targets, target_config)
+% ASSERT_NO_UNGOVERNED_CALIBRATION_TARGETS
+% A target declared UseForCalibration with a finite clinical value must be
+% assigned a tier explicitly. Falling through to 'validation_only' silently
+% removes it from the objective while leaving it inside the governed primary
+% RMSE, so the optimiser is graded on a metric it never fits.
+ungoverned = {};
+for idx = 1:numel(targets)
+    metric_name = targets(idx).Metric;
+    if ~targets(idx).UseForCalibration || ~isfinite(targets(idx).ClinicalValue)
+        continue;
+    end
+    governed = ismember(metric_name, target_config.included_in_calibration) || ...
+        ismember(metric_name, target_config.consistency_only) || ...
+        ismember(metric_name, target_config.derived_validation) || ...
+        ismember(metric_name, target_config.validation_holdout);
+    if ~governed
+        ungoverned{end+1} = metric_name; %#ok<AGROW>
+    end
+end
+
+if ~isempty(ungoverned)
+    error('build_target_tiers:ungovernedCalibrationTarget', ...
+        ['Targets declared UseForCalibration with finite clinical values were ', ...
+         'not assigned a tier: %s. Add each to hard/soft, or to an explicit ', ...
+         'exclusion tier (consistency_only, derived_validation, ', ...
+         'validation_holdout), so it is either fitted or deliberately excluded.'], ...
+        strjoin(ungoverned, ', '));
+end
 end
 
 function config = default_target_tier_config()
@@ -152,7 +193,15 @@ config = struct();
 config.policy_name = 'flow_volume_consistency_governance_v1';
 config.hard = {'CO_Lmin','QpQs','PAP_mean','SAP_mean','RAP_mean', ...
     'LVEDV','LVESV','LVEF'};
-config.soft = {'Q_shunt_Lmin','SAP_max','SAP_min','RVESV'};
+% PAP_max/PAP_min are directly measured catheter pressures declared
+% UseForCalibration in get_calibration_targets. They must be fitted, not only
+% graded: a target inside the governed RMSE but outside the objective scores
+% the optimiser on something it was never asked to match.
+% LAP_mean and RVEDV are the same defect class: declared UseForCalibration,
+% but previously assigned no tier, so any patient carrying them was graded on
+% metrics the objective never saw.
+config.soft = {'Q_shunt_Lmin','SAP_max','SAP_min','PAP_max','PAP_min', ...
+    'LAP_mean','RVEDV','RVESV','RVEF'};
 config.consistency_only = {};
 config.derived_validation = {'PVR','SVR'};
 config.validation_holdout = {};
@@ -171,7 +220,12 @@ config.metric_weight_multipliers = struct( ...
     'LVEF', 0.85, ...
     'SAP_max', 0.45, ...
     'SAP_min', 0.40, ...
-    'RVESV', 0.45);
+    'PAP_max', 0.50, ...
+    'PAP_min', 0.45, ...
+    'LAP_mean', 0.50, ...
+    'RVEDV', 0.50, ...
+    'RVESV', 0.45, ...
+    'RVEF', 0.45);
 end
 
 function tier_table = build_tier_table(targets, hard, soft, consistency_only, ...

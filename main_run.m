@@ -454,6 +454,7 @@ end
 %% =====================================================================
 fprintf('\n=== [Step 8/10] Validation report (%.1fs elapsed) ===\n', toc(run_timer));
 results_dir = run_ctx.tables_dir;
+classification_thresholds = profile_classification_thresholds(case_profile);
 
 report = validation_report( ...
     clinical, metrics_base, metrics_cal, scenario, ...
@@ -463,11 +464,12 @@ report = validation_report( ...
     'PrimaryMetrics', primary_metrics, ...
     'ValidationHoldoutMetrics', profile_holdout_metrics(case_profile), ...
     'TargetTiers', profile_target_tiers(case_profile), ...
-    'ClinicalConsistencyAudit', profile_clinical_audit(case_profile));
+    'ClinicalConsistencyAudit', profile_clinical_audit(case_profile), ...
+    'PrimaryGatePct', classification_thresholds.primary_error_pct, ...
+    'NumActiveParameters', numel(calib_out.names));
 report.baseline_plausibility = baseline_plausibility;
 report.scaling_policy = scaling_policy;
 report.scaling_provenance_file = scaling_provenance_file;
-classification_thresholds = profile_classification_thresholds(case_profile);
 calibration_status = classify_calibration_run( ...
     report, calib_out.parameterPlausibility, classification_thresholds);
 fprintf('[main_run] Calibration status: %s\n', calibration_status.label);
@@ -493,7 +495,9 @@ if rollback_required
         'PrimaryMetrics', primary_metrics, ...
         'ValidationHoldoutMetrics', profile_holdout_metrics(case_profile), ...
         'TargetTiers', profile_target_tiers(case_profile), ...
-        'ClinicalConsistencyAudit', profile_clinical_audit(case_profile));
+        'ClinicalConsistencyAudit', profile_clinical_audit(case_profile), ...
+    'PrimaryGatePct', classification_thresholds.primary_error_pct, ...
+    'NumActiveParameters', numel(calib_out.names));
     accepted_plausibility = struct();
     if isfield(calib_out, 'x0_active') && isfield(calib_out, 'parameterRegistryActive')
         accepted_plausibility = evaluate_parameter_plausibility( ...
@@ -522,10 +526,35 @@ validity_cal = accepted_candidate.validity;
 report = accepted_candidate.report;
 calibration_status = accepted_candidate.calibration_status;
 
+% Parameter identifiability of the retained active set (PRD
+% reyna_statistical_calibration_v1 Phase 3). Report-only, never gates any
+% status; a collinear pair here is a finding for scientific review, not an
+% automatic parameter removal.
+try
+    identifiability_report = analyse_parameter_identifiability( ...
+        params_cal, scenario, calib_out, report.full_metric_gate.table, ...
+        results_dir);
+    report.parameter_identifiability = identifiability_report;
+catch identifiability_err
+    fprintf(2, '[main_run] Parameter identifiability analysis skipped: %s\n', ...
+        identifiability_err.message);
+end
+
 %% =====================================================================
 %  STEP 9 — Plots
 %% =====================================================================
 fprintf('\n=== [Step 9/10] Plots (%.1fs elapsed) ===\n', toc(run_timer));
+
+% Per-metric calibration effect. Exported regardless of DO_PLOTS: it is
+% reporting evidence, not a diagnostic waveform plot.
+try
+    plot_calibration_error_comparison(report, scenario, run_ctx.figures_dir, ...
+        classification_thresholds.primary_error_pct);
+catch plot_err
+    fprintf(2, '[main_run] Calibration error figures skipped: %s\n', ...
+        plot_err.message);
+end
+
 if DO_PLOTS
     plotting_tools(sim_base, params0, 'Baseline', scenario, ...
         'ResultsDir', run_ctx.figures_dir);

@@ -106,10 +106,60 @@ end
 if recipe_found
     recipe_config = make_recipe_target_tier_config(recipe);
     profile = apply_target_tier_governance(profile, clinical, scenario, recipe_config);
+    profile.evidenceTiming = assert_evidence_timing_governance( ...
+        clinical, scenario, profile.targetTiers, recipe);
 else
     profile = apply_target_tier_governance(profile, clinical, scenario);
 end
+
+% Physiological screening bands, cached for the objective. Removing a target
+% removes the obligation to match a measurement, not the obligation to stay
+% physiological: without this the optimiser is free to drive an unconstrained
+% chamber to an implausible state.
+profile.referenceRanges = clinical_reference_ranges(scenario, clinical, profile);
+
+% Per-metric measurement uncertainty (sigma), cached for the objective so a
+% sigma-weighted fit expresses "close" in units of how well each target is
+% actually known, rather than one global percentage. Resolution order:
+% UncertaintyAbs, then UncertaintyFraction*|ClinicalValue|, then a 10%
+% fallback with a named warning (a target with no declared uncertainty is a
+% governance gap, not a silent default).
+profile.targetSigma = build_target_sigma_map(scenario, clinical);
+
 profile = apply_age_validity_prior_adjustment(profile, clinical);
+end
+
+function sigma_map = build_target_sigma_map(scenario, clinical)
+% BUILD_TARGET_SIGMA_MAP - metric -> measurement sigma, from
+% get_calibration_targets (the single source of truth for target metadata).
+targets = get_calibration_targets(scenario, clinical);
+sigma_map = struct();
+for idx = 1:numel(targets)
+    metric_name = targets(idx).Metric;
+    clinical_value = targets(idx).ClinicalValue;
+    if ~isfinite(clinical_value)
+        continue;
+    end
+
+    has_abs = isfield(targets, 'UncertaintyAbs') && ...
+        isfinite(targets(idx).UncertaintyAbs) && targets(idx).UncertaintyAbs > 0;
+    has_frac = isfield(targets, 'UncertaintyFraction') && ...
+        isfinite(targets(idx).UncertaintyFraction) && targets(idx).UncertaintyFraction > 0;
+
+    if has_abs
+        sigma = targets(idx).UncertaintyAbs;
+    elseif has_frac
+        sigma = abs(clinical_value) * targets(idx).UncertaintyFraction;
+    else
+        sigma = 0.10 * abs(clinical_value);
+        warning('build_target_sigma_map:noDeclaredUncertainty', ...
+            ['%s has no declared UncertaintyAbs or UncertaintyFraction; ', ...
+             'defaulting sigma to 10%% of the clinical value. This is a ', ...
+             'target-governance gap, not an intended default.'], metric_name);
+    end
+
+    sigma_map.(metric_name) = max(sigma, 1e-9);
+end
 end
 
 function profile = apply_recipe_governance(profile, recipe)
@@ -179,6 +229,8 @@ config.metric_weight_multipliers = struct( ...
     'LVEF', 0.85, ...
     'SAP_max', 0.45, ...
     'SAP_min', 0.40, ...
+    'PAP_max', 0.50, ...
+    'PAP_min', 0.45, ...
     'RVESV', 0.45);
 end
 
@@ -676,8 +728,17 @@ else
     metrics = unique([intersect(existing_metrics(:)', included, 'stable'), ...
         included], 'stable');
 end
-metrics = setdiff(metrics, target_tiers.consistency_only(:)', 'stable');
-metrics = setdiff(metrics, target_tiers.excluded_from_primary_rmse(:)', 'stable');
+% Report-only tiers must never be fitted.
+%
+% primary_rmse_holdout is deliberately NOT in this list. It governs membership
+% of the reported RMSE, not membership of the objective: a holdout target such
+% as Q_shunt_Lmin is an algebraic identity that should still inform the fit as
+% a consistency term while being excluded from the headline count. Removing it
+% here silently dropped it from calibration as well.
+report_only = unique([target_tiers.consistency_only(:)', ...
+    target_tiers.derived_validation(:)', ...
+    target_tiers.validation_holdout(:)'], 'stable');
+metrics = setdiff(metrics, report_only, 'stable');
 end
 
 function profile = append_governance_note(profile, note)

@@ -35,6 +35,23 @@ calib.invalidPenaltyScale = params0.calibration.invalid_penalty_scale;
 calib.regLambda = 0;
 calib.paramPlausibilityLambda = 0.5;
 calib.boundaryPlausibilityLambda = 20.0;
+% Patient-acceptance gate hinge: zero inside the band, quadratic outside, so
+% the objective explicitly rewards pulling worst-case metrics under the same
+% threshold the acceptance claim is reported against.
+calib.gateGate = 0.10;
+% Sized so a metric 50% past the band contributes on the order of a primary
+% fit term, rather than rounding to nothing beside it.
+calib.gateLambda = 20.0;
+calib.physiologicalSoftLambda = 50.0;
+if isfield(caseProfile, 'acceptancePrimaryErrorPct') && ...
+        isfinite(caseProfile.acceptancePrimaryErrorPct) && ...
+        caseProfile.acceptancePrimaryErrorPct > 0
+    calib.gateGate = caseProfile.acceptancePrimaryErrorPct / 100;
+end
+if isfield(caseProfile, 'gateLambda') && isfinite(caseProfile.gateLambda) && ...
+        caseProfile.gateLambda >= 0
+    calib.gateLambda = caseProfile.gateLambda;
+end
 calib.caseProfile = caseProfile;
 calib.initialSeedApplied = false;
 calib.initialSeedScalingMode = '';
@@ -42,6 +59,31 @@ if isfield(caseProfile, 'targetTiers')
     calib.targetTiers = caseProfile.targetTiers;
 else
     calib.targetTiers = struct();
+end
+
+% Sigma-weighted (chi-squared) objective, PRD reyna_statistical_calibration_v1
+% Phase 1. Default 'legacy' preserves the existing percentage-normalised
+% objective exactly; set 'sigma' via UNIFIED_VSD_OBJECTIVE_WEIGHTING or the
+% case-profile field to weight residuals by declared measurement uncertainty.
+calib.objectiveWeighting = 'legacy';
+if isfield(caseProfile, 'objectiveWeighting') && ...
+        (ischar(caseProfile.objectiveWeighting) || isstring(caseProfile.objectiveWeighting))
+    calib.objectiveWeighting = char(caseProfile.objectiveWeighting);
+end
+weighting_env = getenv('UNIFIED_VSD_OBJECTIVE_WEIGHTING');
+if ~isempty(weighting_env)
+    calib.objectiveWeighting = lower(strtrim(weighting_env));
+end
+if ~ismember(calib.objectiveWeighting, {'legacy', 'sigma'})
+    warning('calibration_param_sets:unknownObjectiveWeighting', ...
+        'Unknown objectiveWeighting "%s"; falling back to legacy.', ...
+        calib.objectiveWeighting);
+    calib.objectiveWeighting = 'legacy';
+end
+if isfield(caseProfile, 'targetSigma') && isstruct(caseProfile.targetSigma)
+    calib.targetSigma = caseProfile.targetSigma;
+else
+    calib.targetSigma = struct();
 end
 
 switch scenario

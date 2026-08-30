@@ -84,7 +84,20 @@ end
 status.plausibility_ok = no_plausibility_fail;
 status.plausibility_warning_ok = status.warning_fraction <= thresholds.max_warning_fraction;
 
-if status.fit_ok && status.plausibility_ok && status.rmse_not_worse
+% Acceptance must cover every metric the governed RMSE is computed over, not
+% only the five selected primaries. A run that passes 5 of 5 while failing a
+% graded metric at 24% is not an accepted candidate.
+[status.governed_gate_ok, status.n_governed_fail, status.governed_gate_total, ...
+    status.governed_gate_failures] = evaluate_governed_gate(report);
+
+% Chi-squared goodness-of-fit, recorded for visibility only (PRD
+% reyna_statistical_calibration_v1 Phase 2). NOT used to gate ACCEPT in this
+% phase: changing the objective (Phase 1) and the acceptance rule in the same
+% change would make neither attributable. Observe chi2/N across runs first.
+[status.chi2_per_obs, status.chi2_interpretation] = extract_chi2_summary(report);
+
+if status.fit_ok && status.governed_gate_ok && status.plausibility_ok && ...
+        status.rmse_not_worse
     status.label = 'ACCEPT';
 elseif is_promising_near_miss(status, thresholds)
     status.label = 'PROMISING_NEAR_MISS';
@@ -97,11 +110,64 @@ else
 end
 
 status.summary = sprintf(['%s | excellent5_fail=%d | primary10_fail=%d | ', ...
-    'secondary15_fail=%d | plausibility_warning=%d | plausibility_fail=%d | ', ...
-    'RMSE_improvement=%.1f%%'], ...
+    'governed_gate=%d/%d | secondary15_fail=%d | plausibility_warning=%d | ', ...
+    'plausibility_fail=%d | RMSE_improvement=%.1f%%'], ...
     status.label, status.n_primary_excellent_fail, status.n_primary_fail, ...
+    status.governed_gate_total - status.n_governed_fail, status.governed_gate_total, ...
     status.n_secondary_fail, status.n_warning, status.n_fail, ...
     100 * status.rmse_improvement_frac);
+if status.n_governed_fail > 0
+    status.summary = sprintf('%s | governed_gate_failures=%s', ...
+        status.summary, strjoin(status.governed_gate_failures, ','));
+end
+if isfinite(status.chi2_per_obs)
+    status.summary = sprintf('%s | chi2_per_obs=%.2f (%s)', ...
+        status.summary, status.chi2_per_obs, status.chi2_interpretation);
+end
+end
+
+% =========================================================================
+function [chi2_per_obs, interpretation] = extract_chi2_summary(report)
+chi2_per_obs = NaN;
+interpretation = 'unavailable';
+if ~isstruct(report) || ~isfield(report, 'chi_squared') || ...
+        ~isstruct(report.chi_squared)
+    return;
+end
+chi2_per_obs = report.chi_squared.chi2_per_obs;
+interpretation = report.chi_squared.interpretation;
+end
+
+% =========================================================================
+function [gate_ok, n_fail, n_total, failures] = evaluate_governed_gate(report)
+% EVALUATE_GOVERNED_GATE - acceptance across the whole governed RMSE mask.
+%
+% Backward compatible: a report without a full-metric gate (older callers,
+% or a bare validation_report invocation) neither passes nor blocks, so the
+% historical five-metric behaviour is preserved.
+gate_ok = true;
+n_fail = 0;
+n_total = 0;
+failures = {};
+
+if ~isstruct(report) || ~isfield(report, 'full_metric_gate') || ...
+        ~isstruct(report.full_metric_gate) || ...
+        ~isfield(report.full_metric_gate, 'table') || ...
+        isempty(report.full_metric_gate.table)
+    return;
+end
+
+tbl = report.full_metric_gate.table;
+governed = logical(tbl.InPrimaryRMSE);
+n_total = nnz(governed);
+if n_total == 0
+    return;
+end
+
+failing = governed & ~logical(tbl.WithinGate);
+n_fail = nnz(failing);
+failures = tbl.Metric(failing)';
+gate_ok = (n_fail == 0);
 end
 
 function [fit_ok, n_fail] = evaluate_primary_fit(report, threshold_pct)
