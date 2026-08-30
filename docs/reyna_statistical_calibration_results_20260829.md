@@ -936,6 +936,40 @@ Note also PRD §7.5's `dof ≥ 6` is unreachable at `N = 16` with `p` of 12–14
 either `p` comes down or that criterion needs revising against what the data
 can support.
 
+#### 6.4.3 The calibration vector does not fully determine the model
+
+Warm-starting the joint fit from the pre-only calibrated solution exposed
+this. Reconstructing that solution by reading its 14 calibration parameters
+out and applying them to a fresh baseline does **not** reproduce it:
+
+| Parameter | Pre-only candidate | Round-trip | Match |
+|---|---:|---:|:--:|
+| `R.SC` | 1.02396 | 1.02396 | ✓ |
+| `C.SVEN` | 2.57284 | 2.57284 | ✓ |
+| `R.PCOX` | 0.0901879 | 0.0901879 | ✓ |
+| **`V0.SVEN`** | **595.934** | **564.02** | **✗** |
+
+`V0.SVEN` is a coupled/derived quantity that lives outside the calibration
+vector, so a vector round-trip silently loses it — which is why the warm
+start scored `J = 4413` rather than something near the pre-only optimum.
+
+**Two consequences, and they differ in severity:**
+
+1. **The joint objective's sharing claim is unaffected.** Both scenario
+   structs are built from the *same* base parameters and receive the *same*
+   vector, so everything outside the vector — `V0.SVEN` included — is
+   identical between them by construction. Sharing holds.
+2. **The warm-start path is not faithful, and this limits §6.4.2's
+   interpretation.** The intended sharpest test — "can a parameter set that
+   demonstrably explains the pre state also explain the post state?" — was
+   not actually run, because the start was a degraded reconstruction rather
+   than the pre-only solution. Fixing this requires passing the calibrated
+   parameter *struct* as the base rather than reconstructing from a vector.
+
+**This does not affect §6.5**, which is the stronger result and loads the
+full calibrated `params` struct directly, never round-tripping through the
+vector.
+
 ### 6.5 A GENUINE VALIDATION HOLDOUT — post-closure prediction
 
 **This closes the gap §5 documents.** Until now nothing in this recipe was a
