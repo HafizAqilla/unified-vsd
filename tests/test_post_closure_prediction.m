@@ -134,6 +134,55 @@ verifyGreaterThan(tc, abs(vsd_shunt_model(90, 20, p_open)), 1e-6, ...
     'source candidate must have an open shunt, or the test proves nothing.');
 end
 
+function test_post_surgery_data_cannot_influence_a_pre_surgery_fit(tc)
+% The §6.5 claim is "these measurements were never used to fit these
+% parameters". That is only true if nothing on the pre_surgery path reads
+% clinical.post_surgery -- and the post block was added to the config BEFORE
+% the pre-only calibrations were run, so this needs proving, not assuming.
+%
+% Proof by construction: blank every post_surgery field and verify the entire
+% pre_surgery pipeline is bit-identical. If any of these drift, the holdout is
+% contaminated and the out-of-sample claim must be withdrawn.
+%
+% Note isequaln, not isequal: these structs are full of legitimately NaN
+% fields, and isequal(NaN, NaN) is false, which produces a false contamination
+% alarm.
+clinical = patient_reyna();
+blanked = clinical;
+fn = fieldnames(blanked.post_surgery);
+for i = 1:numel(fn)
+    if isnumeric(blanked.post_surgery.(fn{i}))
+        blanked.post_surgery.(fn{i}) = NaN;
+    end
+end
+
+t_with = get_calibration_targets('pre_surgery', clinical);
+t_without = get_calibration_targets('pre_surgery', blanked);
+verifyTrue(tc, isequaln(t_with, t_without), ...
+    'pre_surgery targets must not depend on post_surgery data.');
+
+p_with = build_case_calibration_profile(clinical, 'pre_surgery');
+p_without = build_case_calibration_profile(blanked, 'pre_surgery');
+verifyTrue(tc, isequaln(p_with.targetTiers.table, p_without.targetTiers.table), ...
+    'pre_surgery tier governance must not depend on post_surgery data.');
+verifyTrue(tc, isequaln(p_with.allowedMetricFields, p_without.allowedMetricFields), ...
+    'pre_surgery allowed metrics must not depend on post_surgery data.');
+
+params_ref = default_parameters();
+patient = struct('age_years', clinical.common.age_years, ...
+    'age_days', clinical.common.age_years * 365.25, ...
+    'weight_kg', clinical.common.weight_kg, ...
+    'height_cm', clinical.common.height_cm, ...
+    'sex', clinical.common.sex, 'maturation_mode', 'normal', ...
+    'run_mode', '', 'scaling_mode', 'zhang', 'BSA', clinical.common.BSA);
+scaled = apply_scaling(params_ref, patient);
+q_with = params_from_clinical(scaled, clinical, 'pre_surgery', params_ref, p_with);
+q_without = params_from_clinical(scaled, blanked, 'pre_surgery', params_ref, p_without);
+verifyTrue(tc, isequaln(q_with, q_without), ...
+    ['mapped pre_surgery parameters must not depend on post_surgery data: ', ...
+     'if they do, the out-of-sample prediction is contaminated.']);
+end
+
 function out = evalc_pred(path, clinical)
 out = [];
 txt = evalc('out = evaluate_post_closure_prediction(path, clinical, false);'); %#ok<NASGU>

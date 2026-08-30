@@ -1034,6 +1034,37 @@ publish.
   targets are not in the objective, so no degrees-of-freedom caveat applies:
   the model cannot have absorbed them.
 
+#### 6.5.2b The holdout is provably uncontaminated
+
+The claim "never used to fit these parameters" needs proving rather than
+assuming, because **the post-closure block was added to
+`config/patient_reyna.m` before the corrected pre-only calibrations were
+run**. If any part of the pre-surgery path read `clinical.post_surgery`, the
+holdout would be contaminated and §6.5 would have to be withdrawn.
+
+Proof by construction: blank every `post_surgery` field and re-derive the
+entire pre-surgery pipeline.
+
+| Artefact | Identical with post data blanked? |
+|---|---|
+| `get_calibration_targets('pre_surgery', …)` | ✓ |
+| Case-profile tier table | ✓ |
+| Allowed metric fields | ✓ |
+| `params_from_clinical(…, 'pre_surgery', …)` | ✓ |
+
+All bit-identical, so no pre-surgery quantity depends on post-surgery data.
+`apply_post_surgery_warm_start` was also confirmed to return immediately
+unless the scenario is `post_surgery`
+(`src/utils/apply_post_surgery_warm_start.m:39-40`). Locked in by
+`tests/test_post_closure_prediction.m::test_post_surgery_data_cannot_influence_a_pre_surgery_fit`.
+
+> A methodological note worth recording: the first version of this check used
+> `isequal` and reported a difference, which looked like contamination. The
+> cause was `isequal(NaN, NaN) == false` and these structs being full of
+> legitimately `NaN` fields — a false alarm, not a finding. The check uses
+> `isequaln`. Recorded because the failure mode is easy to repeat and would
+> have led to withdrawing a valid result.
+
 #### 6.5.3 What this licenses claiming
 
 This supports a materially stronger and still-honest statement than anything
