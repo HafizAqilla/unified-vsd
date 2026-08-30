@@ -124,12 +124,30 @@ end
 %% ---- Optimise ----------------------------------------------------------
 obj = @(x) objective_joint_pre_post(x, params_pre, params_post, clinical, calib);
 
+% FiniteDifferenceStepSize and StepTolerance are set EXPLICITLY and must not
+% be left at fmincon's defaults here.
+%
+% This objective is built on an ODE steady-state solve, so it carries the
+% integrator's own noise floor. fmincon's default forward-difference step is
+% about sqrt(eps) ~ 1.5e-8 relative, which is far below that floor: the
+% differences then measure integration noise rather than the gradient. The
+% observed symptom was an enormous reported first-order optimality (2.1e6)
+% together with steps of 5e-8, and the solver halting after ONE iteration
+% having moved J by 0.01% -- an optimiser returning its starting point, which
+% reyna_zhang_scientific_assessment_20260828.md §2.2 rightly refuses to treat
+% as a result.
+%
+% 1e-5 and 1e-6 match run_calibration.m:728-734, the path already proven to
+% converge on this model.
 opts = optimoptions('fmincon', ...
     'Algorithm', 'interior-point', ...
     'Display', ternary(opt.Verbose, 'iter-detailed', 'off'), ...
     'MaxFunctionEvaluations', opt.MaxFunEvals, ...
     'MaxIterations', opt.MaxIterations, ...
-    'FiniteDifferenceType', 'forward');
+    'FiniteDifferenceType', 'forward', ...
+    'FiniteDifferenceStepSize', opt.FiniteDifferenceStepSize, ...
+    'OptimalityTolerance', 1e-5, ...
+    'StepTolerance', 1e-6);
 
 [xbest, Jbest, exitflag] = fmincon(obj, x0, [], [], [], [], lb, ub, [], opts);
 
@@ -152,9 +170,36 @@ if opt.Verbose
     end
 end
 
+% OPTIMIZER_DID_NOT_MOVE guard.
+%
+% reyna_zhang_scientific_assessment_20260828.md §2.2 dissects a published
+% comparison whose headline was, in substance, an optimiser that returned its
+% starting point: identical baseline and calibrated RMSE to six decimals,
+% reported as a physiological finding. That must never be reportable from
+% this driver silently, so the condition is detected and carried on the
+% result rather than left for a reader to notice.
+rel_improvement = (J0 - Jbest) / max(abs(J0), eps);
+rel_step = max(abs(xbest(:) - x0)) / max(max(abs(x0)), eps);
+out_did_not_move = rel_improvement < 1e-3 || rel_step < 1e-6;
+
+if out_did_not_move
+    warning('run_joint_pre_post_calibration:optimizerDidNotMove', ...
+        ['OPTIMIZER_DID_NOT_MOVE: J improved %.4g%% and the largest ', ...
+         'relative parameter step was %.3g. This is NOT a calibration ', ...
+         'result -- it is the starting point. Check the finite-difference ', ...
+         'step against the ODE solver noise floor before interpreting.'], ...
+        100 * rel_improvement, rel_step);
+end
+if opt.Verbose && out_did_not_move
+    fprintf('\n  [OPTIMIZER_DID_NOT_MOVE] do not report this as a fit.\n');
+end
+
 out = struct('x0', x0, 'xbest', xbest(:), 'names', {calib.names(:)}, ...
     'J0', J0, 'Jbest', Jbest, 'info0', info0, 'info_best', info_best, ...
-    'n_parameters', p, 'dof', dof, 'exitflag', exitflag);
+    'n_parameters', p, 'dof', dof, 'exitflag', exitflag, ...
+    'relative_improvement', rel_improvement, ...
+    'relative_step', rel_step, ...
+    'optimizer_did_not_move', out_did_not_move);
 end
 
 % =======================================================================
@@ -187,7 +232,8 @@ end
 % =======================================================================
 function opt = parse_options(varargin)
 opt = struct('ScalingMode', 'zhang', 'MaxFunEvals', 300, ...
-    'MaxIterations', 40, 'Verbose', true);
+    'MaxIterations', 40, 'Verbose', true, ...
+    'FiniteDifferenceStepSize', 1e-5);
 for i = 1:2:numel(varargin)
     name = varargin{i};
     if isfield(opt, name)
