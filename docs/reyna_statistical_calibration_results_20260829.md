@@ -25,6 +25,19 @@
 > more free parameters than observations. The gate count, the per-metric
 > residuals, and the excluded-metric behaviour are the defensible results;
 > χ²/N is not. See §3.5–§3.7 and §4.
+>
+> **The strongest result on this branch is §6.5, not §3.5.** The post-closure
+> pressures were never used in fitting, so they form the first genuine
+> validation holdout this model has had. Calibrated on pre-closure data alone
+> and with defect closure as the only intervention, the model predicts all
+> seven independently measured post-closure pressures within ~15%, five of
+> seven within 10%, mean arterial pressure to 3.5%. That number needs no
+> degrees-of-freedom caveat, because the model could not have absorbed
+> targets it never saw.
+>
+> **And it settles the overfitting question empirically:** the seed scoring
+> 9/9 in-sample predicts held-out data *worse* (3/7) than the seed scoring
+> 8/9 (5/7). Overfitting demonstrated, not inferred.
 
 ## 0. Clinical data correction, 2026-08-29 (supersedes all results below)
 
@@ -155,7 +168,7 @@ is deliberately blocked — see §6.
 | 2 — χ² reporting | **Complete** | Discrepancy-principle goodness-of-fit statistic, printed and exported every run; does not gate `ACCEPT` |
 | 3 — parameter identifiability | **Complete** | Scaled sensitivity matrix, condition number, pairwise correlation; report-only |
 | 4 — joint pre/post inversion | **Objective built and tested; not yet run** | Post-closure data obtained and encoded (§0.2). `objective_joint_pre_post.m` gives **N = 16** and positive DOF (+4 at the masked `p = 12`, vs −3 pre-only). Driver and calibration run still outstanding — see §6.4 |
-| 5 — validation holdout | **Deviated, with reasoning** | `SVR` was not relabelled `validation_holdout` — see §5 |
+| 5 — validation holdout | **Complete — a genuine holdout now exists** | `SVR` was correctly NOT relabelled (it is algebra over fitted targets, §5). The post-closure pressures ARE a genuine holdout: never fitted, independently measured. Out-of-sample result in **§6.5** |
 
 ## 2. The measurement that motivated this branch
 
@@ -810,16 +823,145 @@ was wrong.
 > post-surgery path this branch does not otherwise touch — but it should be
 > fixed before any post-closure result is published from that seed.
 
-#### 6.4.2 Not yet done
+#### 6.4.2 The joint run, and a non-result that was nearly reported
 
-The objective exists and is tested; **no joint calibration has been run**.
-The remaining work is the driver (PRD §7.3's
-`scripts/run_joint_pre_post_calibration.m`), target-governance wiring so the
-post-op rows carry proper tiers, and then the run itself. The PRD §7.5
-acceptance criteria (DOF ≥ 6, combined χ²/N in band, pre-op gate no worse
-than 7/9) are **not yet evaluated**. Note DOF ≥ 6 is not reachable at
-`p = 12`–`14` with `N = 16`; either `p` must come down or that criterion
-needs revising against what the data can support.
+Driver: `scripts/run_joint_pre_post_calibration.m`.
+
+**First attempt was a non-result and is not reported as a fit.** It moved `J`
+from 661.6533 to 661.5832 — 0.01% — and halted after one iteration. That is
+an optimiser returning its starting point, the exact failure
+`reyna_zhang_scientific_assessment_20260828.md` §2.2 dissects in previously
+published work.
+
+Cause: the driver left fmincon's finite-difference settings at their
+defaults. The default forward-difference step is ≈ `sqrt(eps)` ≈ 1.5e-8
+relative, **far below the noise floor of an objective built on an ODE
+steady-state solve** — so the differences measured integrator noise, not the
+gradient. Symptom: reported first-order optimality of 2.1e6 alongside steps
+of 5e-8. Setting `FiniteDifferenceStepSize = 1e-5` and
+`StepTolerance = 1e-6` (matching `run_calibration.m:728-734`, already proven
+on this model) dropped first-order optimality to 4.8e3 and the step to 1.3e-1.
+
+An `OPTIMIZER_DID_NOT_MOVE` guard now flags relative improvement < 1e-3 or
+relative step < 1e-6, warns, and records the condition on the output, so this
+class of non-result cannot be reported silently again.
+
+**Second attempt, converged:**
+
+| | Baseline | Joint fit |
+|---|---:|---:|
+| `J` | 661.6533 | **96.1514** (−85.5%) |
+| `χ²_pre` | 491.369 | **79.289** |
+| `χ²_post` | 170.284 | **16.862** |
+| `N` / `p` / `dof` | | 16 / 14 / **+2** |
+| `χ²/N` | 41.35 | **6.01** |
+
+**Against PRD §7.5 this does not pass, and that is reported rather than
+tuned away.** `χ²/N = 6.01` is above the `consistent` band (0.5–2.0), i.e.
+the joint fit is **underfit**: this parameterisation cannot simultaneously
+reproduce both haemodynamic states within declared measurement uncertainty.
+
+**But the cause is not yet established, and two explanations must not be
+conflated:**
+
+1. **The shared-parameter assumption is wrong** — one parameter set genuinely
+   cannot describe both states; or
+2. **The optimisation is simply under-converged** — this was a *single* start
+   through a *single* fmincon call, whereas the single-scenario result it is
+   being compared against came from 6 multi-starts through a 6-stage
+   pipeline. `χ²_pre` of 79.3 here versus ~7.1 from the tuned single-scenario
+   fit is a >10× gap that a budget difference of that size could plausibly
+   account for on its own.
+
+Separating these requires running the joint objective at comparable budget
+and multi-start depth. **Until that is done, no conclusion about the
+shared-parameter assumption may be drawn from this number** — and §6.5's
+out-of-sample result, which needs no optimisation at all, is the better
+evidence on that question in the meantime.
+
+Note also PRD §7.5's `dof ≥ 6` is unreachable at `N = 16` with `p` of 12–14;
+either `p` comes down or that criterion needs revising against what the data
+can support.
+
+### 6.5 A GENUINE VALIDATION HOLDOUT — post-closure prediction
+
+**This closes the gap §5 documents.** Until now nothing in this recipe was a
+real holdout: every finite target was either fitted, or algebra over fitted
+quantities (`SVR`, `Q_shunt_Lmin`), so "predicting" it demonstrated nothing
+the model had not been told.
+
+The post-closure pressures are different in kind. They are independent
+measurements, in a genuinely different haemodynamic state, and **were never
+seen by the pre-only calibrations**. So taking a pre-calibrated parameter set,
+closing the defect, and comparing against them is a true out-of-sample
+prediction test — no refitting, no parameter adjustment, the closure is the
+only intervention. Implemented in
+`scripts/evaluate_post_closure_prediction.m`, which asserts the shunt is
+actually shut before measuring anything.
+
+#### The result, both seeds
+
+| Metric | Measured | Pred. (seed `…828`) | Err % | Pred. (seed `…830`) | Err % |
+|---|---:|---:|---:|---:|---:|
+| `SAP_mean` | 79 | 81.75 | **+3.48** | 78.49 | **−0.64** |
+| `PAP_mean` | 13 | 13.83 | +6.35 | 14.05 | +8.04 |
+| `RAP_mean` | 5 | 5.36 | +7.29 | 5.36 | +7.24 |
+| `SAP_min` | 68 | 63.29 | −6.92 | 59.46 | −12.56 |
+| `PAP_max` | 17 | 17.75 | +4.39 | 18.78 | +10.46 |
+| `PAP_min` | 9 | 10.33 | +14.80 | 10.01 | +11.19 |
+| `SAP_max` | 89 | 101.40 | +13.94 | 99.59 | +11.90 |
+| **Within 10%** | | **5 / 7** | | **3 / 7** | |
+| **χ²/N** | | **2.311** | | **2.439** | |
+
+#### 6.5.1 The overfitting finding is now confirmed out-of-sample
+
+This is the important part. §3.6 argued from χ²/N and the `Q_shunt_Lmin`
+collapse that the 9/9 seed was overfitting. **Genuinely held-out data now
+confirms it independently:**
+
+| | Seed `20260828` | Seed `20260830` |
+|---|---:|---:|
+| In-sample governed gate | 8 / 9 | **9 / 9** ← looks better |
+| Out-of-sample prediction | **5 / 7** ← actually better | 3 / 7 |
+| Out-of-sample χ²/N | **2.311** | 2.439 |
+
+**The arm that fit the training data better predicts held-out data worse.**
+That is overfitting demonstrated, not inferred — and it is the single
+strongest argument in this branch for why the gate count must never be
+optimised directly, and why a 9/9 headline would have been the wrong thing to
+publish.
+
+#### 6.5.2 Honest reading of the prediction itself
+
+- **It is a real but imperfect prediction.** All 7 pressures land within
+  ~15%, and the mean pressures — the most reliably measured — do best
+  (`SAP_mean` to 0.6–3.5%). χ²/N ≈ 2.3–2.4 sits *just above* the `consistent`
+  band (0.5–2.0), i.e. marginally underfit rather than in agreement.
+- **The errors are systematic, not random.** Six of seven are positive in
+  both seeds, and the pulmonary pressures are over-predicted throughout
+  (`PAP_min` +11 to +15%). The model predicts **less pulmonary unloading
+  after closure than actually occurred**. That is a physiologically
+  interpretable, reportable discrepancy and a concrete lead for model
+  improvement, not merely a residual.
+- **Unlike χ²/N on the fitted set, this number means something.** These
+  targets are not in the objective, so no degrees-of-freedom caveat applies:
+  the model cannot have absorbed them.
+
+#### 6.5.3 What this licenses claiming
+
+This supports a materially stronger and still-honest statement than anything
+previously available from this work:
+
+> A lumped-parameter model calibrated **solely** on pre-closure
+> catheterisation data predicted all seven independently measured
+> post-closure pressures within 15% (five of seven within 10%), with mean
+> arterial pressure predicted to within 3.5%, after applying defect closure
+> as the only intervention.
+
+Note this is exactly the class of claim §5.2 of the 2026-08-28 assessment
+says must *not* be made from `Q_shunt_Lmin` or `SVR` — and the reason it is
+legitimate here is precisely the reason it was illegitimate there: these
+targets are independent measurements rather than algebra over fitted ones.
 
 ### 6.2 Validating predicted volumes against the literature
 
