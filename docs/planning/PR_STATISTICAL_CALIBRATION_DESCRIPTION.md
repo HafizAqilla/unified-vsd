@@ -117,6 +117,35 @@ correct, the reporting was not.
 band and is reported as carrying no evidential weight. The gate count and
 per-metric residuals are the defensible results.
 
+### The second seed scored 9/9 — and that is the bad arm
+
+Two independent 6-start selections on corrected data:
+
+| | Seed `20260828` | Seed `20260830` |
+|---|---:|---:|
+| Governed gate | 8 / 9 | **9 / 9** |
+| Best RMSE | 0.0480 | **0.0434** |
+| χ²/N | 0.784 | **0.494** ← below overfit threshold |
+| `Q_shunt_Lmin` (**not** graded) | −2.26% | **−22.90%** |
+
+The arm with the perfect gate score is the one that crossed into overfitting
+*and* saw the one deliberately-ungraded metric degrade ten-fold. The graded
+set improved while the ungraded metric collapsed — the signature of fitting to
+the scoreboard.
+
+This is the empirical demonstration of
+`reyna_zhang_scientific_assessment_20260828.md` §6's warning that maximising
+the sub-10% count is not itself a scientific objective. It is no longer
+hypothetical.
+
+`Q_shunt_Lmin` is a sharp detector because it is `CO × (QpQs − 1)` and
+`QpQs − 1 = 0.194` is a small difference of near-equal quantities — roughly
+**6× amplification** of `QpQs` error. Excluded from grading for sound reasons;
+worth reporting alongside the gate count *precisely because* it is not fitted.
+
+**Run-to-run variation moves the headline claim** (9/9 vs 8/9), which is
+itself a reportable result.
+
 ### Identifiability got worse, and is reported as such
 
 Condition number **232 → 2.06 × 10³** (now flagged near-dependent). The LV
