@@ -149,7 +149,32 @@ opts = optimoptions('fmincon', ...
     'OptimalityTolerance', 1e-5, ...
     'StepTolerance', 1e-6);
 
-[xbest, Jbest, exitflag] = fmincon(obj, x0, [], [], [], [], lb, ub, [], opts);
+% Multi-start. The single-scenario result this is compared against came from
+% 6 multi-starts through a 6-stage pipeline, so a single fmincon call from x0
+% cannot distinguish "the shared-parameter assumption fails" from "this fit
+% is simply under-converged". Starts are built to make that comparison fair:
+% x0, an optional warm start from the pre-only calibrated solution (the
+% sharpest test -- can the joint fit hold a good pre-op fit while also
+% explaining post?), then bound-interior perturbations.
+starts = build_starts(x0, lb, ub, opt);
+
+Jbest = Inf; xbest = x0; exitflag = NaN;
+for s = 1:size(starts, 2)
+    try
+        [xs, Js, ef] = fmincon(obj, starts(:, s), [], [], [], [], lb, ub, [], opts);
+    catch ME
+        if opt.Verbose
+            fprintf('  start %d failed: %s\n', s, ME.message);
+        end
+        continue;
+    end
+    if opt.Verbose
+        fprintf('  start %d/%d: J = %.4f\n', s, size(starts, 2), Js);
+    end
+    if isfinite(Js) && Js < Jbest
+        Jbest = Js; xbest = xs(:); exitflag = ef;
+    end
+end
 
 [~, info_best] = objective_joint_pre_post(xbest, params_pre, params_post, ...
     clinical, calib);
@@ -203,6 +228,32 @@ out = struct('x0', x0, 'xbest', xbest(:), 'names', {calib.names(:)}, ...
 end
 
 % =======================================================================
+function starts = build_starts(x0, lb, ub, opt)
+% BUILD_STARTS - deterministic start set for the joint fit.
+starts = x0(:);
+
+% A warm start from the pre-only calibrated vector is the most informative
+% single start available: it asks whether a parameter set that demonstrably
+% explains the pre state can be held while also explaining the post state.
+if ~isempty(opt.StartFrom)
+    ws = opt.StartFrom(:);
+    if numel(ws) == numel(x0)
+        starts(:, end + 1) = min(max(ws, lb(:)), ub(:));
+    end
+end
+
+n_extra = max(0, opt.NumStarts - size(starts, 2));
+if n_extra > 0
+    rng(20260830, 'twister');   % deterministic: reproducible start set
+    span = ub(:) - lb(:);
+    for k = 1:n_extra
+        frac = 0.25 + 0.5 * rand(numel(x0), 1);
+        starts(:, end + 1) = lb(:) + frac .* span; %#ok<AGROW>
+    end
+end
+end
+
+% =======================================================================
 function note = dof_annotation(dof)
 if dof > 2
     note = '  [positive: reduced chi2 is meaningful]';
@@ -233,7 +284,9 @@ end
 function opt = parse_options(varargin)
 opt = struct('ScalingMode', 'zhang', 'MaxFunEvals', 300, ...
     'MaxIterations', 40, 'Verbose', true, ...
-    'FiniteDifferenceStepSize', 1e-5);
+    'FiniteDifferenceStepSize', 1e-5, ...
+    'StartFrom', [], ...        % optional warm start (e.g. the pre-only fit)
+    'NumStarts', 1);
 for i = 1:2:numel(varargin)
     name = varargin{i};
     if isfield(opt, name)

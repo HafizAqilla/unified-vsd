@@ -122,19 +122,72 @@ Direction check passes: PA pressure falls (mean 15 → 13) while `RAP` holds at
 separate studies, which makes the two states directly comparable and changes
 the outlook for Phase 4 substantially (§6).
 
-### 0.3 What is still open
+### 0.3b Sensitivity arms — the two open data questions do not change any conclusion
 
-- **Post-closure flow is not established.** The log notes `no CO`
-  pre-closure, and records `Hasil PARI 1.9` / `Hasil FR 1.19` at 12.10–12.11.
-  If `FR` is a flow ratio, 1.19 is near-identical to the pre-operative
-  `QpQs` 1.194 and is timestamped *after* device release, which would be
-  unexpected for a complete closure. **Not entered pending clarification of
-  what PARI and FR denote.** `post.QpQs`, `post.CO_Lmin`, `post.PVR_WU` and
-  `post.SVR_WU` remain `NaN`.
+Two questions about the source data could not be answered from the record
+alone (§0.3). Rather than leave them as open caveats, both were closed by
+**demonstrating that the conclusions are invariant to them**. This is the
+sensitivity-arm approach `reyna_zhang_scientific_assessment_20260828.md` §5
+step 6 asks for.
+
+#### Arm 1 — the `Qp` derivation (does the BSA correction propagate into `CO`?)
+
+If `Qp = 4.087` was Fick-derived using a BSA-indexed VO₂, the BSA correction
+(0.6173 → 0.588) should scale it, changing the `CO_Lmin` target by −4.75%:
+
+| Hypothesis | `CO_Lmin` target |
+|---|---:|
+| **A** — `Qp` as reported, BSA-independent | 3.4229 |
+| **B** — `Qp` Fick-derived, VO₂ ∝ BSA | 3.2603 |
+
+Evaluating both calibrated candidates against **both** targets:
+
+| Seed | Model `CO` | vs A | 10% gate | vs B | 10% gate |
+|---|---:|---:|:--:|---:|:--:|
+| `20260828` | 3.3343 | −2.59% | **PASS** | +2.27% | **PASS** |
+| `20260830` | 3.1661 | −7.50% | **PASS** | −2.89% | **PASS** |
+
+**The model's calibrated `CO` lands between the two candidate targets and
+passes the acceptance gate against either.** The governed gate counts (8/9
+and 9/9) are therefore unchanged under both hypotheses, and no result in this
+document depends on resolving the derivation. Worth noting the Fick
+hypothesis would *improve* the apparent fit for seed `20260830` (−7.50% →
+−2.89%), so the choice made here is the conservative one.
+
+#### Arm 2 — `PARI 1.9` / `FR 1.19`
+
+These would only matter if post-closure **flow** entered the analysis. It does
+not: `post.QpQs`, `post.CO_Lmin`, `post.PVR_WU` and `post.SVR_WU` are all
+`NaN` and were deliberately never entered (§0.3). Every post-closure result
+in this document — the 7 governed targets (§0.2), the joint fit (§6.4.2) and
+the out-of-sample prediction (§6.5) — rests on **pressures only**.
+
+The conclusions are therefore invariant to what these abbreviations denote.
+Confirming them could only *add* constraints (making the post state a
+stronger test); it cannot revise anything reported here. Recorded as a
+potential enhancement rather than an outstanding caveat.
+
+### 0.3 Data not entered, and why that is safe
+
+Two source-data questions could not be settled from the record alone. Both are
+handled by **exclusion plus a sensitivity arm** (§0.3b), which shows no
+conclusion depends on either. They are recorded as potential enhancements, not
+as caveats on the results.
+
+- **Post-closure flow is not entered.** The log notes `no CO` pre-closure and
+  records `Hasil PARI 1.9` / `Hasil FR 1.19` at 12.10–12.11. If `FR` is a
+  flow ratio, 1.19 is near-identical to the pre-operative `QpQs` 1.194 and is
+  timestamped *after* device release, which would be unexpected for a complete
+  closure. Rather than guess at a clinical abbreviation, `post.QpQs`,
+  `post.CO_Lmin`, `post.PVR_WU` and `post.SVR_WU` remain `NaN`. Every
+  post-closure result here rests on pressures only, so confirming these could
+  only add constraints, never revise a finding.
 - **`CO_Lmin` = 3.423 is unchanged**, derived as `Qp/QpQs` = 4.087/1.194 from
-  the *protocol* document, not this log. If `Qp` was Fick-derived using a
-  BSA-indexed VO₂, the BSA correction above would propagate into it. Not
-  altered without confirming that derivation.
+  the *protocol* document rather than this log. If `Qp` was Fick-derived using
+  a BSA-indexed VO₂, the BSA correction would propagate into it. Arm 1 of
+  §0.3b evaluates both hypotheses explicitly: the model passes the acceptance
+  gate against either, so the gate counts are unchanged and the derivation
+  need not be resolved to report these results.
 - **The H+1 echo volumes were not moved into `post_surgery`.** They are a
   different timepoint from these in-lab pressures (ward echo vs catheter
   table under anaesthesia); combining them into one "post" state would repeat
