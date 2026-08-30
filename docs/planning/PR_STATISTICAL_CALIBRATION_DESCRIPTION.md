@@ -260,6 +260,28 @@ metric that acts as the overfitting detector above. `χ²_pre` would then have
 been computed over a different set than the reported governed RMSE. Tiers now
 come from each scenario's case profile, and a test pins `n_pre = 9`.
 
+## Parameter reduction: analysed, not yet run
+
+`dof = −3` is the binding limitation. GSA screens the set to 7, but stages D–F
+expand it back to 12, undoing most of that.
+
+Scoring subsets by `cond(S)` at the calibrated point (no recalibration needed —
+fixed columns, so it is linear algebra):
+
+| p | dof | best cond(S) |
+|---:|---:|---:|
+| 12 (current) | −3 | 2060 |
+| **7** | **+2** | **21.7** |
+| 6 | +3 | 6.82 |
+
+Cutting 12 → 7 makes `dof` positive and improves conditioning **95×**. The
+resulting set shares **6 of 7 members** with the Sobol-screened set — two
+independent criteria converging, which is the best available evidence the
+subset reflects the data rather than the method.
+
+**Not validated.** A dropped parameter is fixed at its calibrated value, which
+is a modelling commitment. A run at `p = 7` is the highest-value next step.
+
 ## What this does NOT establish
 
 - **n = 1.** One patient.

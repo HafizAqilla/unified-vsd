@@ -1208,6 +1208,103 @@ is high enough to warrant caution interpreting individual parameter values
 from this fit as uniquely determined, though not so high as to indicate the
 fit itself is numerically degenerate.
 
+## 7.9 Parameter reduction: the concrete route to positive DOF
+
+**Status: quantitative analysis, not a validated result.** No calibration was
+run at a reduced parameter count. This section says what should be done and
+what it is expected to buy; it does not claim the result.
+
+### 7.9.1 Where p = 12 comes from
+
+The recipe declares 14 active parameters. GSA screening reduces this to **7**
+for stage C. But stages D, E and F operate on `calib.names_all(calib.mask)`,
+which is 12 — everything except the two atrial elastances `E.LA.EA` and
+`E.RA.EA`.
+
+So the screening's reduction is applied to one stage and then largely undone by
+the later ones. The reported `p = 12` is correct (it is what actually had
+freedom to move), but it is not what GSA recommended.
+
+### 7.9.2 Method
+
+`scripts/analyse_parameter_reduction.m`. The scaled sensitivity matrix is built
+once at the calibrated operating point, then subsets are scored by
+`cond(S(:,idx))`. Because the columns are fixed, every subset is evaluated by
+linear algebra alone — no re-simulation, no recalibration. An exhaustive search
+over subset sizes costs seconds, where a calibration-based search would cost
+hours per candidate.
+
+### 7.9.3 Result
+
+At the corrected-data operating point (seed `20260828`), `N = 9`:
+
+| p | dof = N − p | best cond(S) |
+|---:|---:|---:|
+| **12 (current)** | **−3** | **2060** |
+| 9 | 0 | 1179 |
+| 8 | +1 | 104 |
+| **7** | **+2** | **21.7** |
+| 6 | +3 | 6.82 |
+| 5 | +4 | 4.43 |
+
+Dropping five parameters improves conditioning by a factor of **95** and makes
+`dof` positive.
+
+Best 7-parameter set:
+`group.R_sys_scale, R.SVEN, C.SAR, C.PAR, E.LV.EB, E.RV.EB, vsd.Cd`
+
+### 7.9.4 Why this is principled rather than fitted-to-taste
+
+Two independent criteria nearly agree. The conditioning-optimal 7 above shares
+**6 of 7 members** with the Sobol-screened active set
+(`group.R_sys_scale, R.SVEN, group.R_pul_scale, C.SAR, C.PAR, E.RV.EB, vsd.Cd`).
+They differ in one slot: conditioning prefers `E.LV.EB` where marginal
+influence preferred `group.R_pul_scale`.
+
+Marginal sensitivity and joint identifiability are different measures, and they
+converging on nearly the same subset is the strongest available evidence that
+the subset is a property of the data rather than of either criterion.
+
+The column norms show why the extra five hurt:
+
+| Parameter | Column norm |
+|---|---:|
+| `V0.LV` | 0.348 |
+| `V0.RV` | 0.424 |
+| `E.RV.EA` | 1.430 |
+| `E.LV.EA` | 2.309 |
+| … | |
+| `group.R_sys_scale` | 16.245 |
+| `group.R_pul_scale` | 27.408 |
+
+`V0.LV` and `V0.RV` move the governed metrics roughly 50× less than the grouped
+resistances, so the data barely constrains them in any combination. `E.LV.EA`
+is collinear with both `E.LV.EB` (ρ = −0.921) and `vsd.Cd` (ρ = −0.917), so it
+adds a direction the other two already span.
+
+### 7.9.5 What it would change, and what it costs
+
+**Would change.** At `dof = +2`, `χ²/N` stops being guaranteed-low and starts
+carrying evidence. Every statistical claim in this document currently has to be
+qualified by §4's `consistent_but_underdetermined`; at positive `dof` that
+qualification lifts. This is the single change that would move the work from
+"good fit, uninterpretable statistic" to "properly determined fit".
+
+**Costs, and why the analysis alone does not settle it.** A dropped parameter
+is not removed from the model — it is **fixed at its calibrated value**. That
+is a modelling commitment. Three things must be checked by an actual run at
+`p = 7`:
+
+1. Does the governed gate count survive? Currently 8/9 at `p = 12`. Fewer free
+   parameters can only make the fit worse in-sample.
+2. Does the out-of-sample prediction (§6.5) hold or improve? Fewer parameters
+   should reduce overfitting, so this may improve, but that is a prediction not
+   a result.
+3. Is `χ²/N` still inside the consistent band once it is actually meaningful?
+
+**This run has not been done.** It is the highest-value single next step for
+this work.
+
 ## 8. Reproduction
 
 ```bash
@@ -1228,10 +1325,13 @@ Every run now writes, into its run folder's `tables/`:
   `dof = −3`. A low χ²/N is *guaranteed* in that regime and is not evidence
   the model is correct — the report now says so explicitly (§4). Any claim
   from this branch must rest on the gate count and per-metric residuals, and
-  must state the parameter/observation ratio alongside. Two levers exist and
-  probably both are needed: raise `N` via Phase 4 joint pre/post inversion
-  (now viable, §6.0 — would give `N = 16`, `dof = 4`), and lower `p` below
-  12 (stages D–F currently use a broader mask than the GSA screen's 7).
+  must state the parameter/observation ratio alongside. Two levers exist:
+  raise `N` via Phase 4 joint pre/post inversion (built and run, §6.4), and
+  lower `p` (analysed in §7.9 — cutting 12 → 7 would give `dof = +2` and a
+  95-fold better condition number). **Neither has been validated as a
+  calibration result yet:** the joint fit is underfit at χ²/N = 6.01, and no
+  run has been done at `p = 7`. The reduced-p run is the highest-value
+  outstanding step.
 - **The better fit came partly at the cost of identifiability.** Condition
   number rose from 232 to 2.06 × 10³ between the superseded and corrected
   runs, and a new `E.LV.EA` ↔ `vsd.Cd` collinearity (ρ = −0.917) appeared.

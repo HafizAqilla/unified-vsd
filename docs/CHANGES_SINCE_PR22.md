@@ -625,6 +625,53 @@ despite excess freedom is a real signal.
 
 ---
 
+## 8.2 Parameter reduction analysis (not yet run)
+
+The binding limitation is dof = -3: nine observations against 12 free
+parameters. A low chi-squared is guaranteed in that regime and proves nothing.
+
+Where p = 12 comes from: the recipe declares 14 active parameters, GSA
+screening reduces this to 7 for stage C, but stages D, E and F operate on 12
+(everything except the two atrial elastances). The screening is applied at one
+stage and largely undone at the later ones.
+
+`scripts/analyse_parameter_reduction.m` scores this without recalibration. The
+sensitivity matrix is built once at the calibrated point, then subsets are
+ranked by cond(S). Because the columns are fixed, each subset costs only linear
+algebra, so an exhaustive search takes seconds instead of hours per candidate.
+
+Result at the corrected operating point, N = 9:
+
+| p | dof | best cond(S) |
+|---:|---:|---:|
+| 12 (current) | -3 | 2060 |
+| 9 | 0 | 1179 |
+| 8 | +1 | 104 |
+| **7** | **+2** | **21.7** |
+| 6 | +3 | 6.82 |
+| 5 | +4 | 4.43 |
+
+Dropping five parameters improves conditioning by a factor of 95 and makes dof
+positive.
+
+Best 7-parameter set: `group.R_sys_scale, R.SVEN, C.SAR, C.PAR, E.LV.EB,
+E.RV.EB, vsd.Cd`.
+
+This set shares 6 of 7 members with the Sobol-screened active set. Marginal
+sensitivity and joint conditioning are different criteria, so their agreement
+on nearly the same subset indicates the subset is a property of the data rather
+than of either method.
+
+Column norms show why the extra five hurt. `V0.LV` (0.348) and `V0.RV` (0.424)
+move the governed metrics about 50 times less than the grouped resistances
+(16.2 and 27.4). `E.LV.EA` is collinear with both `E.LV.EB` (-0.921) and
+`vsd.Cd` (-0.917), so it adds a direction the other two already span.
+
+**Not validated.** A dropped parameter is fixed at its calibrated value, which
+is a modelling commitment. A run at p = 7 is needed to check three things: does
+the 8/9 gate count survive, does the out-of-sample prediction hold or improve,
+and is chi2/N inside the consistent band once it is actually meaningful.
+
 ## 9. What this work does not establish
 
 - **n = 1.** One patient.
@@ -639,9 +686,10 @@ despite excess freedom is a real signal.
   parameter pairs.
 - **Zhang versus Lundquist remains uninterpretable** at these budgets.
 - **No post-closure flow data.** The post state constrains pressures only.
-- **Reducing p is untested.** Stages D to F use a 12-parameter mask, wider than
-  the GSA screen's 7. Lowering p is the other lever on degrees of freedom and
-  has not been tried.
+- **Reducing p is analysed but not run.** See §8.2. Cutting p from 12 to 7
+  would make dof positive and improve conditioning 95-fold, but no calibration
+  was run at p = 7, so it is not known whether the 8/9 gate count survives.
+  This is the highest-value outstanding step.
 
 ---
 
