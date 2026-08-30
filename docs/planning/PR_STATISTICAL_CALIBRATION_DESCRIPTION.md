@@ -162,7 +162,7 @@ come down.
 | 1 — σ-weighted objective | Complete; `legacy` default proven byte-identical by regression test |
 | 2 — χ² reporting | Complete; recorded on status but deliberately **not** gating `ACCEPT` |
 | 3 — parameter identifiability | Complete; governed-set report, found 3 collinear parameter pairs |
-| 4 — joint pre/post inversion | Unblocked by this PR's data, **not built** |
+| 4 — joint pre/post inversion | **Objective + driver built and tested** (§ below); calibration run in progress |
 | 5 — validation holdout | Machinery built; deviates from PRD with reasoning (see below) |
 
 **Phase 5 deviates deliberately.** The PRD said to relabel `SVR` as
@@ -181,6 +181,49 @@ verifiable. This PR extends the same reasoning to the new statistical
 artefacts (`chi_squared_*.csv`, `parameter_identifiability_*.csv`) — a χ²/N or
 condition-number claim is no more verifiable than a gate count if its table is
 untracked.
+
+## Phase 4: degrees of freedom are now positive
+
+`src/calibration/objective_joint_pre_post.m` + `scripts/run_joint_pre_post_calibration.m`
+fit both haemodynamic states from **one shared parameter vector**, so the
+observation count rises without adding parameters:
+
+| | `N` | `p` | `dof` |
+|---|---:|---:|---:|
+| Pre-only (previous state) | 9 | 12 | **−3** |
+| Joint, full recipe set | 16 | 14 | **+2** |
+| Joint, GSA-masked set | 16 | 12 | **+4** |
+
+Pinned by test: the vector is genuinely shared (every parameter but the shunt
+bit-identical across both structs), regularisation is applied **once** not per
+scenario, σ resolution matches Phase 1 so `χ²_pre` stays comparable with the
+reported statistic, and absent post targets degrade to pre-only *with a
+warning that the DOF benefit no longer applies*.
+
+### Two latent bugs this surfaced
+
+**1. "Closed VSD" was mode-dependent — and wrong for this patient.**
+`vsd_shunt_model` dispatches on `vsd.mode`. Resistive modes close via a large
+`R.vsd`; but `orifice_bidirectional` — **the mode Reyna uses** — never reads
+`R.vsd` at all and closes only when `vsd.area_mm2 = 0`. Closing by `R.vsd`
+alone is a **no-op** here: the "post-closure" simulation would keep shunting
+at full strength. The test asserts closure *behaviourally* (zero flow at a
+70 mmHg gradient), because a field-based assertion would have passed while the
+physics was wrong.
+
+> This reaches beyond Phase 4: `main_run.m:839` builds the pre-to-post seed
+> with `R.vsd = 1e6` and nothing else, so **that seed is not a closed-VSD
+> model** for an orifice-mode patient. Left unfixed (outside this PRD's
+> scope) but flagged — it must be fixed before any post-closure result is
+> published from that seed.
+
+**2. The two-code-path tier disagreement, hit in practice.** A bare
+`build_target_tiers(clinical, scenario)` ignores
+`recipe.primary_rmse_holdout` and governs **10** pre-surgery rows where the
+production path governs **9** — silently readmitting `Q_shunt_Lmin`, the very
+metric that acts as the overfitting detector above. `χ²_pre` would then have
+been computed over a different set than the reported governed RMSE. Tiers now
+come from each scenario's case profile, and a test pins `n_pre = 9`.
 
 ## What this does NOT establish
 
