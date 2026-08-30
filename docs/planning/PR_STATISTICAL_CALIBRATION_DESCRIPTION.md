@@ -182,6 +182,41 @@ artefacts (`chi_squared_*.csv`, `parameter_identifiability_*.csv`) — a χ²/N 
 condition-number claim is no more verifiable than a gate count if its table is
 untracked.
 
+## The headline: a genuine validation holdout, and overfitting confirmed
+
+The post-closure pressures were **never used in fitting**. Taking a
+pre-calibrated parameter set, closing the defect, and comparing is therefore
+the first true out-of-sample test this model has had — no refitting, closure
+is the only intervention.
+
+| Metric | Measured | Predicted | Error |
+|---|---:|---:|---:|
+| `SAP_mean` | 79 | 81.7 | **+3.5%** |
+| `PAP_mean` | 13 | 13.8 | +6.4% |
+| `RAP_mean` | 5 | 5.36 | +7.3% |
+| `SAP_min` | 68 | 63.3 | −6.9% |
+| `PAP_max` | 17 | 17.7 | +4.4% |
+| `SAP_max` | 89 | 101.4 | +13.9% |
+| `PAP_min` | 9 | 10.3 | +14.8% |
+
+**5 of 7 within 10%**, χ²/N = 2.31. This number needs no degrees-of-freedom
+caveat — the model cannot have absorbed targets it never saw.
+
+**And it settles the overfitting question with held-out data:**
+
+| | Seed `20260828` | Seed `20260830` |
+|---|---:|---:|
+| In-sample gate | 8 / 9 | **9 / 9** ← looks better |
+| **Out-of-sample** | **5 / 7** ← actually better | 3 / 7 |
+
+The arm that fit the training data better predicts unseen data **worse**.
+Overfitting demonstrated, not inferred — and the clearest possible argument
+for why a 9/9 headline would have been the wrong thing to publish.
+
+Errors are systematic (6 of 7 positive, pulmonary pressures over-predicted
+throughout): the model predicts **less pulmonary unloading after closure than
+actually occurred** — an interpretable lead, not just a residual.
+
 ## Phase 4: degrees of freedom are now positive
 
 `src/calibration/objective_joint_pre_post.m` + `scripts/run_joint_pre_post_calibration.m`
