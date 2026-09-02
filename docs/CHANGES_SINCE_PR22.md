@@ -25,6 +25,47 @@ number published for this patient before this work was computed for a
 mis-specified child. After correction, the model fits better and now has one
 genuine prediction test.
 
+### 1.1 Pre and post, side by side
+
+Both tables use seed `20260828`, the recommended (8/9, not overfit) candidate.
+Pre-surgery is fitted; post-surgery is predicted only — those seven pressures
+were never used in calibration (proof: §7.5).
+
+**Pre-surgery — fitted**
+
+| Metric | Clinical | Model | Error % | 10% gate |
+|---|---:|---:|---:|---|
+| RAP_mean | 5 | 5.26 | +5.20% | pass |
+| PAP_min | 10 | 11.07 | **+10.72%** | **FAIL** |
+| PAP_max | 20 | 19.00 | -5.00% | pass |
+| PAP_mean | 15 | 14.94 | -0.40% | pass |
+| SAP_min | 57 | 59.43 | +4.27% | pass |
+| SAP_max | 100 | 96.05 | -3.95% | pass |
+| SAP_mean | 77 | 76.85 | -0.19% | pass |
+| CO_Lmin | 3.423 | 3.334 | -2.59% | pass |
+| QpQs | 1.194 | 1.1946 | +0.05% | pass |
+
+**8 of 9** within 10%. RMSE (primary governed) **0.0480**, 83.5% improvement
+over baseline.
+
+**Post-surgery — predicted, genuine out-of-sample holdout**
+
+| Metric | Measured | Predicted | Error % | 10% gate |
+|---|---:|---:|---:|---|
+| RAP_mean | 5 | 5.36 | +7.29% | pass |
+| PAP_min | 9 | 10.33 | +14.80% | FAIL |
+| PAP_max | 17 | 17.75 | +4.39% | pass |
+| PAP_mean | 13 | 13.83 | +6.35% | pass |
+| SAP_min | 68 | 63.29 | -6.92% | pass |
+| SAP_max | 89 | 101.40 | +13.94% | FAIL |
+| SAP_mean | 79 | 81.75 | +3.48% | pass |
+
+**5 of 7** within 10%. No refitting — defect closure was the only
+intervention applied to the pre-surgery parameter set. RMSE over these 7
+percent-errors: **9.15%** (not a normalised-objective RMSE, so not directly
+comparable to the pre-surgery 0.0480 above — see §7 for why raw comparison of
+the two RMSE figures is not meaningful and χ²/N is used instead).
+
 ---
 
 ## 2. Group A: Target governance
