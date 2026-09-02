@@ -339,8 +339,10 @@ member to fix, and that judgement is the user's.
 > phase's premise has improved. Read this before implementing §7.**
 >
 > The §7.2 questions were put to the study owner and answered, and the source
-> catheterisation record (RSAB Harapan Kita, MRN 01008971, 06/04/2026) was
-> then retrieved. Two things changed:
+> catheterisation record (study "reyna" procedure log, 06/04/2026; full
+> provenance kept locally, not in this tracked file — see
+> `config/private/patient_provenance.local.m`) was then retrieved. Two things
+> changed:
 >
 > 1. **Real post-closure haemodynamics exist**, from the *same* session as the
 >    pre-closure readings (device released 12.06.23; readings 12.15–12.32 under

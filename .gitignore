@@ -188,3 +188,14 @@ results/**
 !results/**/parameter_identifiability_*.csv
 !results/**/parameter_identifiability_pairs_*.csv
 !results/tables/.gitkeep
+
+# -----------------------------------------------------------------------------
+#  Patient identity provenance (de-identification pass, 2026-08-31)
+#  Tracked .m/.md files cite only the study label (reyna, razka, ...) per
+#  AGENTS.md Section 9.2. The mapping back to a real identity — hospital, MRN,
+#  CaseID, DOB, full name — lives ONLY in this gitignored local file.
+#  config/private/patient_provenance.local.m.example is the checked-in
+#  template (placeholders only) and stays tracked.
+# -----------------------------------------------------------------------------
+config/private/*.local.m
+!config/private/*.local.m.example

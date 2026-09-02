@@ -57,9 +57,10 @@ clinical.post_surgery % measurements after VSD closure
 ### Reyna anthropometry note
 
 The active Reyna patient file follows the raw protocol anthropometry so the
-main case remains strictly patient-specific. Source of record: RSAB Harapan
-Kita PROCEDURE LOG, MRN 01008971, 06/04/2026 07.53 — the same session that
-produced the pre- and post-closure catheter pressures.
+main case remains strictly patient-specific. Source of record: the study
+"reyna" procedure log, 06/04/2026 07.53 — the same session that produced the
+pre- and post-closure catheter pressures. Full provenance is kept locally,
+not in this tracked file — see `config/private/patient_provenance.local.m`.
 
 ```text
 weight_kg = 13.4

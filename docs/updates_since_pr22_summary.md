@@ -72,7 +72,8 @@ science whenever measurements come with different levels of confidence.
 ## 3. Part 2 — Finding two wrong input numbers
 
 This was the biggest discovery. We obtained the actual hospital procedure
-log (RSAB Harapan Kita, case ID HA000557, dated 6 April 2026) and checked
+log (study "reyna" procedure log, dated 6 April 2026; full provenance kept
+locally — see `config/private/patient_provenance.local.m`) and checked
 every number in the computer model against it, line by line.
 
 **Two numbers used to build the model did not match the hospital record:**

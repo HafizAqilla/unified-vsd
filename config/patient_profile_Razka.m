@@ -1,10 +1,13 @@
 function clinical = patient_profile_Razka()
 % PATIENT_PROFILE_RAZKA
 % -----------------------------------------------------------------------
-% Patient:        RAZKA ALFA RIZKI, AN   |  MRN: 00948048
-% Procedure date: 21/04/2026             |  DOB: 25/09/2021
-% Facility:       RSAB Harapan Kita
-% Source:         Procedure Log, 21/04/2026 (scanned, 2 pages)
+% Study label:    razka (see config/patient_cohort_cases.m)
+% Procedure date: 21/04/2026
+% Source:         study "razka" procedure log, 21/04/2026 (scanned, 2 pages)
+% Full provenance (facility, MRN, DOB, full name) is kept out of this
+% tracked file per AGENTS.md Section 9.2; see
+% config/private/patient_provenance.local.m (gitignored) or its checked-in
+% template config/private/patient_provenance.local.m.example.
 %
 % PROCEDURE TYPE: Kateterisasi Diagnostik (Diagnostic Cardiac Catheterization)
 %   - Right and left heart catheterization via right femoral approach
@@ -15,8 +18,7 @@ function clinical = patient_profile_Razka()
 %     ("no CO" noted on multiple entries)
 %
 % DEMOGRAPHICS:
-%   DOB:    25/09/2021
-%   Age at procedure (21/04/2026): 4 yr 238 days ≈ 4.64 years
+%   Age at procedure (21/04/2026): 4 yr 238 days ≈ 4.64 years (DOB in local provenance file)
 %   Weight: 14.3 kg    Height: 100.4 cm    BSA: 0.629 m²
 %   Sex:    NOT DOCUMENTED in procedure log — placeholder 'M'; verify
 %
@@ -59,13 +61,18 @@ function clinical = patient_profile_Razka()
 
 clinical = patient_template();   % initialise all fields to NaN
 clinical.common.patient_name = 'razka';    % [char] patient label for run folders
-clinical.common.patient_id   = '00948048'; % [char] MRN from procedure log
+% patient_id intentionally left unset: patient_name above already takes
+% priority everywhere it is read (resolve_patient_label in main_run.m), so
+% this field is not functionally needed. The real MRN lives only in the
+% gitignored config/private/patient_provenance.local.m (AGENTS.md Sec. 9.2).
+clinical.common.patient_id   = '';
 
 %% =====================================================================
 %  COMMON — demographics
 %% =====================================================================
-% Age: DOB 25/09/2021 → procedure 21/04/2026 = 4 yr 238 days ≈ 4.64 yr
-clinical.common.age_years  = 4.64;   % [years]  derived from DOB 25/09/2021
+% Age: 4 yr 238 days ≈ 4.64 yr at procedure (21/04/2026), derived from DOB
+% (DOB itself kept in config/private/patient_provenance.local.m)
+clinical.common.age_years  = 4.64;   % [years]
 clinical.common.weight_kg  = 14.3;   % [kg]     measured; procedure log 21/04/2026
 clinical.common.height_cm  = 100.4;  % [cm]     measured; procedure log 21/04/2026
 clinical.common.BSA        = 0.629;  % [m²]     stated in procedure log; overrides Mosteller

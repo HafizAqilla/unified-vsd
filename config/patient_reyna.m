@@ -33,9 +33,12 @@ clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
 %% =====================================================================
 %  COMMON — patient demographics, measured for any scenario
 %% =====================================================================
-% Source of record for demographics and HR: RSAB Harapan Kita PROCEDURE LOG,
-% MRN 01008971, CaseID HA000557, dated 06/04/2026 — the catheterisation
-% session that produced every pre- and post-closure pressure below.
+% Source of record for demographics and HR: the study "reyna" procedure log
+% (dated 06/04/2026) — the catheterisation session that produced every pre-
+% and post-closure pressure below. Full provenance (facility, MRN, case ID)
+% is kept out of this tracked file per AGENTS.md Section 9.2; see
+% config/private/patient_provenance.local.m (gitignored) or its checked-in
+% template config/private/patient_provenance.local.m.example.
 %
 % These superseded an earlier "Keisya 2026-05-11 revision" (14.0 kg, 98.0 cm,
 % BSA 0.6173 by Mosteller, HR 119). That revision is dated five weeks AFTER
@@ -140,8 +143,9 @@ post = struct();
 post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
 
 % ======================================================================
-% SOURCE: RSAB Harapan Kita PROCEDURE LOG, MRN 01008971, CaseID HA000557,
-% 06/04/2026. Same catheterisation session as the pre-surgery block above.
+% SOURCE: the study "reyna" procedure log, 06/04/2026 (see
+% config/private/patient_provenance.local.m for full provenance).
+% Same catheterisation session as the pre-surgery block above.
 % The VSD closure device was placed at 11.50.19 and released at 12.06.23;
 % every value below is stamped AFTER that release (12.15-12.32), with the
 % patient under the same anaesthesia and ventilator settings as the

@@ -17,8 +17,10 @@ patient was fitting a mis-specified child:
 | `BSA` (+ weight/height) | 0.6173 (14.0 kg / 98 cm) | **0.588** (13.4 kg / 95 cm) | Drives the entire Zhang demographic scaling of the parameter prior |
 | `SAP_mean` (pre) | 71.3 mmHg | **77** | Hard-tier *fitted* target |
 
-Source: RSAB Harapan Kita procedure log, MRN 01008971, 06/04/2026 — the same
-catheterisation that produced the pressures being fitted. The pre-surgery
+Source: the study "reyna" procedure log, 06/04/2026 (full provenance kept
+locally, not in this tracked file — see
+`config/private/patient_provenance.local.m`) — the same catheterisation that
+produced the pressures being fitted. The pre-surgery
 pressures in the config all cross-checked correctly against it; these three
 fields did not.
 

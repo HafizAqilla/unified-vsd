@@ -2,8 +2,10 @@
 
 > **Update, 2026-08-29 — three of this assessment's open items are now closed
 > by the source clinical record, and one finding below is withdrawn.**
-> The RSAB Harapan Kita procedure log (MRN 01008971, 06/04/2026) was
-> retrieved. See `docs/reyna_statistical_calibration_results_20260829.md` §0.
+> The study "reyna" procedure log (06/04/2026; full provenance kept
+> locally, not in this tracked file — see
+> `config/private/patient_provenance.local.m`) was retrieved. See
+> `docs/reyna_statistical_calibration_results_20260829.md` §0.
 >
 > - **§2.3's "60% internal stroke-volume inconsistency" is withdrawn as
 >   stated.** The H+1 block is internally coherent: `SV_LV` = 41.0 − 19.3 =

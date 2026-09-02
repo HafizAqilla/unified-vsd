@@ -2,8 +2,9 @@
 
 > ## ⚠ Read §0 before quoting any number in this document
 >
-> On 2026-08-29 the source catheterisation record (RSAB Harapan Kita
-> PROCEDURE LOG, MRN 01008971, 06/04/2026) was obtained and revealed three
+> On 2026-08-29 the source catheterisation record (study "reyna" procedure
+> log, 06/04/2026; full provenance kept locally, not in this tracked file —
+> see `config/private/patient_provenance.local.m`) was obtained and revealed three
 > errors in the clinical inputs — including **HR and BSA, which are model
 > inputs, not just report labels**.
 >

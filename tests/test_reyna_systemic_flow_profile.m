@@ -45,9 +45,11 @@ end
 %% Test 2: recipe demographics are applied before scaling
 [recipe, recipe_found] = load_calibration_recipe(clinical, 'pre_surgery');
 clinical_recipe = apply_calibration_recipe_to_clinical(clinical, 'pre_surgery', recipe);
-% Measurement-day anthropometry from the RSAB Harapan Kita procedure log
-% (MRN 01008971, 06/04/2026 07.53) — the session that produced the pressures
-% this recipe fits. Superseded a 2026-05-11 revision (14.0 kg / 98.0 cm /
+% Measurement-day anthropometry from the study "reyna" procedure log
+% (06/04/2026 07.53; full provenance in
+% config/private/patient_provenance.local.m) — the session that produced
+% the pressures this recipe fits. Superseded a 2026-05-11 revision
+% (14.0 kg / 98.0 cm /
 % Mosteller BSA 0.6173) recorded five weeks later, which scaled the model to
 % a larger child than the one who was measured. This assertion exists because
 % recipe.demographics is merged OVER clinical.common, so a mismatch between

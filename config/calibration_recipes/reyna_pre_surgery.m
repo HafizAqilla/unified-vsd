@@ -26,9 +26,10 @@ recipe.description = ['Reyna pre-surgery explicit pressure-flow recipe; ', ...
     'direct hemodynamics drive calibration while inconsistent chamber rows ', ...
     'remain transparent consistency evidence.'];
 
-% Measurement-day anthropometry from the RSAB Harapan Kita PROCEDURE LOG,
-% MRN 01008971, 06/04/2026 07.53 — the same session that produced every
-% pre- and post-closure pressure this recipe fits.
+% Measurement-day anthropometry from the study "reyna" procedure log,
+% 06/04/2026 07.53 — the same session that produced every pre- and
+% post-closure pressure this recipe fits. Full provenance is kept out of
+% this tracked file; see config/private/patient_provenance.local.m.
 %
 % These values are merged OVER clinical.common by
 % apply_calibration_recipe_to_clinical.m:24, so they must stay in step with

@@ -172,8 +172,9 @@ genuine holdout. This changed later (see §7).
 
 ## 4. Group C: Clinical data correction
 
-The source record was obtained: RSAB Harapan Kita procedure log, MRN 01008971,
-CaseID HA000557, dated 06/04/2026.
+The source record was obtained: the study "reyna" procedure log, dated
+06/04/2026 (full provenance kept locally, not in this tracked file — see
+`config/private/patient_provenance.local.m`).
 
 All pre-surgery pressures in the config matched the log. Three other values did
 not.
