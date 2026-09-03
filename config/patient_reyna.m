@@ -29,6 +29,8 @@ function clinical = patient_reyna()
 
 clinical = struct();
 clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
+clinical.common.patient_id   = '';      % [char] real MRN kept in config/private/ only, see below
+clinical.common.maturation_mode = 'normal'; % 'normal' | 'pvr_fixed_day3' | 'pvr_fixed_day30' | 'none'
 
 %% =====================================================================
 %  COMMON — patient demographics, measured for any scenario
@@ -100,8 +102,9 @@ pre.SVR_WU            = NaN;     % [WU] protocol row 25 blank; not used as clini
 
 % ---- Atrial and ventricular filling pressures -------------------------
 pre.RAP_mean_mmHg     = 5;       % [mmHg] catheter, mean of 5/5/5 mmHg (row 19)
-pre.LAP_mean_mmHg     = NaN;      
+pre.LAP_mean_mmHg     = NaN;
 pre.LVEDP_mmHg        = NaN;
+pre.RVEDP_mmHg        = NaN;    % [mmHg] not captured in the protocol form
 
 % ---- Ventricular volumes and ejection fraction -----------------------
 % The available LV/RV volume and EF block was confirmed to be H+1 after
@@ -186,6 +189,8 @@ post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorde
 % log 12.28.14 / 12.28.24 / 12.28.35: RA 8/5 (5), 8/5 (5), 7/5 (5)
 post.RAP_mean_mmHg    = 5;     % [mmHg] post-closure RA mean
 post.LAP_mean_mmHg    = NaN;   % [mmHg] not measured
+post.LVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
+post.RVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 
 % ---- Ventricular volumes and function (normalised post-surgery) ------
 post.LVEDV_mL         = NaN;

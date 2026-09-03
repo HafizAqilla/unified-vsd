@@ -44,8 +44,13 @@ case_id = resolve_case_id(clinical);          % [char]
 src = clinical.(scenario);                    % [-]
 has_CO = has_finite_field(src, 'CO_Lmin');    % [-]
 has_QpQs = has_finite_field(src, 'QpQs');     % [-]
+if strcmp(scenario, 'post_surgery')
+    has_systemic_pressure = has_finite_field(src, 'MAP_mmHg');
+else
+    has_systemic_pressure = has_finite_field(src, 'SAP_mean_mmHg');
+end
 has_pressures = has_finite_field(src, 'PAP_mean_mmHg') && ...
-    has_finite_field(src, 'SAP_mean_mmHg');   % [-]
+    has_systemic_pressure;                    % [-]
 has_LV_volume = has_finite_field(src, 'LVEDV_mL') || ...
     has_finite_field(src, 'LVESV_mL');        % [-]
 has_RV_volume = has_finite_field(src, 'RVEDV_mL') || ...
