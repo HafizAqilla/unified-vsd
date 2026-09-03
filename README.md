@@ -195,9 +195,15 @@ Important generated files include:
 - `run_manifest.txt`
 
 `results/`, root-level `figures/`, and root-level `outputs/` are intentionally
-ignored by Git. Commit code, documentation, and figure/workbook generation logic;
-do not commit regenerated run dumps, workbook exports, figure bundles, or patient
-data without documented authorization.
+ignored by Git, with one curated exception (see `.gitignore`): every run's
+`tables/full_metric_gate_*.csv`, `tables/chi_squared_*.csv`,
+`tables/parameter_identifiability_*.csv`, and
+`tables/parameter_identifiability_pairs_*.csv` ARE tracked, so the numeric
+evidence behind a published result stays in git history even after the
+run folder that produced it is deleted locally. Commit code, documentation,
+and figure/workbook generation logic; do not commit regenerated run dumps,
+workbook exports, figure bundles, or patient data without documented
+authorization.
 
 ## Calibration And Validation Design
 
