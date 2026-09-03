@@ -797,3 +797,61 @@ Run folders:
 `main_run.m:839` builds the pre-to-post seed by setting `R.vsd = 1e6` only.
 For orifice-mode patients such as Reyna this is a no-op, so that seed is not a
 closed-VSD model. This should be fixed before any post-surgery run uses it.
+
+## 14. Publication-readiness protocol reconciliation (2026-09-03)
+
+The IRB-approved source protocol form (`Filled Protokol_VSD Pre_Reyna (2).pdf`,
+IRB/65/08/ETIK/2025; facility kept out of this tracked file, see
+`config/private/patient_provenance.local.m`) was obtained and cross-checked line by
+line against every clinical input. It contradicted two model inputs and added
+data this repo had previously excluded. All three changes are now in
+`config/patient_reyna.m` and `config/calibration_recipes/reyna_pre_surgery.m`.
+**None of the calibration results elsewhere in this document have been
+re-run against these corrected inputs yet** — that re-run is a separate,
+compute-heavy step (see the publication-readiness PRD), not part of this
+reconciliation commit.
+
+### 14.1 What changed
+
+| Field | Before this reconciliation | After | Why |
+|---|---|---|---|
+| `common.HR` | 136 bpm (§4.1 above) | **119 bpm** | Protocol form row 6 states 119 bpm is the session's *average* heart rate; the 136 bpm figure was a single spot pulse reading. This is a third, distinct value from the original untraceable 119 — this one is cited to the IRB document. |
+| `pre.VSD_diameter_mm` | 3.665 mm in `patient_reyna.m`, but silently overridden to 3.025 mm by the calibration recipe (no documented justification for the divergence) | **3.665 mm**, override deleted | Protocol row 7 mean RV-side diameter. The recipe override was a D1-class silent-drift trap: two files disagreed and only one of them ever actually ran. |
+| `pre.LVEDV_mL` / `LVESV_mL` / `RVEDV_mL` / `RVESV_mL` / `EF` | `NaN`, excluded entirely under an "H+1 post-operative echo" justification | **32 / 23.6 / 30.5 / 12 mL, EF 0.2625** — added as **consistency-only** (reported and predicted against, never fitted) | Protocol rows 26-29 report these as PRE-release (same catheterisation session), not a separate post-operative study, contradicting the exclusion reason. They are still not fitted: the LV pair is internally implausible (SV_LV = 8.4 mL vs. an SV of roughly 34 mL implied by the protocol's own Qp = 4.087 L/min at HR 119), which is exactly why consistency-only is the correct tier rather than hard/soft. |
+
+Also recorded as pure provenance (not model targets, no established field for
+them in this model): descending-aorta pressures 91/57 mmHg (protocol rows
+14-15, a second catheter site from the same session, within the objective's
+assumed 10 mmHg pressure sigma of the RFA reading used as the fitted target);
+LVOT 1.2 cm / RVOT 1.4 cm diameters (Doppler VTIs blank, so echo Qp/Qs is not
+computable from them); and header vitals SpO2 88%, RR 28/min.
+
+### 14.2 Why this invalidates every existing result in this document
+
+Sections 1-13 above report results calibrated against HR 136 and VSD diameter
+3.025mm/3.665mm depending on code path. `HR 119 + VSD diameter 3.665 + the
+already-corrected anthropometry and SAP_mean from §4.1` is a combination that
+had never been run as of this reconciliation. Reverting HR in particular is
+expected to change every downstream RMSE and gate outcome; per this repo's
+own governance rule (G3, state findings even when they get worse), that
+change must be reported honestly once the re-run happens, not minimized.
+
+### 14.3 Verification performed for this reconciliation itself
+
+- `tests/test_evidence_timing_governance.m` (rewritten): confirms the chamber
+  block is now finite and consistency-only (not fitted, not primary RMSE),
+  confirms the recipe no longer overrides `VSD_diameter_mm`, and confirms the
+  generic cross-timing guard mechanism still works via a synthetic fixture
+  decoupled from Reyna's now-corrected data.
+- `tests/test_post_surgery_pressure_mode_routing.m`,
+  `tests/test_patient_profile_field_completeness.m`,
+  `tests/test_deidentification_governance.m`: unaffected, still passing.
+- Full recent `functiontests` governance suite (chi-squared, full metric gate,
+  gate hinge penalty, governed gate acceptance, joint pre/post objective,
+  multistart, ungoverned targets, parameter identifiability, post-closure
+  prediction, sigma-weighted objective, validation holdout): passes unchanged.
+- `tests/test_reyna_systemic_flow_profile.m` (script-style): still exactly
+  3 of 9 pre-existing failures, unchanged from before this reconciliation.
+- No calibration run has been executed against the corrected inputs as part
+  of this change — the numeric consequences described in §14.2 are a
+  prediction, not yet a measurement.

@@ -55,11 +55,25 @@ clinical.common.sex        = 0;       % 0 = female, 1 = male — AGENTS.md §3.1
 % = 0.5879). Note the prior config value used Mosteller instead; the stamped
 % value is retained here so the model matches the source record exactly.
 clinical.common.BSA        = 0.588;   % [m^2] procedure log 06/04/2026 07.53.20
-% HR from the procedure log's own pulse row. The prior value of 119 coincides
-% exactly with the NIBP SYSTOLIC on the adjacent log line (NIBP 119/83 (95)),
-% which is the likely origin of the error. HR sets cycle length, so this is a
-% model input, not just a reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s.
-clinical.common.HR         = 136;     % [bpm] procedure log 06/04/2026 09.24.57 "Nadi 136 bpm"
+% HR: the IRB-approved protocol form (Filled Protokol_VSD Pre_Reyna (2).pdf,
+% IRB/65/08/ETIK/2025, row 6, "average heart rate") records 119 bpm as the
+% authoritative averaged rate for this session. A prior revision of this file
+% used 136 bpm ("Nadi 136 bpm", procedure log 06/04/2026 09.24.57), reasoning
+% it was a single spot pulse reading close to the pressure measurements. That
+% reasoning is superseded: the protocol form is the IRB-governed record and
+% explicitly labels its value as an average, not a spot reading, so it takes
+% precedence. HR sets cycle length, so this is a model input, not just a
+% reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s — reverting this
+% value invalidates every previously published fit and is expected to change
+% downstream RMSE; see docs/CHANGES_SINCE_PR22.md for the reconciliation.
+clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart rate
+
+% PROVENANCE ONLY — not modelled as struct fields, no established target in
+% this model for outflow tract diameters or non-invasive vitals:
+%   LVOT diameter 1.2 cm, RVOT diameter 1.4 cm (protocol rows 33, 35).
+%   Doppler VTIs for these tracts are blank in the form, so echo Qp/Qs is
+%   not computable from them.
+%   Header vitals at the start of the session: SpO2 88%, RR 28/min.
 
 %% =====================================================================
 %  PRE-SURGERY — haemodynamics in the presence of the open VSD
@@ -97,6 +111,15 @@ pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13; log 10
 % Three MAP candidates existed: NIBP cuff 95 (different method, rejected),
 % form-factor 71.3 (reconstructed, rejected), catheter-stamped 77 (used).
 pre.SAP_mean_mmHg     = 77;      % [mmHg] procedure log 06/04/2026 10.39.12 "RFA 100/57 (77)"
+%
+% PROVENANCE ONLY — descending aorta (DAO), not used as a fitted target:
+% protocol form rows 14-15 record DAO systolic/diastolic 91/57 mmHg, a
+% second catheter site from the same session. RFA 100/57 vs DAO 91/57 is a
+% ~9 mmHg systolic spread between two simultaneous sites in the same
+% patient, and it doubles as an empirical sigma check against the
+% objective's assumed pressure uncertainty of 10 mmHg (see AGENTS.md
+% sigma-weighting section): the two sites disagree by less than that
+% assumed measurement noise.
 
 pre.SVR_WU            = NaN;     % [WU] protocol row 25 blank; not used as clinical target
 
@@ -107,16 +130,33 @@ pre.LVEDP_mmHg        = NaN;
 pre.RVEDP_mmHg        = NaN;    % [mmHg] not captured in the protocol form
 
 % ---- Ventricular volumes and ejection fraction -----------------------
-% The available LV/RV volume and EF block was confirmed to be H+1 after
-% surgery, so it is not a valid pre-surgery calibration target.
-pre.LVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.LVESV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.RVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.RVESV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.EF                = NaN;     % [-] unavailable pre-surgery
+% CORRECTED (publication-readiness reconciliation): earlier revisions of
+% this file justified excluding this block as "H+1 post-operative echo".
+% That justification is contradicted by the IRB-governed protocol form:
+% rows 26-29, section "PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE
+% OCCLUDER", report these volumes as PRE-release, i.e. from the same
+% pre-surgery catheterisation session as every pressure above, not a
+% separate post-operative echo. (The RV values below match a previously
+% recorded "H+1" figure exactly, which is what motivated the mistaken
+% story; the matching RV figures more likely reflect one session with a
+% re-measured LV, not two different sessions.)
+%
+% They are still NOT fitted: LV values are internally implausible
+% (SV_LV = 32-23.6 = 8.4 mL, LVEF = 26%, versus an SV of roughly 34 mL
+% implied by the protocol's own Qp = 4.087 L/min at HR 119). They are kept
+% as documented, reported, and predicted-against CONSISTENCY-ONLY targets
+% (recipe.consistency_only) — never part of the fitted primary/soft RMSE,
+% per config/calibration_recipes/reyna_pre_surgery.m.
+pre.LVEDV_mL          = 32.0;    % [mL] protocol row 26, pre-release occluder
+pre.LVESV_mL          = 23.6;    % [mL] protocol row 27, pre-release occluder
+pre.RVEDV_mL          = 30.5;    % [mL] protocol row 28, pre-release occluder
+pre.RVESV_mL          = 12.0;    % [mL] protocol row 29, pre-release occluder
+pre.EF                = 0.2625;  % [-] LV EF = (32-23.6)/32; consistency-only, implausible by design (see above)
 
 % ---- IC override flag -------------------------------------------------
-% Do not tune chamber elastance/V0 from H+1 post-operative echo volumes.
+% Do not tune chamber elastance/V0 from these consistency-only volumes:
+% they are internally implausible (see note above) and must not seed or
+% drive the pre-surgery fit even though they are no longer excluded.
 pre.override_IC       = false;
 pre.CO_comparator     = 'Qs_Lmin'; % [-] compare model systemic flow with protocol-derived Qs
 pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowance
@@ -129,8 +169,9 @@ pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowan
 %
 % We calibrate to Qs (3.423) as the CO target because:
 %   - Qp and Qp/Qs are catheter/Fick entries, and Qs follows directly from them
-%   - The H+1 post-operative echo volume block is excluded from pre-operative
-%     fitting, so the pre-surgery objective is hemodynamic-only.
+%   - The chamber volume block above is consistency-only (internally
+%     implausible), not a fitted target, so the pre-surgery objective
+%     remains hemodynamic-only in practice.
 pre.CO_Lmin           = 3.423;   % [L/min] Qs = Qp/QpQs = 4.087/1.194 (rows 21 and 23)
 
 clinical.pre_surgery = pre;

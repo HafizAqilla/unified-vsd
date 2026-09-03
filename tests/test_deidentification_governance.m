@@ -67,6 +67,13 @@ for i = 1:numel(tracked_files)
     if ~ismember(lower(ext), {'.m', '.md', '.txt'})
         continue;
     end
+    if strcmp(rel_path, 'tests/test_deidentification_governance.m')
+        % This file itself intentionally carries the identifier strings as
+        % literals (in identifier_patterns() above) to scan for them
+        % elsewhere; excluding it from its own scan avoids a trivial
+        % self-match once the file is git-tracked.
+        continue;
+    end
     % The gitignored real-data file is never tracked; the checked-in
     % template intentionally documents field names but must not itself
     % contain real values. Both are covered by scanning below - no
