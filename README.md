@@ -49,8 +49,17 @@ Scientific interpretation remains important:
 - Added best, scientific, and accepted candidate snapshots to `main_run.m`.
   Conservative rollback behavior is now visible instead of hiding strong
   but rejected candidates.
-- Added age-validity and scaling annotations, including `lundquist_bsa` as the
-  preferred pediatric scaling mode and `zhang` as a comparator.
+- Added age-validity and scaling annotations. **Correction (2026-09-05):**
+  this previously said `lundquist_bsa` is the preferred pediatric scaling
+  mode; that was backwards. `src/utils/resolve_scaling_policy.m` defaults
+  publication mode to **Zhang** (`config/scaling_method_registry.m`:
+  `DefaultPublicationRole = 'primary_prior'`) and raises an error
+  (`missingOverrideRationale`) if `lundquist_bsa` is made primary without a
+  written justification, because the current `lundquist_bsa` implementation
+  is a simplified BSA-only variant, not the full published Lundquist method
+  — see `config/scaling_method_registry.m` for the documented deviation from
+  each citation. See "Pediatric Scaling Methods" below for the current,
+  correct picture.
 - Added Reyna recipe-owned seed controls so Zhang scaling no longer inherits
   Lundquist-calibrated disease vectors or initial-condition packages.
 - Split clinical validation target exports from model-derived finding exports,
@@ -119,12 +128,32 @@ run run_post_surgery
 | `UNIFIED_VSD_GSA_PCE_N` | Overrides PCE training sample count for GSA; default is `128` |
 | `UNIFIED_VSD_DO_PLOTS` | `0` disables figure generation; `1` enables figures |
 | `UNIFIED_VSD_DO_OVERLAY` | `0` disables overlay figures; `1` enables overlays |
-| `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` |
+| `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` — see "Pediatric Scaling Methods" below for which one is the publication default |
 | `UNIFIED_VSD_FAST_CALIBRATION` | Enables shorter calibration settings for triage |
 | `UNIFIED_VSD_FMINCON_PARALLEL` | Enables parallel fmincon behavior when appropriate |
 | `UNIFIED_VSD_USE_PARPOOL` | Allows `main_run.m` to start a MATLAB parallel pool |
 | `UNIFIED_VSD_MAX_FUN_EVALS` | Overrides calibration function-evaluation budget |
 | `UNIFIED_VSD_MAX_ITERATIONS` | Overrides calibration iteration budget |
+| `UNIFIED_VSD_UQLAB_PATH` | Absolute path to a local UQLab install (e.g. `toolbox/UQLab_Rel2.2.0`); **required** whenever `UNIFIED_VSD_DO_GSA=1` — GSA/PCE preflight fails without it. UQLab is not committed to this repo (see Requirements above) |
+| `UNIFIED_VSD_NUM_STARTS` | Number of Sobol-scrambled multi-start optimization starting points |
+| `UNIFIED_VSD_MULTISTART_SEED` | Seeds the multi-start Sobol sampler for reproducibility |
+| `UNIFIED_VSD_OBJECTIVE_WEIGHTING` | `sigma` uses per-metric measurement-uncertainty weighting in the calibration objective; `legacy` (default) uses the original flat-percentage weighting |
+| `UNIFIED_VSD_RUN_HEAVY_TESTS` | `1` enables the small number of long-running regression tests skipped by default (`tests/test_reyna_rmse_regression.m`, `tests/test_scaling_mode_parity.m`) |
+
+## Pediatric Scaling Methods
+
+Two allometric pediatric scaling laws are implemented; their provenance,
+implementation deviations from the cited paper, and default role are recorded
+in `config/scaling_method_registry.m` (queried by
+`src/utils/resolve_scaling_policy.m`), not just in prose here:
+
+| Mode (`UNIFIED_VSD_SCALING_MODE`) | Citation | Default publication role |
+|---|---|---|
+| `zhang` | Zhang, Haneishi & Liu (2019), *Comput Biol Med* 108:200–212, DOI 10.1016/j.compbiomed.2019.03.021 | **Primary prior.** Directly targets pediatric age-related cardiovascular allometry for infants, children, and adolescents. |
+| `lundquist_bsa` | Lundquist, Maksuti, Donker & Broumé (2025), *ASAIO J* 72(3):207–215, DOI 10.1097/MAT.0000000000002528 | Comparator/exploratory only. The current implementation is a simplified BSA-only variant, not the full age/sex/growth-chart scaling in the published method — making it primary requires an explicit override and a written rationale (`resolve_scaling_policy.m` raises `missingOverrideRationale` otherwise). |
+
+Full bibliographic entries, including entries not yet traced to a specific
+code location, are in `docs/references.bib`.
 
 ## Common Workflows
 

@@ -236,7 +236,8 @@ precision of $S_T$ within $\pm 0.05$ (95 % confidence).
 ## References
 
 1. Valenti (2023). Thesis: *Full-order 0D cardiovascular model*. Eqs. 2.1–2.7, Table 3.3.
-2. Lundquist et al. (2025). *Patient-Specific Pediatric Cardiovascular Lumped Parameter Modeling — Scaling Across Ages and Sizes*. ASAIO J. DOI: 10.1097/MAT.0000000000002528. **Table 2** (cardiac: HR, E, V₀, blood volume) and **Table 3** (valve open/closed area, shunt area, ventilation).
+2. Lundquist A, Maksuti E, Donker DW, Broumé M (2025). *Patient-Specific Size and Age Scaling in a Zero Dimensional Cardiovascular Model*. ASAIO J 72(3):207–215. DOI: 10.1097/MAT.0000000000002528. **Table 2** (cardiac: HR, E, V₀, blood volume) and **Table 3** (valve open/closed area, shunt area, ventilation). [Title corrected 2026-09-05 against the Crossref record; the prior title here was a paraphrase, not the publisher's actual title. See docs/references.bib.]
+2b. Zhang X, Haneishi H, Liu H (2019). *Multiscale modeling of the cardiovascular system for infants, children, and adolescents: Age-related alterations in cardiovascular parameters and hemodynamics*. Comput Biol Med 108:200–212. DOI: 10.1016/j.compbiomed.2019.03.021. [Added 2026-09-05: this repo's other pediatric allometric scaling law (`UNIFIED_VSD_SCALING_MODE = 'zhang'`, the publication-mode default per `src/utils/resolve_scaling_policy.m`) previously had only a bare PubMed ID in docs/calibration_data_governance_notes.md, no full entry here. See docs/references.bib.]
 3. Saltelli et al. (2010). *Variance based sensitivity analysis of model output*. CPC 181:259–270.
 4. Jansen (1999). *Analysis of variance designs for model output*. CPC 117:35–43.
 5. Gorlin R & Gorlin SG (1951). *Hydraulic formula for calculation of the area of the stenotic mitral valve*. Am Heart J 41(1):1–29.  (orifice Cd = 0.7)

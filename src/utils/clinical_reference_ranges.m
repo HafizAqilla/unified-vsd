@@ -3,6 +3,13 @@ function ranges = clinical_reference_ranges(scenario, clinical, case_profile)
 % -----------------------------------------------------------------------
 % Broad pediatric VSD plausibility ranges used to gate baseline outputs.
 % These are screening ranges, not a replacement for target-tier governance.
+%
+% SOURCE: unsourced screening heuristic. These 14 bands were informally
+% widened from the aggregate Group I/II cohort mean +/- SD statistics in
+% docs/Pediatric_VSD_Clinical_Parameters.md (Sections 4-6), not traced to
+% one peer-reviewed source per band. Treat a PASS/FAIL against these bounds
+% as a coarse plausibility screen, not a normative percentile claim. See
+% docs/references.bib for the full sourcing note.
 % -----------------------------------------------------------------------
 
 if nargin < 1 || isempty(scenario)
