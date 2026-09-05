@@ -1,0 +1,16 @@
+ParameterA,ParameterB,Correlation,Collinear
+E.LV.EA,vsd.Cd,-0.830450438095839,0
+group.R_pul_scale,C.SAR,-0.800945263585385,0
+group.R_pul_scale,E.LV.EA,-0.633203571552005,0
+group.R_sys_scale,E.LV.EA,0.491518617416954,0
+group.R_sys_scale,group.R_pul_scale,-0.444127752264355,0
+group.R_sys_scale,vsd.Cd,-0.409638469218227,0
+C.PAR,E.LV.EA,-0.391234071145019,0
+group.R_sys_scale,C.SAR,0.364342605821348,0
+group.R_pul_scale,vsd.Cd,0.353747834702991,0
+C.SAR,C.PAR,0.299282198631478,0
+C.PAR,vsd.Cd,0.291164684658008,0
+C.SAR,E.LV.EA,0.180783606354674,0
+group.R_sys_scale,C.PAR,0.082356370925906,0
+group.R_pul_scale,C.PAR,-0.0569770355695495,0
+C.SAR,vsd.Cd,-0.0279104327245057,0

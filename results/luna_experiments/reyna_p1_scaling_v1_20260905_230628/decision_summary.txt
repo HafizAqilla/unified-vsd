@@ -1,0 +1,8 @@
+DecisionLabel: report_fair_and_operational_results_separately
+Reason: The runner reports fair-prior and operational winners separately. Within each family, ACCEPT candidates are preferred; validated RMSE is only a fallback when no ACCEPT candidate exists.
+FairWinner: fair_prior_zhang
+FairSelectionBasis: validated_rmse_fallback_no_accept
+OperationalWinner: operational_zhang
+OperationalSelectionBasis: validated_rmse_fallback_no_accept
+ValidatedRecords: 3
+PrimaryMetrics: RAP_mean,PAP_mean,SAP_mean,QpQs,CO_Lmin

@@ -8,15 +8,29 @@ main model combines a Valenti-style 14-state lumped-parameter circulation,
 time-varying chamber elastance, VSD shunt physiology, evidence-aware clinical
 target handling, and reproducible calibration outputs.
 
-Last updated: 2026-05-27.
+Last updated: 2026-09-06.
 
 ## Current Status
 
-The current `main` branch includes the latest systemic-flow calibration,
-Reyna recipe governance, Zhang seed separation, and clinical-vs-model-derived
-reporting split. The model now produces auditable pre-surgery and post-surgery
-run folders with clinical consistency checks, parameter plausibility tables,
-baseline provenance, candidate snapshots, and validation reports.
+**Authoritative results:** [`docs/reyna_publication_readiness_results_20260906.md`](docs/reyna_publication_readiness_results_20260906.md).
+Every prior results document in `docs/` is superseded and carries a banner
+pointing there.
+
+The Reyna clinical inputs were reconciled against the IRB-approved source
+protocol form in September 2026 (HR, VSD diameter, and pre-surgery chamber
+volumes all changed — see `docs/CHANGES_SINCE_PR22.md` §14), then re-run
+through the full statistical pipeline (σ-weighting, χ², identifiability,
+multi-start, out-of-sample holdout). Honest summary of that re-run: under a
+fair (no historical warm-start) prior, **Zhang scaling clearly beats
+Lundquist-BSA scaling** on this patient's data (RMSE 0.118 vs 0.222). A full
+6-start multi-start on the Zhang arm reaches primary RMSE 0.0739, governed
+gate 7/9, χ²/N = 1.14 (consistent, not overfit) — the best-supported single
+result this repository has produced for Reyna pre-surgery, but it does
+**not** reach ACCEPT status, and its **out-of-sample post-closure
+prediction is poor** (3 of 7 within 10%, χ²/N = 4.64). A parameter-reduction
+analysis found a p=7 subset that raises degrees of freedom from −3 to +2
+(cond(S) 223 → 17.17), but that reduced set has not itself been validated
+by its own calibration run.
 
 Scientific interpretation remains important:
 
@@ -27,8 +41,31 @@ Scientific interpretation remains important:
   (`Qs_Lmin`) rather than raw LV outflow (`LVCO_Lmin`).
 - Derived quantities such as EF, SVR, Qp/Qs, and stroke volumes are audited so
   they are not silently double-counted as independent measurements.
+- The model's fit to the pre-surgery operating point does not currently
+  imply it will predict the post-closure state well — treat these as two
+  separate claims, not one.
 
 ## Latest Changes On Main
+
+**Publication-readiness cleanup and re-run (2026-09):**
+- De-identified all tracked patient data (real identifiers now live only in
+  a gitignored local provenance file); removed confirmed-dead scripts and
+  source files; fixed three live code defects (D2/D4/D5) with regression
+  tests.
+- Reconciled Reyna's clinical inputs against the IRB-approved source
+  protocol form: HR, VSD diameter, and pre-surgery chamber volumes all
+  changed (`docs/CHANGES_SINCE_PR22.md` §14).
+- Added `docs/references.bib`; independently re-verified the Zhang and
+  Lundquist scaling-law citations against Crossref/PubMed (catching a
+  wrong title recorded for the Lundquist paper); fixed the inverted
+  scaling-mode claim below.
+- Fixed a real orchestration bug in `scripts/run_reyna_scaling_experiment.m`
+  (a column-count mismatch that had silently prevented this script from
+  ever completing a real run) and executed the full 4-arm Zhang-vs-Lundquist
+  head-to-head plus a 6-start multi-start, parameter-reduction analysis,
+  and out-of-sample post-closure prediction against the corrected data. See
+  "Current Status" above and
+  [`docs/reyna_publication_readiness_results_20260906.md`](docs/reyna_publication_readiness_results_20260906.md).
 
 - Added a centralized parameter registry in `config/build_parameter_registry.m`
   with scenario-aware bounds, units, source notes, and plausibility anchors.

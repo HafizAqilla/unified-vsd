@@ -1,0 +1,8 @@
+DecisionLabel: insufficient_evidence
+Reason: One or both comparison families are incomplete.
+FairWinner: fair_prior_zhang
+FairSelectionBasis: validated_rmse_fallback_no_accept
+OperationalWinner: 
+OperationalSelectionBasis: 
+ValidatedRecords: 1
+PrimaryMetrics: RAP_mean,PAP_mean,SAP_mean,QpQs,CO_Lmin
