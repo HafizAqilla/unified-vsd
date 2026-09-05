@@ -1,5 +1,16 @@
 # Reyna Statistical Calibration — Results, 2026-08-29
 
+> ## ⚠⚠ Further superseded, 2026-09-05 — see docs/CHANGES_SINCE_PR22.md §14
+>
+> Everything below, including "the authoritative result is §3.5" two
+> paragraphs down, was calibrated against clinical inputs that the
+> publication-readiness protocol-data reconciliation (2026-09-05) has since
+> corrected again: heart rate 136→119 bpm, VSD diameter 3.025→3.665 mm, and
+> pre-surgery chamber volumes NaN→consistency-only 32/23.6/30.5/12 mL. See
+> `docs/CHANGES_SINCE_PR22.md` §14 and `docs/publication_readiness_prd.md`
+> for the re-run this triggered. The rest of this banner (§0 below) is
+> retained as-written for its own process history.
+
 > ## ⚠ Read §0 before quoting any number in this document
 >
 > On 2026-08-29 the source catheterisation record (study "reyna" procedure

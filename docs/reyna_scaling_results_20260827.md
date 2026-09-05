@@ -1,5 +1,16 @@
 # Reyna Scaling Experiment Results — 2026-08-27
 
+> ## ⚠ Superseded — do not quote these numbers
+>
+> This document's results were calibrated against clinical inputs that the
+> publication-readiness protocol-data reconciliation (2026-09-05) has since
+> corrected: heart rate 136→119 bpm, VSD diameter 3.025→3.665 mm, and
+> pre-surgery chamber volumes NaN→consistency-only 32/23.6/30.5/12 mL. See
+> `docs/CHANGES_SINCE_PR22.md` §14 for the full before/after and
+> `docs/publication_readiness_prd.md` for the re-run this triggered. This
+> document is retained for its process findings (methodology, defects
+> found, experiment-runner design), not for its numbers.
+
 ## Scope and controls
 
 These results were generated on the isolated branch
