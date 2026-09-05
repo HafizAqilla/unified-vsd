@@ -306,6 +306,42 @@ For broad smoke testing:
 run_quick_regression_suite
 ```
 
+Run the newer statistical/governance test suite (added PR #24 onward — chi-
+squared reporting, full metric gate export, gate hinge penalty, governed
+gate acceptance, joint pre/post objective, multistart starts, ungoverned
+calibration targets, parameter identifiability, post-closure prediction,
+sigma-weighted objective, validation holdout, evidence-timing governance,
+de-identification governance, and the D2/D4 regression tests from the
+publication-readiness cleanup). **These use MATLAB's `matlab.unittest`
+framework and must be run with `runtests`, not `run`** — `run` on a
+`functiontests`-style file just returns a `Test` array without executing
+any assertions:
+
+```matlab
+runtests('tests/test_chi_squared_report.m')
+runtests('tests/test_full_metric_gate_export.m')
+runtests('tests/test_gate_hinge_penalty.m')
+runtests('tests/test_governed_gate_acceptance.m')
+runtests('tests/test_joint_pre_post_objective.m')
+runtests('tests/test_multistart_starts.m')
+runtests('tests/test_no_ungoverned_calibration_targets.m')
+runtests('tests/test_parameter_identifiability.m')
+runtests('tests/test_post_closure_prediction.m')
+runtests('tests/test_sigma_weighted_objective.m')
+runtests('tests/test_validation_holdout.m')
+runtests('tests/test_evidence_timing_governance.m')
+runtests('tests/test_deidentification_governance.m')
+runtests('tests/test_post_surgery_pressure_mode_routing.m')
+runtests('tests/test_patient_profile_field_completeness.m')
+```
+
+Conversely, every test listed earlier in this section
+(`test_reyna_systemic_flow_profile.m` and the rest) is **script-style**:
+running it with `runtests` instead of `run` silently splits it into
+separate "tests" that all report as failed/incomplete even when the script
+itself passes everything, because `runtests` does not execute the script
+body the way `run` does. Do not mix the two invocation styles.
+
 ## Patient Data Policy
 
 Patient-specific profiles and clinical records must be handled deliberately.
