@@ -1,0 +1,1431 @@
+\documentclass{article}
+\usepackage[final,nonatbib]{aaj2026}
+
+
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{float}
+
+\usepackage[
+  backend=biber,
+  style=ieee,
+  sorting=none
+]{biblatex}
+\addbibresource{refs.bib}
+
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{graphicx}
+
+\title{Lumped-Parameter Modeling of Pediatric Ventricular Septal Defect: Patient-Specific Simulation of Shunt Flow and Post-Closure Hemodynamics}
+
+% -----------------------------------------------------------------------
+% EDITORIAL NOTE ON AUTHOR ORDER (remove before submission): order and
+% inclusion below follow explicit instruction (2026-09-06). Author order
+% for a paper this size normally puts the supervising PI last/corresponding
+% rather than first -- flag this with the full author team before
+% submission rather than assuming the order below is final.
+% -----------------------------------------------------------------------
+\author{%
+  dr.~Puspita Anggraini Katili, M.Sc., Ph.D.~\\
+  Biomedical Engineering Program\\
+  Department of Electrical Engineering\\
+  Universitas Indonesia\\
+  Depok, Indonesia \\
+  \texttt{\textcolor{red}{[PLACEHOLDER: institutional email]}}
+\And
+  Muhammad H. A. Subagyo~\\
+  Biomedical Engineering Program\\
+  Department of Electrical Engineering\\
+  Universitas Indonesia\\
+  Depok, Indonesia \\
+  \texttt{muhammad.hafiz22@ui.ac.id}
+\And
+  Aisyah M.~Dzakiyah\\
+  Biomedical Engineering Program\\
+  Department of Electrical Engineering\\
+  Universitas Indonesia\\
+  Depok, Indonesia \\
+  \texttt{aisyah.dzakiyah@ui.ac.id}
+\And
+  Sylvi Febriana Rachmawati Irnadiastputri, B.Eng., M.Eng.~\\
+  Biomedical Engineering Program\\
+  Department of Electrical Engineering\\
+  Universitas Indonesia\\
+  Depok, Indonesia \\
+  \texttt{\textcolor{red}{[PLACEHOLDER: institutional email]}}
+\And
+  \textcolor{red}{[PLACEHOLDER: e.g.\ Dr.~dr.~Winda Azwani, Sp.A(K) --
+  clinical research supervisor, pediatric cardiology, RSAB Harapan Kita --
+  confirm inclusion, exact degree string, and author order before use]}~\\
+  \textcolor{red}{[PLACEHOLDER: department/division]}\\
+  RSAB Harapan Kita\\
+  Jakarta, Indonesia \\
+  \texttt{\textcolor{red}{[PLACEHOLDER: institutional email]}}
+\And
+  \textcolor{red}{[PLACEHOLDER: additional co-author, e.g.\ the
+  cardiac-catheterization data lead -- confirm name, degree, and
+  affiliation before use]}~\\
+  \textcolor{red}{[PLACEHOLDER: department/division]}\\
+  \textcolor{red}{[PLACEHOLDER: affiliation]}\\
+  \textcolor{red}{[PLACEHOLDER: location]} \\
+  \texttt{\textcolor{red}{[PLACEHOLDER: institutional email]}}
+}
+
+\begin{document}
+\maketitle
+
+% -----------------------------------------------------------------------
+% EDITORIAL NOTE (remove before submission): this manuscript draft was
+% updated 2026-09-06 to (a) correct the patient anthropometry/pressure
+% figures against the source protocol form, (b) fold in the
+% methodological additions from the publication-readiness codebase pass
+% (sigma-weighting, chi-squared diagnostics, multi-start optimization,
+% parameter-reduction/identifiability analysis, and the Zhang-vs-Lundquist
+% scaling head-to-head), and (c) add a Results/Discussion/Conclusion
+% outline with explicit placeholders. Per instruction, this pass is
+% OUTLINE-LEVEL ONLY: it is not meant to be submission-complete. Anywhere
+% a number, figure, or table is not yet finalized, it is marked
+% \textcolor{red}{[PLACEHOLDER: ...]} following the convention already
+% used for the ethics approval number below. Do not quote placeholder
+% numbers as results.
+% -----------------------------------------------------------------------
+
+\begin{abstract}
+This single-patient case study develops a patient-specific lumped-parameter model for pediatric ventricular septal defect (VSD) by combining body-surface-area allometry, blood-volume-based volume scaling, global-sensitivity-analysis-guided calibration, and a unified pre- and post-closure model structure. The pre-closure model is calibrated and validated against catheterization and echocardiographic measurements from one pediatric patient. Post-closure behavior is evaluated as an in-silico scenario by functionally eliminating the interventricular shunt; it is not presented as validation against measured post-closure data. \textcolor{red}{[PLACEHOLDER: one to two additional abstract sentences summarizing the quantitative pre-closure fit, the Zhang-vs-Lundquist scaling comparison outcome, and the honest limitation of the post-closure prediction, once the three-repeat uncertainty analysis is finalized -- do not draft this until \S\ref{sec:results} is complete, since the abstract must not overstate a single-run result as the settled finding.]} The framework provides a computationally efficient basis for examining patient-specific pressure--flow redistribution while retaining explicit limits on identifiability and generalizability.
+\end{abstract}
+
+\section{Introduction}
+
+Congenital heart disease (CHD) is the most common group of congenital anomalies, and ventricular septal defect (VSD) is one of its most frequent lesions. A VSD creates an abnormal communication between the ventricles, with shunt magnitude governed by defect restriction, the interventricular pressure gradient, and the relative systemic and pulmonary vascular impedances. A hemodynamically important left-to-right shunt increases pulmonary blood flow and left-heart volume loading; if prolonged, pulmonary overcirculation can contribute to heart failure, pulmonary vascular remodeling, and eventually irreversible pulmonary vascular disease. VSD accounts for approximately 20\% of CHD, with an estimated incidence of 1.5--3.5 per 1,000 live births \cite{Haas_2024}. Although small muscular defects frequently close spontaneously, larger defects and perimembranous anatomy are less likely to do so \cite{Zhao_2019a}, leaving a clinically important subgroup that requires closure.
+
+Surgery remains an established treatment, while transcatheter closure is increasingly used in anatomically suitable perimembranous and muscular VSDs because it avoids sternotomy and may shorten recovery \cite{Ali_Hassan_2019}. High technical success does not, however, imply an identical early hemodynamic trajectory in every child. In a long-term pediatric series, residual shunt was present in 36.4\% of patients immediately after transcatheter closure and in 9.8\% at follow-up \cite{Vuran2026}. Another pediatric study reported a 3.1\% rate of unplanned surgery after device closure, most often because of new or worsening aortic regurgitation \cite{Yang2021Surgery}; early post-procedural arrhythmias and valve regurgitation further motivate structured surveillance \cite{Kuswiyanto_et_al._2022}. Defect diameter and young age have also been associated with persistent residual shunt or progression of aortic regurgitation after closure \cite{Chin2024}. These rates quantify why a patient-specific estimate of pressure--flow redistribution is clinically relevant even when the procedure itself is usually successful.
+
+Echocardiography and catheterization define anatomy and measured hemodynamics at specific time points, but they do not directly expose the coupled redistribution of chamber loading, systemic flow, pulmonary flow, and shunt flow under alternative physiological states. Computational cardiovascular models can connect these measurements through conservation laws. Zero-dimensional (0D) or lumped-parameter models (LPMs) are particularly suited to repeated patient-specific simulation because they represent the circulation as coupled resistive, compliant, inertial, and time-varying-elastance elements at substantially lower computational cost than spatially resolved models.
+
+LPMs have been used in several forms of pediatric and congenital circulation. Patient-specific models of single-ventricle physiology have demonstrated parameter estimation under measurement uncertainty \cite{Schiavazzi2017}, while Fontan studies have used LPMs to examine fenestration-dependent pressure and flow responses \cite{Horio2024}. Ferrero and colleagues subsequently used a 0D framework to interpret intracardiac-shunt hemodynamics across patient data, providing the directly published basis for the reference architecture adapted here \cite{Ferrero2026Shunts}. Most recently, a pediatric VSD-specific LPM combined age-dependent circulation scaling with a defect-size-dependent shunt relation and showed that age, vascular properties, and VSD size interact nonlinearly \cite{Colebank2026}. Together, these studies establish the value of reduced-order congenital-heart models, but they do not eliminate the need for transparent patient-level calibration and validation.
+
+Pediatric adaptation is a separate methodological challenge because adult resistances, compliances, elastances, volumes, and heart rate cannot be transferred unchanged to a small child. Weight-based multiscale scaling has reproduced age-related cardiovascular changes from infancy through adolescence \cite{zhang2019multiscale}; developmental Windkessel analyses also show that arterial compliance and inertance vary systematically from infancy to adulthood \cite{Burattini2007}. The present study therefore combines body-surface-area allometry for pressure--flow parameters with an age- and mass-dependent blood-volume constraint for unstressed volumes. This scaled state is used as a physiological prior rather than as a final patient model. \textbf{Because a single allometric law is not obviously the correct one for every parameter class, this study also directly compares two candidate scaling priors -- the weight-based multiscale law of Zhang et al.\ \cite{zhang2019multiscale} and the BSA-only scaling of Lundquist et al.\ \cite{Lundquist2025} -- under a matched, fair (no historical-seed) comparison, rather than assuming one is preferable a priori (\S\ref{sec:scaling_comparison}).} This head-to-head is the direct pre-closure counterpart to the BSA-based-versus-weight-based scaling comparison Dzakiyah performed for the post-closure prediction/optimization model \cite{Dzakiyah2026Thesis}.
+
+The remaining gap is a reproducible workflow that links pediatric scaling, sensitivity-based parameter selection, calibration to patient measurements, and a common model structure for the open- and closed-shunt states. A unified structure is useful because it isolates the hemodynamic consequence of shunt elimination without changing the rest of the circulation; nevertheless, a post-closure simulation should not be described as clinically validated when post-closure measurements are unavailable. \textbf{Where genuine post-closure catheter measurements exist for the study patient (\S\ref{sec:data_collection}), they are used here as a real, if imperfect, out-of-sample check on that assumption (\S\ref{sec:post_closure_results}) -- not merely an idealized scenario.}
+
+\paragraph{Contributions.} This study makes \textbf{six} specific contributions: (1) a pediatric parameterization that combines allometric body-surface-area scaling with age-dependent blood-volume conservation; (2) a unified pre-closure and post-closure 0D framework in which intervention is represented by changing the VSD pathway while retaining the same closed-loop circulation; (3) global-sensitivity-analysis-driven selection of a bounded patient-specific calibration set; (4) validation of the pre-closure model against real catheterization and echocardiographic measurements; \textbf{(5) a fair, matched head-to-head comparison of two published pediatric scaling laws (Zhang weight-based vs.\ Lundquist BSA-based) rather than an assumed default; and (6) a genuine out-of-sample evaluation of the post-closure prediction against real (not synthetic) post-closure catheter measurements, reported honestly including where it fails.} The investigation is explicitly a single-patient proof-of-concept using prospectively collected data. It evaluates whether the framework can reproduce one successfully calibrated pediatric VSD case (Patient P1); it does not estimate population-level performance. \textcolor{red}{[PLACEHOLDER: state here, once finalized, whether P1's pre-closure fit is reported as a single accepted run or as a mean $\pm$ SD across three independent repeats -- see \S\ref{sec:uncertainty} -- since the contributions list above should match whatever the Results section actually delivers.]}
+
+
+\section{Methods}
+\subsection{Data Collection}
+\label{sec:data_collection}
+
+\subsubsection{Study design, setting, and ethics}
+
+This computational proof-of-concept analyzed one case whose clinical data were prospectively collected at the National Center for Women and Children's Health, RSAB Harapan Kita, Jakarta, Indonesia, during the December 2025--June 2026 recruitment period. Cardiovascular model development and analysis were performed at the Faculty of Engineering, Universitas Indonesia. The study protocol was reviewed and approved by the Institutional Review Board/Ethics Committee and Clinical Research Unit of RSAB Harapan Kita (approval no. \textcolor{red}{[insert the final ethics approval number]}). Written informed consent for research participation and use of de-identified clinical data was obtained from the patient's parent or legal guardian before study-specific data collection. All manuscript data were de-identified and the patient is referred to only as P1.
+
+\subsubsection{Eligibility and case selection}
+
+Eligible participants were children older than three months with VSD diagnosed by a pediatric cardiologist using clinical assessment and echocardiography, a defect diameter of at least 2~mm, and sufficient anthropometric and hemodynamic measurements to initialize and evaluate a patient-specific model. Exclusion criteria were invalid or insufficient core physiological measurements, another severe cardiovascular abnormality expected to dominate the modeled hemodynamics, or previous VSD closure or other corrective cardiac intervention before baseline data acquisition. P1 was purposefully selected for this proof-of-concept report after satisfying the prespecified calibration and validation acceptance rules. This accepted-case selection permits detailed evaluation of the workflow but introduces selection bias; it must not be interpreted as an estimate of success rate or general performance. The manuscript is restricted to P1.
+
+\subsubsection{Clinical variables}
+
+Anthropometry, heart rate, VSD anatomy, Doppler measurements, and invasive pressures and flows were extracted from the pre-closure echocardiography and cardiac-catheterization records. The effective VSD diameter was defined as the mean RV-side diameter reported in the procedure protocol. The systemic mean arterial pressure was taken as the catheter-stamped femoral arterial mean, not a diastolic-plus-a-third-of-pulse-pressure reconstruction (the two differ systematically by roughly 5--6~mmHg in this record; see \S\ref{sec:data_reconciliation}); pulmonary arterial pressure and right atrial pressure were taken from repeated catheter measurements. The pulmonary-to-systemic flow ratio ($Q_p/Q_s$) was taken from the catheterization protocol. Table~\ref{tab:patient_data} lists the measurements used to initialize, calibrate, or validate the model.
+
+\textbf{\label{sec:data_reconciliation}Data reconciliation note.} A later cross-check against the IRB-approved source protocol form found that the anthropometry and heart rate below had, at one point in this project's history, been taken from a revision recorded several weeks after the catheterization session that produced every other row in Table~\ref{tab:patient_data} -- pairing a since-grown child's weight/height with an earlier date's pressures. Table~\ref{tab:patient_data} below reports the same-session, protocol-sourced values throughout. \textcolor{red}{[PLACEHOLDER: if this reconciliation changes any number quoted elsewhere in a submitted version of this paper, that must be called out explicitly in the Discussion's Limitations subsection, not silently corrected -- see \S\ref{sec:limitations}.]}
+
+\begin{table*}[ht]
+\centering
+\caption{De-identified pre-closure clinical variables for the single study patient (protocol-form-reconciled values).}
+\label{tab:patient_data}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lcccccccccc}
+\toprule
+\textbf{Patient} & \textbf{Age} & \textbf{Weight} & \textbf{Height} & \textbf{VSD type} & \textbf{VSD size} & \textbf{$Q_p/Q_s$} & \textbf{PA pressure} & \textbf{Systemic pressure} & \textbf{RAP} & \textbf{HR} \\
+ & (yr) & (kg) & (cm) & & (mm) & & (sys/dia/mean, mmHg) & (sys/dia/mean, mmHg) & (mean, mmHg) & (bpm) \\
+\midrule
+P1 & 3.17 & 13.4 & 95.0 & Perimembranous & 3.665 & 1.194 & 20/10/15 & 100/57/77 & 5 & 119 \\
+\bottomrule
+\end{tabular}
+}
+\end{table*}
+
+\subsection{Flowchart}
+The complete patient-specific workflow is summarized in Figure~\ref{fig:placeholder}.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.5\linewidth]{FlowchartPaperV2.jpg}
+    \caption{Patient-specific modeling pipeline comprising clinical-data extraction and quality control, pediatric allometric and blood-volume scaling, pre-closure baseline simulation, global sensitivity analysis and parameter screening, bounded calibration, validation against fitted and withheld clinical measurements, and post-closure in-silico simulation by functional elimination of the VSD pathway. \textcolor{red}{[PLACEHOLDER: redraw to add the two new pipeline stages -- (i) the Zhang-vs-Lundquist fair-prior scaling comparison as a branch before calibration, and (ii) the post-calibration parameter-identifiability/reduction step -- so the figure matches the pipeline actually described in \S\ref{sec:scaling_comparison} and \S\ref{sec:identifiability}.]}}
+    \label{fig:placeholder}
+\end{figure}
+
+\subsection{Mathematical Modeling of the Cardiovascular System with Ventricular Septal Defect (VSD)}
+\label{sec:vsd_model}
+
+The cardiovascular model describes pressures, volumes, and flow rates across the cardiac valves and within the systemic and pulmonary circulations, including the interventricular shunt. Its reference architecture was adapted from the published intracardiac-shunt framework of Ferrero et al.~\cite{Ferrero2026Shunts}.
+
+The cardiovascular system is represented using a lumped-parameter model (LPM), in which the circulation is approximated as an interconnected network of discrete compartments corresponding to the four cardiac chambers and the vascular compartments. The mechanical behavior of each chamber is modeled using a zero-dimensional time-varying elastance approach. The vascular compartments are described by resistance--inductance--capacitance (RLC) elements.
+
+Within the pulmonary circulation, the capillary compartment is further subdivided into oxygenated and non-oxygenated regions. The cardiac valves, including the atrioventricular (mitral and tricuspid) and semilunar (aortic and pulmonary) valves, are modeled as non-ideal diode-like elements that regulate flow according to the pressure gradient across them.
+
+\subsubsection{Cardiac chamber model}
+
+The right atrium (RA), right ventricle (RV), left atrium (LA), and left ventricle (LV) were modeled using the time-varying elastance concept. Chamber pressure was defined as
+\begin{equation}
+P_{ch}(t) = E_{ch}(t)\left(V_{ch}(t) - V_{0,ch}\right),
+\label{eq:chamber_pressure}
+\end{equation}
+where $P_{ch}(t)$ is the chamber pressure, $V_{ch}(t)$ is the instantaneous chamber volume, $V_{0,ch}$ is the unstressed volume, and $E_{ch}(t)$ is the time-varying elastance.
+
+The elastance function was expressed as
+\begin{equation}
+E_{ch}(t) = E_{B,ch} + E_{A,ch}\, e_{ch}(t),
+\label{eq:elastance_function}
+\end{equation}
+where $E_{B,ch}$ is the passive elastance, $E_{A,ch}$ is the active elastance amplitude, and $e_{ch}(t)$ is the normalized activation function varying between 0 and 1 over the cardiac cycle.
+
+For ventricular chambers, the normalized activation function can be written in piecewise form as
+\begin{equation}
+e_v(t)=
+\begin{cases}
+\dfrac{1}{2}\left[1-\cos\left(\pi \dfrac{t}{T_{vc}}\right)\right], & 0 \le t \le T_{vc},\\[8pt]
+\dfrac{1}{2}\left[1+\cos\left(\pi \dfrac{t-T_{vc}}{T_{vr}}\right)\right], & T_{vc} < t \le T_{vc}+T_{vr},\\[8pt]
+0, & T_{vc}+T_{vr} < t \le T,
+\end{cases}
+\label{eq:ventricular_activation}
+\end{equation}
+where $T_{vc}$ and $T_{vr}$ denote the ventricular contraction and relaxation durations, respectively, and $T$ is the cardiac cycle period. A similar time-shifted formulation was used for the atrial activation function.
+
+The chamber volume dynamics followed conservation of mass. For the four chambers, the equations were written as
+\begin{align}
+\frac{dV_{RA}}{dt} &= Q_{SV} - Q_{TV},
+\label{eq:VRA_basic} \\
+\frac{dV_{RV}}{dt} &= Q_{TV} - Q_{PV},
+\label{eq:VRV_basic} \\
+\frac{dV_{LA}}{dt} &= Q_{PVen} - Q_{MV},
+\label{eq:VLA_basic} \\
+\frac{dV_{LV}}{dt} &= Q_{MV} - Q_{AV},
+\label{eq:VLV_basic}
+\end{align}
+where $Q_{TV}$, $Q_{PV}$, $Q_{MV}$, and $Q_{AV}$ denote the transvalvular flow rates through the tricuspid, pulmonary, mitral, and aortic valves, respectively. $Q_{SV}$ and $Q_{PVen}$ denote the venous return from the systemic and pulmonary venous compartments.
+
+\subsubsection{Vascular model}
+
+The systemic and pulmonary vascular beds were modeled using lumped hydraulic elements analogous to electrical circuits. Resistance represented viscous energy losses, compliance represented blood storage capacity, and inertance represented the inertia of moving blood. Their constitutive relations were given by
+\begin{equation}
+Q = \frac{\Delta P}{R},
+\label{eq:poiseuille}
+\end{equation}
+\begin{equation}
+C = \frac{\Delta V}{\Delta P},
+\label{eq:compliance_def}
+\end{equation}
+and
+\begin{equation}
+\Delta P = L \frac{dQ}{dt},
+\label{eq:inertance_def}
+\end{equation}
+where $\Delta P$ is the pressure drop across the element, $Q$ is the flow rate, $R$ is resistance, $C$ is compliance, and $L$ is inertance.
+
+For each vascular compartment, the governing equations combined inertial and capacitive effects:
+\begin{equation}
+L \frac{dQ}{dt} + RQ = P_{\mathrm{in}} - P_{\mathrm{out}},
+\label{eq:vascular_flow}
+\end{equation}
+\begin{equation}
+C \frac{dP}{dt} = Q_{\mathrm{in}} - Q_{\mathrm{out}}.
+\label{eq:vascular_pressure}
+\end{equation}
+
+These equations were applied to the systemic arterial, systemic venous, pulmonary arterial, and pulmonary venous compartments. The pulmonary circulation included a capillary segment, and the overall model was constructed as a closed-loop circulation.
+
+\subsubsection{Valve model}
+
+Cardiac valves were modeled as pressure-dependent one-way resistive elements. The transvalvular flow was computed as
+\begin{equation}
+Q_{\mathrm{valve}} = \frac{P_{\mathrm{up}} - P_{\mathrm{down}}}{R_{\mathrm{valve}}},
+\label{eq:qvalve}
+\end{equation}
+with
+\begin{equation}
+R_{\mathrm{valve}} =
+\begin{cases}
+R_{\min}, & P_{\mathrm{up}} > P_{\mathrm{down}},\\
+R_{\max}, & P_{\mathrm{up}} \leq P_{\mathrm{down}}.
+\end{cases}
+\label{eq:valve_piecewise}
+\end{equation}
+This idealized formulation approximated valve opening and closure based on pressure gradients and prevented reverse flow during the closed phase.
+
+\subsubsection{VSD shunt model}
+
+Ventricular septal defect was represented as an additional resistive pathway connecting the left and right ventricles. The shunt flow was defined as
+\begin{equation}
+Q_{VSD} = \frac{P_{LV} - P_{RV}}{R_{VSD}},
+\label{eq:qvsd}
+\end{equation}
+where $P_{LV}$ and $P_{RV}$ are the left and right ventricular pressures, respectively, and $R_{VSD}$ is the shunt resistance. A smaller $R_{VSD}$ corresponds to a less restrictive defect and therefore a greater left-to-right shunt, whereas a very large $R_{VSD}$ represents functional closure of the defect.
+
+With the presence of VSD, the ventricular volume equations became
+\begin{align}
+\frac{dV_{RV}}{dt} &= Q_{TV} - Q_{PV} + Q_{VSD},
+\label{eq:VRV_vsd} \\
+\frac{dV_{LV}}{dt} &= Q_{MV} - Q_{AV} - Q_{VSD}.
+\label{eq:VLV_vsd}
+\end{align}
+This formulation enabled simulation of the hemodynamic consequences of interventricular shunting, including redistribution of blood flow, increased pulmonary flow, and altered ventricular loading.
+
+\subsection{Patient-Specific Parameter Scaling}
+\label{sec:scaling}
+
+To adapt the Ferrero-framework adult reference parameterization \cite{Ferrero2026Shunts} to a pediatric patient, model parameters were scaled allometrically before calibration. Body surface area (BSA) was selected as the main scaling variable because it is associated with cardiac size, vascular geometry, and hemodynamic capacity across growth stages \cite{Lundquist2025}. The complete unscaled nominal parameter set is reported in Table~\ref{tab:nominal_parameters}. BSA was calculated using the Mosteller formula:
+
+\begin{equation}
+    \mathrm{BSA} = \sqrt{\frac{h \cdot m}{3600}}
+    \label{eq:mosteller}
+\end{equation}
+
+\noindent where $h$ is height in centimetres and $m$ is body mass in kilograms.
+
+A dimensionless scale factor relative to the adult reference subject was then defined as
+
+\begin{equation}
+    s = \frac{\mathrm{BSA}_{\mathrm{patient}}}{\mathrm{BSA}_{\mathrm{ref}}}
+    \label{eq:scale_factor}
+\end{equation}
+
+\noindent where $\mathrm{BSA}_{\mathrm{ref}} = 1.73\ \mathrm{m}^2$ corresponds to the adult reference model adapted from the Ferrero intracardiac-shunt framework \cite{Ferrero2026Shunts}. Each parameter $\theta_i$ was scaled from its reference value $\theta_{i,\mathrm{ref}}$ according to
+
+\begin{equation}
+    \theta_i = \theta_{i,\mathrm{ref}} \cdot s^{\alpha_i}
+    \label{eq:general_scaling}
+\end{equation}
+
+\noindent where $\alpha_i$ is the allometric exponent assigned to parameter type $i$.
+
+\begin{table}[ht]
+\centering
+\caption{Allometric exponents used for parameter scaling.}
+\label{tab:scaling}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X cc}
+\toprule
+\textbf{Type} & \textbf{Parameters} & \textbf{Exponent} $\alpha_i$ \\
+\midrule
+Resistance ($R$) &
+$R_\mathrm{SAR}$, $R_\mathrm{SC}$, $R_\mathrm{SVEN}$,
+$R_\mathrm{PAR}$, $R_\mathrm{PCOX}$, $R_\mathrm{PCNO}$,
+$R_\mathrm{PVEN}$ & $-1$ \\
+Compliance ($C$) &
+$C_\mathrm{SAR}$, $C_\mathrm{SC}$, $C_\mathrm{SVEN}$,
+$C_\mathrm{PAR}$, $C_\mathrm{PCOX}$, $C_\mathrm{PCNO}$,
+$C_\mathrm{PVEN}$ & $+1$ \\
+Inertance ($L$) &
+$L_\mathrm{SAR}$, $L_\mathrm{SVEN}$, $L_\mathrm{PAR}$,
+$L_\mathrm{PVEN}$ & $-1$ \\
+Left heart elastance ($E$) &
+$E_{\mathrm{A},\mathrm{LV}}$, $E_{\mathrm{B},\mathrm{LV}}$,
+$E_{\mathrm{A},\mathrm{LA}}$, $E_{\mathrm{B},\mathrm{LA}}$ & $-1.0$ \\
+Right heart elastance ($E$) &
+$E_{\mathrm{A},\mathrm{RV}}$, $E_{\mathrm{B},\mathrm{RV}}$,
+$E_{\mathrm{A},\mathrm{RA}}$, $E_{\mathrm{B},\mathrm{RA}}$ & $-1.5$ \\
+Heart rate &
+HR & $-0.33$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Vascular resistances were scaled inversely with body size, while compliances increased proportionally with body size \cite{Lundquist2025}. Inertance was also reduced with increasing BSA. Chamber elastance scaling differed between the left and right heart to preserve physiologically appropriate systemic and pulmonary pressure relations during pediatric downscaling \cite{Lundquist2025}. Heart rate was scaled with a negative exponent to reflect the known inverse relationship between body size and resting heart rate \cite{Lundquist2025}.
+
+The VSD shunt resistance $R_\mathrm{VSD}$ was not assigned a general allometric law because it is a pathological quantity that depends on the individual defect. Instead, it was initialized from the patient-specific defect and catheterization data as described in Section~\ref{sec:vsd_initialization}; it was not included among the free calibration quantities in the accepted P1 run. Similarly, very large closed-valve resistance values were not rescaled, as they serve primarily as numerical guard values enforcing one-way valve behavior.
+
+For unstressed volumes, a blood-volume-based correction was used instead of direct BSA scaling. Patient blood volume was estimated from age-dependent normative values:
+
+\begin{equation}
+    \mathrm{BV}_{\mathrm{patient}} = m \cdot \nu(a)
+    \label{eq:bv_patient}
+\end{equation}
+
+with
+
+\begin{equation}
+    \nu(a) =
+    \begin{cases}
+        82\ \mathrm{mL\,kg^{-1}}, & a < 1\ \mathrm{yr} \\
+        70\ \mathrm{mL\,kg^{-1}}, & a \geq 1\ \mathrm{yr}
+    \end{cases}
+    \label{eq:bv_norm}
+\end{equation}
+
+A blood-volume scaling factor was then defined as
+
+\begin{equation}
+    s_{\mathrm{BV}} =
+    \frac{\mathrm{BV}_{\mathrm{patient}}}{\mathrm{BV}_{\mathrm{ref}}}
+    \label{eq:bv_scale}
+\end{equation}
+
+\noindent where $\mathrm{BV}_{\mathrm{ref}} = 4900\ \mathrm{mL}$. Unstressed volumes were updated by
+
+\begin{equation}
+    V_{0,i} = V_{0,i,\mathrm{ref}} \cdot s_{\mathrm{BV}}
+    \label{eq:v0_scaling}
+\end{equation}
+
+To preserve total blood volume, the systemic venous unstressed volume was finally corrected as the residual volume reservoir:
+
+\begin{equation}
+    V_{0,\mathrm{SVEN}} =
+    \mathrm{BV}_{\mathrm{patient}}
+    - \sum_{i \neq \mathrm{SVEN}} V_{0,i}
+    \label{eq:sven_conservation}
+\end{equation}
+
+Initial volumes were estimated analytically from the scaled parameters to reduce transient settling time. For vascular compartments,
+
+\begin{equation}
+    V_i(0) = V_{0,i} + P_{\mathrm{nom},i} C_i
+    \label{eq:ic_vascular}
+\end{equation}
+
+and for cardiac chambers,
+
+\begin{equation}
+    V_i(0) = V_{0,i} + \frac{P_{\mathrm{nom},i}}{E_{\mathrm{B},i}}
+    \label{eq:ic_cardiac}
+\end{equation}
+
+\noindent where $P_{\mathrm{nom},i}$ denotes the nominal resting filling pressure of compartment $i$.
+
+\subsection{Scaling Method Comparison: Zhang (Weight-Based) versus Lundquist (BSA-Based)}
+\label{sec:scaling_comparison}
+
+Sections~\ref{sec:scaling}--\ref{sec:v0_scaling} above describe the BSA-based scaling law used as the primary prior. Because the correct pediatric allometric law is not settled a priori, a second candidate -- the weight-based multiscale law of Zhang et al.\ \cite{zhang2019multiscale} -- was implemented in parallel and compared directly against the BSA-based (Lundquist-style \cite{Lundquist2025}) prior under matched conditions. \textbf{This comparison is the pre-closure counterpart of the BSA-based-versus-weight-based comparison Dzakiyah performed on the post-closure model} \cite{Dzakiyah2026Thesis}, so the two theses this manuscript draws on can be read as a matched pair spanning the pre- and post-closure states.
+
+\subsubsection{Fair-prior versus operational comparison}
+
+A naive comparison of the two scaling laws is confounded if one law's calibration is warm-started from a previously accepted parameter vector and the other is not: the resulting RMSE difference would measure warm-start-versus-cold-start optimization behavior, not the scaling law itself. Two arm families were therefore defined for each scaling law:
+\begin{itemize}[leftmargin=1.5em]
+    \item \textbf{Fair-prior arms}: historical calibration seeds disabled for both scaling laws; each starts from its own freshly scaled baseline. This is the only comparison used to answer ``does Zhang or Lundquist scale this patient's data better.''
+    \item \textbf{Operational arms}: the currently accepted, previously calibrated seed is used where one exists. These arms measure warm-start-vs-cold-start behavior under the currently deployed configuration and are reported separately, never combined with the fair-prior comparison.
+\end{itemize}
+
+\subsubsection{Preliminary result (single-repeat screening, not final)}
+
+\textcolor{red}{[PLACEHOLDER TABLE -- Table~\ref{tab:scaling_comparison} below reports the current single-run screening pass only. The three-repeat uncertainty analysis (\S\ref{sec:uncertainty}) has not yet been executed for this comparison; do not cite these numbers as the final result.]}
+
+\begin{table}[ht]
+\centering
+\caption{Zhang-vs-Lundquist fair-prior scaling comparison, pre-closure, P1. \textcolor{red}{PRELIMINARY -- single screening run per arm; see \S\ref{sec:uncertainty} for the pending 3-repeat uncertainty analysis.}}
+\label{tab:scaling_comparison}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Arm} & \textbf{Primary RMSE} & \textbf{Governed gate (of 9)} & \textbf{Status} \\
+\midrule
+Fair-prior, Zhang (weight-based) & 0.118 & 5/9 & Physiological, poor fit \\
+Fair-prior, Lundquist (BSA-based) & 0.222 & 6/9 & Physiological, poor fit \\
+Operational, Zhang & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} \\
+Operational, Lundquist & \textcolor{red}{[TBD -- failed on this screening pass: historical seed value fell outside recomputed bounds after the data reconciliation in \S\ref{sec:data_reconciliation}]} & --- & Failed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textcolor{red}{[PLACEHOLDER: one paragraph interpreting Table~\ref{tab:scaling_comparison} once the 3-repeat version is available -- provisionally, the single-run screening pass favors Zhang under the fair-prior comparison by RMSE, with neither law reaching full acceptance at screening budget; this should not be stated as a settled conclusion until repeated.]}
+
+\subsection{Model Calibration}
+\label{sec:calibration}
+
+After allometric scaling, a patient-specific calibration was performed to minimize the mismatch between model outputs and clinical hemodynamic targets. Calibration was formulated as a constrained nonlinear least-squares problem, in which selected model parameters were adjusted to reproduce measurements from catheterization and echocardiography.
+
+The objective function was defined as
+
+\begin{equation}
+    J(\mathbf{x})
+    = \sum_{k=1}^{K} w_k
+      \left(
+      \frac{y_k(\mathbf{x}) - y_k^{\mathrm{clin}}}{y_k^{\mathrm{clin}}}
+      \right)^2
+    \label{eq:objective}
+\end{equation}
+
+\noindent where $\mathbf{x}$ is the vector of free parameters, $y_k(\mathbf{x})$ is the $k$-th model-derived metric, $y_k^{\mathrm{clin}}$ is the corresponding clinical target, and $w_k$ is the weight assigned to that metric. The relative formulation makes the objective dimensionless and reduces domination by variables with large absolute values, consistent with prior patient-specific congenital-heart model calibration practice \cite{Schiavazzi2017,Ferrero2026Shunts}.
+
+\textbf{An optional per-metric measurement-uncertainty weighting is also available}, replacing the flat relative-percentage weight $w_k$ with a $\sigma$-normalized residual $z_k = (y_k(\mathbf{x}) - y_k^{\mathrm{clin}})/\sigma_k$, where $\sigma_k$ is drawn from a declared measurement-uncertainty table rather than a fixed fraction of the target value. This weighting mode is reported here as an implemented option; \textcolor{red}{[PLACEHOLDER: state which weighting mode -- legacy relative-percentage or $\sigma$-normalized -- was used for the result quoted in \S\ref{sec:results}, since the two are not numerically interchangeable.]}
+
+The 11 active calibration quantities were a coupled systemic-resistance scale, systemic venous resistance, a coupled pulmonary-resistance scale, systemic and pulmonary arterial compliances, active and passive left- and right-ventricular elastances, and left- and right-ventricular unstressed volumes. \textbf{This active set is itself a global-sensitivity-analysis output, not a fixed design choice: a post-hoc parameter-identifiability pass (\S\ref{sec:identifiability}) further evaluated whether this 11--12-parameter set is well-conditioned for the available 9 governed clinical targets, and found it is not (see \S\ref{sec:identifiability} for the resulting reduced-parameter candidate).} The coupled scales changed physiologically related resistances together rather than treating each resistance as an independent degree of freedom. Parameters with low hemodynamic influence were fixed to their scaled baseline values to reduce problem dimensionality. Physiological box constraints were imposed so that each active quantity remained within a plausible range around its scaled or clinically seeded initial value.
+
+Optimization was carried out using a gradient-based constrained solver with a limited-memory BFGS Hessian approximation, following the approach commonly used in cardiovascular inverse problems \cite{Byrd1995,Schiavazzi2017}. At each iteration, the search direction was computed from the approximate inverse Hessian and the local gradient of the objective:
+
+\begin{equation}
+    \mathbf{p}_k = -\mathbf{B}_k^{-1}\nabla J(\mathbf{x}_k)
+    \label{eq:lbfgs_direction}
+\end{equation}
+
+The inverse Hessian approximation was updated iteratively using standard BFGS curvature information:
+
+\begin{equation}
+    \mathbf{B}_{k+1}
+    = \mathbf{B}_k
+    + \frac{\mathbf{y}_k\mathbf{y}_k^\top}{\mathbf{y}_k^\top \mathbf{s}_k}
+    - \frac{\mathbf{B}_k \mathbf{s}_k \mathbf{s}_k^\top \mathbf{B}_k}
+           {\mathbf{s}_k^\top \mathbf{B}_k \mathbf{s}_k}
+    \label{eq:bfgs_update}
+\end{equation}
+
+\noindent where $\mathbf{s}_k = \mathbf{x}_{k+1}-\mathbf{x}_k$ and
+$\mathbf{y}_k = \nabla J(\mathbf{x}_{k+1})-\nabla J(\mathbf{x}_k)$.
+
+To evaluate each objective function call, the ODE system was integrated for multiple cardiac cycles until a near-periodic state was reached. Tight solver tolerances were used during calibration to reduce numerical noise in the optimization process. Convergence was assumed when either the first-order optimality criterion or the parameter step size fell below predefined thresholds.
+
+\subsubsection{Multi-start optimization}
+\label{sec:multistart}
+
+A single L-BFGS run from one starting point cannot distinguish a genuine converged optimum from an optimizer that stalled near its initial guess. \textbf{To address this, the accepted P1 result is drawn from a multi-start search: one run from the historically seeded starting point plus five additional Sobol-scrambled starting points within the calibration bounds, all under the same objective and budget.} The spread of the resulting primary RMSE across starts is reported as a direct diagnostic of whether the search space was genuinely explored (\S\ref{sec:results}); a tight cluster of RMSE values across widely separated starting points is evidence against under-convergence, whereas a single low-RMSE outlier surrounded by much worse starts would warrant caution rather than confidence.
+
+\subsubsection{Practical identifiability, parameter reduction, and overfitting control}
+\label{sec:identifiability}
+
+The accepted P1 calibration used up to 12 active or physiologically tied quantities against 9 included clinical targets ($N=9$, $p{=}12$, degrees of freedom $= N-p = -3$). A negative degrees-of-freedom count means the inverse problem is not structurally identifiable at that parameter count, and any goodness-of-fit statistic computed there is not by itself evidence of a good model -- it is guaranteed to look favorable regardless of the true underlying fit. \textbf{A post-calibration parameter-identifiability analysis was therefore performed}, building the scaled sensitivity matrix $S_{ij} = (\partial y_i/\partial \theta_j)(\theta_j/\sigma_i)$ at the calibrated operating point and evaluating the condition number $\mathrm{cond}(S)$ over all $\binom{p}{k}$ subsets of size $k$ for each candidate reduced parameter count $k \le p$, without any re-simulation. \textcolor{red}{[PLACEHOLDER TABLE -- Table~\ref{tab:identifiability} reports the best-conditioned subset at each size for the current single accepted run. This identifies a strong candidate reduced set, but per the method's own limitation, fixing the dropped parameters at their calibrated values is a modelling commitment that must itself be validated by a dedicated calibration run before being reported as a final recommendation -- that confirmatory run has not yet been performed.]}
+
+\begin{table}[ht]
+\centering
+\caption{Parameter-reduction candidates by condition number, pre-closure P1, single accepted run. \textcolor{red}{PRELIMINARY -- reduced set not yet re-validated by its own calibration.}}
+\label{tab:identifiability}
+\begin{tabular}{cccl}
+\toprule
+$p$ & dof ($N-p$) & Best $\mathrm{cond}(S)$ & Parameter subset \\
+\midrule
+12 (full) & $-3$ & 223 & (all active parameters) \\
+9 & $0$ & 238.1 & \textcolor{red}{[see full table]} \\
+8 & $+1$ & 62.07 & \textcolor{red}{[see full table]} \\
+7 & $+2$ & 17.17 & $R_{sys}$, $R_{SVEN}$, $C_{SAR}$, $C_{PAR}$, $E_{B,LV}$, $E_{B,RV}$, $C_d$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Practical overfitting risk was further reduced by fixing insensitive parameters at their scaled values, tying physiologically related resistance factors, applying bounded class-specific priors, and retaining measurements not used as hard fitting targets as validation or consistency checks. The calibrated parameters should consequently be interpreted as one physiologically admissible explanation of the measured pressure--flow state rather than individually identifiable biomarkers. This distinction is especially important for a single-patient study and is carried into the interpretation of the post-closure scenario.
+
+
+\subsection{Global Sensitivity Analysis}
+\label{sec:gsa}
+
+Global sensitivity analysis (GSA) was performed to quantify the
+relative contribution of each model parameter to the variance of
+clinically relevant hemodynamic outputs, and to identify the
+active parameter set for calibration. In nonlinear, multi-parameter
+physiological models, local sensitivity methods evaluated at a single
+operating point fail to capture parameter interactions and
+non-monotonic effects that are prevalent in cardiovascular
+dynamics~\cite{Saltelli2010}. Variance-based GSA
+addresses this by integrating sensitivity information over the entire
+admissible parameter space, providing a global picture of model
+behavior~\cite{Saltelli2010}.
+
+GSA was executed twice for P1: a first pass prior to calibration
+to construct the parameter screening mask used in
+Section~\ref{sec:calibration}, and a second pass on the
+post-calibration parameter set to characterize the sensitivity
+structure of the individualized model.
+
+\subsubsection{Variance Decomposition and Sobol' Indices}
+\label{sec:sobol_theory}
+
+Let $Y = f(\mathbf{X})$ denote a scalar model output, where
+$\mathbf{X} = [X_1, \ldots, X_d]^\top$ is the vector of $d$
+uncertain input parameters. Under the assumption that the $X_i$
+are mutually independent and uniformly distributed over their
+respective ranges, the total output variance $\mathrm{Var}(Y)$
+admits the ANOVA-HDMR decomposition~\cite{Saltelli2010}:
+
+\begin{equation}
+    \mathrm{Var}(Y)
+    = \sum_{i=1}^{d} V_i
+    + \sum_{i < j} V_{ij}
+    + \cdots
+    + V_{1 \cdots d}
+    \label{eq:anova_decomp}
+\end{equation}
+
+\noindent where $V_i = \mathrm{Var}\!\left(\mathbb{E}[Y \mid X_i]\right)$
+is the main-effect variance attributable to $X_i$ alone, and the
+higher-order terms $V_{ij}, V_{ijk}, \ldots$ capture pairwise and
+higher-order interaction effects~\cite{Saltelli2010}. The
+first-order Sobol' index is defined as:
+
+\begin{equation}
+    S_i = \frac{V_i}{\mathrm{Var}(Y)}
+        = \frac{\mathrm{Var}\!\left(\mathbb{E}[Y \mid X_i]\right)}
+               {\mathrm{Var}(Y)}
+    \label{eq:s1}
+\end{equation}
+
+\noindent and measures the fractional contribution of $X_i$ to
+output variance in isolation. The total-order index, which captures
+the main effect of $X_i$ together with all its interactions with
+other parameters, is expressed as~\cite{Saltelli2010}:
+
+\begin{equation}
+    S_{T_i}
+    = 1 - \frac{\mathrm{Var}\!\left(
+                \mathbb{E}[Y \mid \mathbf{X}_{\sim i}]\right)}
+               {\mathrm{Var}(Y)}
+    \label{eq:st}
+\end{equation}
+
+\noindent where $\mathbf{X}_{\sim i}$ denotes all parameters
+except $X_i$. By construction, $0 \leq S_i \leq S_{T_i} \leq 1$,
+and $\sum_i S_{T_i} \geq 1$ whenever parameter interactions are
+present. The total-order index $S_{T_i}$ was used as the primary
+screening criterion because it identifies parameters that influence
+the output either directly or through interactions, making it more
+conservative and appropriate for parameter reduction than $S_i$
+alone~\cite{Saltelli2010}.
+
+\subsubsection{Reference Direct Monte Carlo Estimator}
+\label{sec:jansen}
+
+For reference, a direct model-evaluation route can estimate both indices using the
+Jansen (1999) Monte Carlo estimator~\cite{Jansen1999,
+Saltelli2010}. This estimator requires two base sample matrices
+$\mathbf{A}, \mathbf{B} \in \mathbb{R}^{N \times d}$ and $d$
+resampled matrices $\mathbf{A}_{\mathbf{B}}^{(i)}$, in which
+all columns are drawn from $\mathbf{A}$ except column $i$, which
+is taken from $\mathbf{B}$. Denoting the corresponding model
+output vectors as $\mathbf{y}_A$, $\mathbf{y}_B$, and
+$\mathbf{y}_{AB}^{(i)}$, the Jansen estimators are:
+
+\begin{equation}
+    \hat{S}_{T_i}
+    = \frac{\frac{1}{2N}
+            \sum_{j=1}^{N}
+            \left(y_{A,j} - y_{AB,j}^{(i)}\right)^2}
+           {\widehat{\mathrm{Var}}(Y)}
+    \label{eq:jansen_st}
+\end{equation}
+
+\begin{equation}
+    \hat{S}_i
+    = 1 -
+      \frac{\frac{1}{2N}
+            \sum_{j=1}^{N}
+            \left(y_{B,j} - y_{AB,j}^{(i)}\right)^2}
+           {\widehat{\mathrm{Var}}(Y)}
+    \label{eq:jansen_s1}
+\end{equation}
+
+\noindent where $\widehat{\mathrm{Var}}(Y) = \mathrm{Var}([\mathbf{y}_A;
+\mathbf{y}_B])$ is the pooled sample variance over both base
+matrices~\cite{Jansen1999}. Equations~\eqref{eq:jansen_st} and
+\eqref{eq:jansen_s1} are retained to define the direct estimator implemented as
+an optional verification route in the codebase; they were not used to generate
+the sensitivity indices reported for P1. The accepted P1 analysis instead used
+the polynomial-chaos procedure described below.
+
+\subsubsection{Sampling Design}
+\label{sec:gsa_sampling}
+
+The accepted P1 run used UQLab to construct one sparse polynomial-chaos
+expansion (PCE) for each output~\cite{Marelli2014,Blatman2011}. A shared
+experimental design of 128 Halton points was evaluated with the full ODE model
+over $d=21$ independent uniformly distributed inputs. Each surrogate was fitted
+by least-angle regression over candidate polynomial degrees 1--3 with a
+hyperbolic truncation norm of 0.75. First- and total-order Sobol' indices were
+then extracted analytically from the fitted PCE coefficients. Thus, the accepted
+pre-calibration GSA required 128 full-model evaluations, shared across all 25
+outputs, rather than a separate model-evaluation design for each output.
+
+For comparison, the optional direct Jansen implementation has the evaluation
+count:
+
+\begin{equation}
+    N_\mathrm{total} = N \cdot (d + 2)
+    \label{eq:ntotal}
+\end{equation}
+
+Equation~\eqref{eq:ntotal} is not the evaluation count of the accepted PCE run.
+A second PCE analysis was fitted around the calibrated pre-closure parameter set
+to describe the localised global-sensitivity structure. \textbf{A GSA-derived
+parameter mask was also used to accelerate the multi-start search
+(\S\ref{sec:multistart}): the accepted run's screening pass reduced the active
+optimization set from 14 to 7 dominant parameters at the pre-calibration
+operating point, distinct from -- but consistent in spirit with -- the
+post-calibration identifiability-based reduction in \S\ref{sec:identifiability}.}
+No independently calibrated post-closure GSA was performed because no
+independently calibrated post-closure model exists; the post-closure state is
+evaluated as a forward prediction from the pre-closure parameters (\S\ref{sec:post_closure_results}), not a separately fitted model.
+
+Each parameter $X_i$ was assumed uniformly distributed over a
+physiologically plausible interval $[l_i^{\,\mathrm{GSA}},\
+u_i^{\,\mathrm{GSA}}]$ centered on the scaled initial value
+$x_{0,i}$ (Table~\ref{tab:gsa_bounds}). In the accepted run, shunt uncertainty
+was represented through the discharge coefficient $C_d$; the defect diameter
+was fixed at the measured value and the nonlinear shunt resistance was computed
+by the VSD flow law.
+
+\begin{table}[ht]
+\centering
+\caption{Parameter bounds used in the GSA sampling design,
+         expressed as multiples of the scaled initial value
+         $x_{0,i}$. The P1 pre-closure GSA contains 21 uncertain inputs.}
+\label{tab:gsa_bounds}
+\begin{tabularx}{\linewidth}{>{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X cc}
+\toprule
+\textbf{Type} & \textbf{Parameters} & \textbf{Lower bound} & \textbf{Upper bound} \\
+\midrule
+Resistance ($R$)       & $R_\mathrm{SAR}$, $R_\mathrm{SC}$, $R_\mathrm{SVEN}$,
+                          $R_\mathrm{PAR}$, $R_\mathrm{PCOX}$, $R_\mathrm{PVEN}$
+                        & $0.4\,x_0$ & $2.5\,x_0$ \\
+Compliance ($C$)       & $C_\mathrm{SAR}$, $C_\mathrm{SVEN}$,
+                          $C_\mathrm{PAR}$, $C_\mathrm{PVEN}$
+                        & $0.5\,x_0$ & $2.0\,x_0$ \\
+Elastance ($E$)        & $E_{\mathrm{A/B},\mathrm{LV}}$,
+                          $E_{\mathrm{A/B},\mathrm{RV}}$, $E_{\mathrm{A},\mathrm{LA}}$,
+                          $E_{\mathrm{A},\mathrm{RA}}$
+                        & $0.5\,x_0$ & $2.0\,x_0$ \\
+Unstressed volume ($V_0$) & $V_{0,\mathrm{LV}}$, $V_{0,\mathrm{RV}}$,
+                             $V_{0,\mathrm{LA}}$, $V_{0,\mathrm{RA}}$
+                           & $0.6\,x_0$ & $1.7\,x_0$ \\
+VSD discharge coefficient & $C_d$
+                           & $0.8\,x_0$ & $1.2\,x_0$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsubsection{Output Metrics and Uncertainty Quantification}
+\label{sec:gsa_outputs}
+
+Sobol' indices were computed for each combination of uncertain
+parameter and hemodynamic output metric. The full set of output
+metrics evaluated is listed in Table~\ref{tab:gsa_outputs}, grouped
+by clinical function. Primary metrics that directly reflect
+shunt severity and ventricular performance received particular
+attention as the GSA targets governing the parameter screening mask.
+
+\begin{table}[ht]
+\centering
+\caption{Hemodynamic output metrics evaluated in the GSA,
+         grouped by function. Primary metrics are used for
+         parameter screening (Section~\ref{sec:screening}).}
+\label{tab:gsa_outputs}
+\begin{tabular}{lll}
+\toprule
+\textbf{Group} & \textbf{Metric} & \textbf{Unit} \\
+\midrule
+\multirow{2}{*}{Shunt / flow}
+  & $Q_p/Q_s$ (pulmonary-to-systemic flow ratio) & --- \\
+  & $\overline{Q}_\mathrm{shunt}$ (mean VSD shunt flow) & mL\,s$^{-1}$ \\
+\midrule
+\multirow{3}{*}{Pulmonary pressures}
+  & $\overline{P}_\mathrm{PAR}$ (mean PA pressure) & mmHg \\
+  & $P_\mathrm{PAR,max}$, $P_\mathrm{PAR,min}$ (systolic/diastolic) & mmHg \\
+  & PVR (pulmonary vascular resistance) & WU \\
+\midrule
+\multirow{2}{*}{Systemic}
+  & $\overline{P}_\mathrm{SAR}$ (mean systemic arterial pressure) & mmHg \\
+  & SVR (systemic vascular resistance) & WU \\
+\midrule
+\multirow{2}{*}{Atrial pressures}
+  & $\overline{P}_\mathrm{RAP}$ (mean right atrial pressure) & mmHg \\
+  & $\overline{P}_\mathrm{LAP}$ (mean left atrial pressure)  & mmHg \\
+\midrule
+\multirow{4}{*}{Ventricular volumes / function}
+  & LVEDV, LVESV & mL \\
+  & RVEDV, RVESV & mL \\
+  & LVEF & --- \\
+  & RVEF & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Surrogate adequacy was monitored using the leave-one-out error reported by
+UQLab for each output-specific PCE. Because Sobol indices were obtained
+analytically from the PCE coefficients, Jansen bootstrap confidence intervals
+were not assigned to the accepted P1 indices. The finite 128-point experimental
+design should therefore be interpreted as a screening analysis; index magnitude
+and ranking, rather than unsupported precision, guided parameter reduction.
+
+\subsubsection{Parameter Screening and Optimization Mask}
+\label{sec:screening}
+
+Following index computation, a binary screening mask
+$\mathbf{m} \in \{0,1\}^d$ was constructed to select the
+active parameters for calibration. Parameter $X_i$ was
+designated active if its total-order index exceeded a threshold
+$\tau$ on at least one primary output metric:
+
+\begin{equation}
+    m_i = \mathbf{1}\!\left[
+            \max_{k \in \mathcal{K}_\mathrm{primary}}
+            \hat{S}_{T_i}^{(k)} \geq \tau
+          \right], \qquad \tau = 0.10
+    \label{eq:screening_mask}
+\end{equation}
+
+\noindent where $\mathcal{K}_\mathrm{primary}$ denotes the case-profile-permitted
+screening set used by the implementation: the five primary metrics
+($Q_p/Q_s$, mean pulmonary arterial pressure, PVR, mean systemic arterial
+pressure, and cardiac output) together with available secondary metrics. This
+conservative union retained parameters important to clinically informative
+secondary behavior, including ventricular volumes. The symbol is retained for
+consistency with the prespecified equation. The threshold $\tau = 0.10$ was used as a
+pragmatic parameter-screening rule and is consistent with
+recommendations in the GSA literature for parameter fixing in
+physiological models~\cite{Saltelli2010}.
+A safety guard ensured that at least one parameter remained
+active regardless of index values, preventing a degenerate
+optimization problem.
+
+Parameters with $m_i = 0$ were fixed at their allometrically
+scaled values (Section~\ref{sec:scaling}) throughout calibration,
+reducing the effective dimensionality of the optimization
+problem and improving the numerical conditioning of the
+Hessian approximation in the L-BFGS step.
+
+\subsection{Simulation Scenarios}
+\label{sec:scenarios}
+
+Two simulation scenarios were defined using the same closed-loop model
+structure. The pre-closure scenario was calibrated and validated against
+P1 clinical measurements. The post-closure scenario was a mechanistic
+in-silico experiment initialized from the accepted pre-closure parameter
+set, with the shunt pathway functionally removed. \textbf{Unlike the
+generic idealized-scenario framing, real post-closure catheter
+measurements were in fact available for P1 (\S\ref{sec:data_collection}),
+so the post-closure scenario is evaluated below as a genuine out-of-sample
+prediction (\S\ref{sec:post_closure_results}), not merely an idealized
+what-if simulation with no ground truth.} No post-closure re-calibration
+was performed: predicted changes are attributable to shunt elimination
+alone, not to any refit of the remaining parameters.
+
+\subsubsection{Scenario Definitions}
+\label{sec:scenario_def}
+
+\paragraph{Pre-closure scenario.}
+The pre-closure scenario represents the patient's cardiovascular
+state with an unrepaired VSD. The shunt branch connecting the left
+and right ventricles is active, with $R_\mathrm{VSD}$ assigned
+from catheterization and echocardiography data using one of two
+methods described in Section~\ref{sec:rvsd_init}. This scenario
+captures the characteristic left-to-right shunting physiology,
+with pulmonary volume overload, elevated $Q_p/Q_s$, and increased
+pulmonary arterial pressure~\cite{Ferrero2026Shunts,Colebank2026}.
+
+\paragraph{Post-closure scenario.}
+The post-closure scenario represents functional elimination of the
+interventricular communication following transcatheter closure. This
+is implemented by setting:
+
+\begin{equation}
+    R_\mathrm{VSD}^{\,\mathrm{post}} = 10^6\
+    \mathrm{mmHg{\cdot}s{\cdot}mL^{-1}}
+    \label{eq:rvsd_closed}
+\end{equation}
+
+\noindent and, where the shunt is represented by an explicit orifice area
+rather than a resistance alone, zeroing that area directly -- a resistance
+increase by itself is a numerical no-op for an orifice-mode shunt model and
+does not close it. Both closure conditions are asserted, not assumed:
+$Q_\mathrm{sh} \approx 0$ to numerical precision is verified directly
+against the shunt flow law before the prediction is reported, rather than
+inferred from the resistance value alone. All other patient-specific parameters were held at their
+accepted pre-closure values so that predicted changes could be attributed
+to shunt elimination rather than to an unmeasured post-closure recalibration.
+
+\subsubsection{Patient-Specific Initialization}
+\label{sec:vsd_initialization}
+\label{sec:rvsd_init}
+
+The pre-closure VSD shunt resistance was initialized
+patient-specifically from clinical catheterization data using one
+of two methods, selected based on data availability.
+
+\paragraph{Method A — Ohm's law from measured gradient and flow.}
+When both the trans-septal pressure gradient and the shunt flow
+rate were available from cardiac catheterization, $R_\mathrm{VSD}$
+was estimated directly via Ohm's law applied to the shunt branch:
+
+\begin{equation}
+    R_\mathrm{VSD}
+    = \frac{\overline{\Delta P}_\mathrm{VSD}}{\bar{Q}_\mathrm{sh}}
+    = \frac{\kappa \cdot \Delta P_\mathrm{peak}}{Q_\mathrm{sh}}
+    \label{eq:rvsd_ohm}
+\end{equation}
+
+\noindent where $\Delta P_\mathrm{peak}$ is the peak
+interventricular gradient measured by Doppler echocardiography,
+$\kappa = 0.5$ is a peak-to-mean conversion factor, and
+$Q_\mathrm{sh}$ is the mean shunt flow rate converted to
+$\mathrm{mL{\cdot}s^{-1}}$.
+
+\paragraph{Method B — Gorlin orifice equation from defect geometry.}
+When shunt flow data were unavailable but defect diameter was
+reported, the effective orifice area was computed as:
+
+\begin{equation}
+    A_\mathrm{VSD} = \pi \left(\frac{D_\mathrm{VSD}}{2}\right)^2
+    \label{eq:vsd_area}
+\end{equation}
+
+\noindent and the shunt flow estimated via the Gorlin orifice
+equation:
+
+\begin{equation}
+    Q_\mathrm{sh}
+    = C_c \cdot A_\mathrm{VSD}
+      \sqrt{\frac{2\,\Delta P_\mathrm{ref}}{\rho_\mathrm{blood}}}
+    \label{eq:gorlin}
+\end{equation}
+
+\noindent where $C_c = 0.7$ is the orifice discharge coefficient,
+$\rho_\mathrm{blood} = 1060\ \mathrm{kg{\cdot}m^{-3}}$ is blood
+density, and $\Delta P_\mathrm{ref} = 20\ \mathrm{mmHg}$ is an
+assumed reference mean interventricular gradient. The resulting
+flow was then substituted into Eq.~(\ref{eq:rvsd_ohm}) to obtain
+$R_\mathrm{VSD}$. In both methods, the initialized value served
+as the starting point $x_{0,\mathrm{VSD}}$ for the bounded
+optimizer in Section~\ref{sec:calibration}.
+
+\subsubsection{Vascular Resistance Initialization from Clinical Data}
+\label{sec:svr_pvr_init}
+
+Clinical catheterization reports Wood unit values for systemic
+vascular resistance (SVR) and pulmonary vascular resistance (PVR)
+as single aggregate quantities. These were distributed
+proportionally across the individual model compartments to produce
+a physiologically consistent starting state before calibration.
+
+For the systemic circuit, the total clinical SVR was converted to
+mechanical units ($\mathrm{mmHg{\cdot}s{\cdot}mL^{-1}}$) and
+distributed across $R_\mathrm{SAR}$, $R_\mathrm{SC}$, and
+$R_\mathrm{SVEN}$ in proportion to their scaled reference values:
+
+\begin{equation}
+    \rho_\mathrm{sys}
+    = \frac{\mathrm{SVR}_\mathrm{mech}}
+           {R_\mathrm{SAR} + R_\mathrm{SC} + R_\mathrm{SVEN}},
+    \qquad
+    R_i \leftarrow R_i \cdot \rho_\mathrm{sys},
+    \quad i \in \{\mathrm{SAR, SC, SVEN}\}
+    \label{eq:svr_dist}
+\end{equation}
+
+For the pulmonary circuit, the capillary compartments
+($R_\mathrm{PCOX}$, $R_\mathrm{PCNO}$) are arranged in parallel,
+giving an equivalent capillary resistance
+$R_\mathrm{cap} = (R_\mathrm{PCOX}^{-1} + R_\mathrm{PCNO}^{-1})^{-1}$.
+The total PVR is then distributed across $R_\mathrm{PAR}$,
+$R_\mathrm{cap}$, and $R_\mathrm{PVEN}$:
+
+\begin{equation}
+    \rho_\mathrm{pul}
+    = \frac{\mathrm{PVR}_\mathrm{mech}}
+           {R_\mathrm{PAR} + R_\mathrm{cap} + R_\mathrm{PVEN}},
+    \qquad
+    R_i \leftarrow R_i \cdot \rho_\mathrm{pul},
+    \quad i \in \{\mathrm{PAR, PCOX, PCNO, PVEN}\}
+    \label{eq:pvr_dist}
+\end{equation}
+
+\noindent This initialization ensures that the model's aggregate
+SVR and PVR match their clinical counterparts before any
+optimization step is applied, substantially reducing the number
+of calibration iterations required.
+
+\subsubsection{ODE Integration and Steady-State Detection}
+\label{sec:ode_integration}
+
+The state-variable ODE system
+$\dot{\mathbf{x}} = f(\mathbf{x}, t;\, \boldsymbol{\theta})$
+was integrated numerically using MATLAB's \texttt{ode15s} solver,
+which implements a variable-step, variable-order
+Backward Differentiation Formula (BDF) method of orders 1–5,
+well-suited to the stiff dynamics arising from the switching
+valve elements and the disparate time scales of cardiac and
+vascular compartments~\cite{Ferrero2026Shunts}. The solver was
+configured with a maximum step size of $T_\mathrm{HB}/50$, where
+$T_\mathrm{HB} = 60/\mathrm{HR}$ is the cardiac cycle period,
+and an output refinement factor of 4 to ensure adequate temporal
+resolution of pressure and flow waveforms.
+
+The simulation was advanced cycle-by-cycle, with the end-state of
+each cycle used as the initial condition of the next, until a
+periodic steady state was detected. Steady-state convergence was
+assessed at the end of each cycle by comparing peak pressures and
+volumes against those of the preceding cycle:
+
+\begin{equation}
+    \max_i \left| P_{i,\mathrm{peak}}^{(n)}
+                - P_{i,\mathrm{peak}}^{(n-1)} \right|
+    < \delta_P,
+    \qquad
+    \max_i \left| V_{i,\mathrm{peak}}^{(n)}
+                - V_{i,\mathrm{peak}}^{(n-1)} \right|
+    < \delta_V
+    \label{eq:ss_criterion}
+\end{equation}
+
+Table~\ref{tab:sim_settings} summarises the solver and
+steady-state detection settings used in the final validated
+simulation (distinct from the looser tolerances used during
+calibration; see Section~\ref{sec:calibration}).
+
+\begin{table}[ht]
+\centering
+\caption{ODE solver and steady-state detection settings for
+         the final validated simulation. Calibration runs use
+         relaxed tolerances ($\delta_P = 0.5\ \mathrm{mmHg}$,
+         $\delta_V = 0.5\ \mathrm{mL}$, $\mathrm{rtol} = 10^{-8}$,
+         $\mathrm{atol} = 10^{-10}$) to reduce computational cost.}
+\label{tab:sim_settings}
+\begin{tabular}{lll}
+\toprule
+\textbf{Setting} & \textbf{Value} & \textbf{Description} \\
+\midrule
+ODE solver              & \texttt{ode15s} (BDF, orders 1–5) & Stiff solver \\
+Max step size           & $T_\mathrm{HB}/50$               & Per cardiac cycle \\
+Output refinement       & 4                                 & Sub-steps per step \\
+ODE \texttt{rtol}       & $10^{-7}$                        & Relative tolerance \\
+ODE \texttt{atol}       & $10^{-8}$                        & Absolute tolerance \\
+Max cycles to SS        & 80                                & Upper bound \\
+SS pressure tolerance $\delta_P$ & $0.1\ \mathrm{mmHg}$  & Cycle-to-cycle $\Delta P$ \\
+SS volume tolerance $\delta_V$   & $0.1\ \mathrm{mL}$    & Cycle-to-cycle $\Delta V$ \\
+SS flow tolerance       & $0.5\%$ (relative)                & Cycle-to-cycle $\Delta Q$ \\
+Cycles retained         & Last 2                            & For post-processing \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Following convergence, hemodynamic output metrics were extracted
+from the final two cardiac cycles only. Cycle-averaged quantities
+such as mean pressures and mean flows were computed as:
+
+\begin{equation}
+    \bar{P}_i = \frac{1}{T_\mathrm{HB}}
+                \int_0^{T_\mathrm{HB}} P_i(t)\, \mathrm{d}t
+    \label{eq:mean_pressure}
+\end{equation}
+
+Peak systolic and diastolic values were extracted as the
+cycle maximum and minimum respectively. Derived indices
+(SVR, PVR, $Q_p/Q_s$, EF) were then computed from these
+per-cycle means using the unit conventions and pressure--flow definitions
+specified below.
+
+\subsection{Model Validation Metrics}
+\label{sec:validation}
+
+Model outputs extracted from the final two steady-state cardiac
+cycles were compared against patient-specific clinical measurements
+obtained from cardiac catheterization and echocardiography.
+Three complementary measures of agreement were applied to
+quantify model fidelity at the per-metric, aggregate, and
+primary-target levels.
+
+Because this paper reports one patient, every error and acceptance result
+is patient-specific. No cohort mean, standard deviation, Bland--Altman
+analysis, or population-level confidence interval was calculated from
+multiple patients; such statistics would be uninterpretable for $N=1$
+patients. \textbf{The mean $\pm$ SD reported in \S\ref{sec:uncertainty} is
+a different quantity: it summarizes run-to-run variability across three
+independent repeats of the same patient's pipeline (a numerical
+reproducibility check), not variability across a patient cohort, and must
+not be read as the latter.}
+
+\subsubsection{Per-Metric Percentage Error}
+
+For each hemodynamic output metric $k$ with a valid clinical
+reference value $y_k^\mathrm{clin}$, the signed relative
+percentage error was computed as:
+
+\begin{equation}
+    \varepsilon_k
+    = 100 \times
+      \frac{y_k^\mathrm{model} - y_k^\mathrm{clin}}
+           {\max\!\left(|y_k^\mathrm{clin}|,\, \epsilon\right)}
+    \label{eq:pct_error}
+\end{equation}
+
+\noindent where $\epsilon = 10^{-9}$ guards against division by
+zero and metrics with missing clinical values were excluded.
+The sign of $\varepsilon_k$ indicates the direction of model
+deviation: positive values denote overprediction and negative
+values underprediction.
+
+\subsubsection{Normalized Root Mean Square Error}
+
+An aggregate scalar error was computed as the normalized RMSE
+across all $K$ valid metrics:
+
+\begin{equation}
+    \mathrm{RMSE}
+    = \sqrt{\frac{1}{K}
+            \sum_{k=1}^{K}
+            \left(
+                \frac{y_k^\mathrm{model} - y_k^\mathrm{clin}}
+                     {\max\!\left(|y_k^\mathrm{clin}|,\, \epsilon\right)}
+            \right)^2}
+    \label{eq:nrmse}
+\end{equation}
+
+\noindent This dimensionless quantity was evaluated both before
+calibration ($\mathrm{RMSE}_\mathrm{base}$, using allometrically
+scaled parameters only) and after calibration
+($\mathrm{RMSE}_\mathrm{cal}$). The percentage improvement
+attributable to calibration was reported as:
+
+\begin{equation}
+    \Delta\mathrm{RMSE}
+    = 100 \times
+      \frac{\mathrm{RMSE}_\mathrm{base} - \mathrm{RMSE}_\mathrm{cal}}
+           {\mathrm{RMSE}_\mathrm{base}}
+    \label{eq:rmse_improvement}
+\end{equation}
+
+\subsubsection{Primary Metric Acceptance Gate}
+
+Five directly measured primary metrics were subject to a strict
+binary acceptance criterion:
+
+\begin{equation}
+    \mathrm{Pass}_k
+    = \mathbf{1}\!\left[|\varepsilon_k| \leq 10\%\right],
+    \qquad
+    k \in \left\{\overline{P}_\mathrm{RAP},\;
+                 \overline{P}_\mathrm{PAR},\;
+                 \overline{P}_\mathrm{SAR},\;
+                 Q_p/Q_s,\;
+                 \mathrm{CO}\right\}
+    \label{eq:gate}
+\end{equation}
+
+\noindent These metrics jointly constrain right-heart filling pressure,
+pulmonary and systemic loading, shunt severity, and net systemic flow. The
+patient-specific acceptance threshold was 10\% absolute relative error for each
+primary metric; values within 5\% were additionally labelled excellent fits.
+Four further directly measured metrics (systolic/diastolic pulmonary and
+systemic pressures) are governed under the same 10\% gate as soft targets,
+bringing the total governed set to 9. LVEF was not used as an independent hard acceptance target because it was
+derived from LV end-diastolic and end-systolic volumes and was retained as a
+consistency-only metric.
+
+\subsubsection{Goodness-of-fit diagnostic ($\chi^2$)}
+\label{sec:chi2}
+
+\textbf{In addition to the pass/fail gate above, a $\chi^2$ goodness-of-fit
+diagnostic is computed post hoc as $\chi^2 = \sum_k z_k^2$ over the governed
+metrics, using the same per-metric $\sigma_k$ as the optional $\sigma$-weighted
+objective (\S\ref{sec:calibration}).} $\chi^2/N$ (with $N$ the number of
+governed observations) is reported as a descriptive indicator only, using the
+conventional informal bands: $\chi^2/N \gg 2$ suggests the model
+under-fits or the target/uncertainty specification is mismatched;
+$\chi^2/N$ roughly in $[0.5, 2]$ is consistent with an adequately specified
+fit; $\chi^2/N \ll 0.5$ is a warning sign for overfitting or
+underestimated uncertainty. \textbf{Because $N-p<0$ for the full
+12-parameter set (\S\ref{sec:identifiability}), $\chi^2/N$ computed there is
+a conservative, not an inflated, reading -- it does not itself certify
+identifiability.} $\chi^2/N$ does not gate the ACCEPT/REJECT
+calibration status; it is reported alongside the gate as a complementary,
+non-binary diagnostic.
+
+\subsubsection{Unit Conventions}
+
+Resistances are stored internally in
+$\mathrm{mmHg{\cdot}s{\cdot}mL^{-1}}$ and converted to Wood
+units for clinical reporting via $1\ \mathrm{WU} =
+(60/1000)\ \mathrm{mmHg{\cdot}s{\cdot}mL^{-1}}$. Ejection
+fractions are stored and compared as dimensionless fractions
+in $[0, 1]$. Flow rates are reported in
+$\mathrm{L{\cdot}min^{-1}}$ after conversion from the internal
+unit of $\mathrm{mL{\cdot}s^{-1}}$.
+
+\subsection{Computational Environment and Runtime}
+\label{sec:implementation}
+
+The model was implemented in MATLAB R2025a (version 25.1) on Microsoft
+Windows 11. Optimization Toolbox 25.1 was used for constrained parameter
+estimation, and Parallel Computing Toolbox 25.1 supported parallel model
+evaluations. UQLab provided sparse PCE fitting and analytical Sobol-index
+extraction; the bundled SoBioS workflow supplied the implementation pattern.
+Global Optimization Toolbox 25.1 was available for bounded auxiliary searches
+used by the calibration workflow. Computations
+were performed on an AMD Ryzen 5 5600H processor (6 cores, 12 threads) with
+16~GB RAM. A repeated forward-simulation benchmark required approximately
+1.12~s per evaluation. \textcolor{red}{[PLACEHOLDER: update the reported
+end-to-end pipeline runtime -- the multi-start (\S\ref{sec:multistart}),
+GSA-guided screening (\S\ref{sec:gsa_sampling}), and identifiability pass
+(\S\ref{sec:identifiability}) added to the pipeline since the original
+single-start 6.5-minute figure was measured substantially change the
+end-to-end wall-clock cost; report the actual observed runtime for the
+accepted 6-start P1 run instead of the stale single-start figure.]} The
+end-to-end value is an operational runtime on the study computer, not a
+hardware-independent benchmark.
+
+\subsection{Code and Data Availability}
+\label{sec:availability}
+
+Model source code, configuration files, and reproducibility documentation
+are available at \url{https://github.com/HafizAqilla/unified-vsd/tree/main}.
+Supporting non-identifiable model artifacts are archived at
+\url{https://drive.google.com/drive/folders/1hmr7MHX4tED3q7-P2GAH3KPp7WqdyoC-?usp=drive_link}.
+Raw catheterization, echocardiographic, and medical-record data are not
+publicly available because they contain protected pediatric health
+information and are governed by the ethics approval and parental consent.
+De-identified clinical targets sufficient to interpret the reported case
+are provided in Table~\ref{tab:patient_data}; additional access requests
+require approval from the corresponding author and RSAB Harapan Kita.
+
+% =========================================================================
+\section{Results}
+\label{sec:results}
+
+Results are presented in the same order as the workflow in Figure~\ref{fig:placeholder}: the pre-closure baseline and calibrated fit first (\S\ref{sec:results_calibration}), then the fair-prior scaling-method comparison that decides which allometric law the rest of the paper reports against (\S\ref{sec:results_scaling}), then the identifiability structure of the accepted fit (\S\ref{sec:results_identifiability}), and finally the genuine out-of-sample post-closure prediction (\S\ref{sec:results_post_closure}). Because a single pipeline execution cannot separate a stable result from a favorable draw of the multi-start search, every number above the per-run tables is additionally summarized across three independent repeats in \S\ref{sec:uncertainty}; that subsection, not any single run reported earlier, is the number this manuscript should ultimately stand behind.
+
+\textcolor{red}{[SECTION-LEVEL PLACEHOLDER, continued: every table below other than the structural column headers is a placeholder and must be replaced with the finalized 3-repeat uncertainty analysis before this manuscript is considered submission-ready. Where a single-run preliminary number already exists from the current codebase state, it is shown in red and explicitly marked preliminary; it must not be quoted as the final result.]}
+
+\subsection{Baseline and pre-closure calibration}
+\label{sec:results_calibration}
+
+The allometrically scaled baseline (\S\ref{sec:scaling}) is reported first because the calibration's own improvement is only informative relative to it: an already-good baseline leaves little room for calibration to demonstrate anything, while a poor baseline that calibration substantially corrects is stronger evidence that the fitted parameters, not the scaling law alone, are doing the work. The accepted P1 run reduced primary RMSE by 73.8\% relative to baseline and cleared 7 of the 9 governed targets; \S\ref{sec:uncertainty} reports whether this improvement is stable across repeats or specific to one multi-start draw.
+
+\textcolor{red}{[PLACEHOLDER: report, in the style of Table 4.11/4.12 of
+the companion pre-closure cohort thesis \cite{Subagyo2026Thesis}, the
+baseline (pre-calibration) versus calibrated NRMSE, per-metric percentage
+error table for all 9 governed metrics plus the consistency-only chamber
+metrics, and the primary-gate pass/fail table. Explain here whether P1 is
+reported as a single accepted run or as the repeat-1/2/3 uncertainty
+summary from \S\ref{sec:uncertainty}.]}
+
+\begin{figure}[h]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering\vspace{3cm}\textcolor{red}{[PLACEHOLDER FIGURE: pressure--volume (P--V) loop for LV and RV, pre-closure, baseline vs.\ calibrated vs.\ clinical target markers where available.]}\vspace{3cm}}}
+    \caption{\textcolor{red}{[PLACEHOLDER]} P--V loop, pre-closure, P1.}
+    \label{fig:pv_loop_pre}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering\vspace{3cm}\textcolor{red}{[PLACEHOLDER FIGURE: overlay of simulated vs.\ measured pressure waveforms (systemic arterial, pulmonary arterial, right atrial) over one cardiac cycle, pre-closure.]}\vspace{3cm}}}
+    \caption{\textcolor{red}{[PLACEHOLDER]} Pressure waveform overlay, pre-closure, P1.}
+    \label{fig:waveform_pre}
+\end{figure}
+
+\subsection{Scaling method comparison: Zhang versus Lundquist}
+\label{sec:results_scaling}
+
+Under the fair-prior comparison defined in \S\ref{sec:scaling_comparison} -- both laws cold-started, neither given a historical warm-start advantage -- the single-run screening pass in Table~\ref{tab:scaling_comparison} favors the weight-based Zhang prior over the BSA-based Lundquist prior by primary RMSE, though neither reaches full acceptance at screening budget and the gap is not yet characterized across repeats. The operational-arm comparison is reported separately because, for this patient, only the Lundquist path carries a historical accepted seed; a naive reading of the operational rows alone would measure that warm-start advantage rather than the scaling law itself.
+
+\textcolor{red}{[PLACEHOLDER: finalize Table~\ref{tab:scaling_comparison} (\S\ref{sec:scaling_comparison}) once the 3-repeat runs for both fair-prior arms are complete; add the operational-arm rows explicitly labelled as a separate, warm-start-confounded comparison, not a scaling-method comparison.]}
+
+\begin{figure}[h]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering\vspace{3cm}\textcolor{red}{[PLACEHOLDER FIGURE: bar chart of primary RMSE by arm (fair-prior Zhang, fair-prior Lundquist, operational Zhang, operational Lundquist), with per-repeat scatter or error bars once \S\ref{sec:uncertainty} is complete.]}\vspace{3cm}}}
+    \caption{\textcolor{red}{[PLACEHOLDER]} Scaling-method comparison, pre-closure, P1.}
+    \label{fig:scaling_comparison}
+\end{figure}
+
+\subsection{Multi-start convergence and parameter identifiability}
+\label{sec:results_identifiability}
+
+The six-start search (\S\ref{sec:multistart}) produced a wide spread of primary RMSE across starting points rather than six near-identical values, which is the intended evidence against under-convergence: if every start had landed on the same result regardless of where it began, that would suggest the optimizer stalled rather than genuinely searched. Separately, the post-calibration identifiability analysis (\S\ref{sec:identifiability}) found the full 12-parameter set poorly conditioned ($N-p=-3$) and identified a 7-parameter candidate with a substantially better condition number and positive degrees of freedom; \S\ref{sec:limitations} discusses why this candidate is reported as a lead, not a validated finding, until it is calibrated in its own right.
+
+\textcolor{red}{[PLACEHOLDER: report the multi-start RMSE spread across all
+starting points (\S\ref{sec:multistart}) as a table or box plot, and
+finalize Table~\ref{tab:identifiability} (\S\ref{sec:identifiability}) once
+the $p{=}7$ reduced set has been independently re-calibrated and its own
+gate/RMSE compared against the full $p{=}12$ result -- not just its
+condition number.]}
+
+\begin{figure}[h]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering\vspace{3cm}\textcolor{red}{[PLACEHOLDER FIGURE: parameter-identifiability heatmap -- pairwise correlation matrix of the scaled sensitivity matrix $S$, flagging the collinear pair(s) found in \S\ref{sec:identifiability}.]}\vspace{3cm}}}
+    \caption{\textcolor{red}{[PLACEHOLDER]} Parameter identifiability / correlation heatmap, pre-closure, P1.}
+    \label{fig:identifiability_heatmap}
+\end{figure}
+
+\subsection{Post-closure out-of-sample prediction}
+\label{sec:post_closure_results}
+\label{sec:results_post_closure}
+
+This is the strongest and most easily misread claim in the paper, so it is stated plainly rather than folded into an aggregate score: the pre-closure-fitted parameter set, with only the shunt pathway closed and nothing else adjusted, was used to predict measured post-closure catheter pressures it never saw during fitting. In the current single-run result, systemic pressures track reasonably well while pulmonary pressures are consistently over-predicted; \S\ref{sec:limitations} discusses why this pattern, rather than the aggregate $\chi^2/N$ alone, is the more informative reading of what the model does and does not capture across the intervention.
+
+\textcolor{red}{[PLACEHOLDER: this is the genuine out-of-sample test
+described in \S\ref{sec:scenario_def} -- real post-closure catheter
+pressures, and, if the post-closure chamber-volume timing question
+referenced in \S\ref{sec:data_reconciliation} is resolved consistently
+with the codebase's current interpretation, real post-closure chamber
+volumes/EF as well, none used to fit the pre-closure parameters. Report
+per-metric measured-vs-predicted values, \%error, z-score, count within
+10\%, and $\chi^2/N$ (\S\ref{sec:chi2}). State plainly, per \S\ref{sec:limitations}, whether this generalizes well or poorly -- a large error
+here is itself a finding, not a result to be minimized. Compare, if
+available, against Dzakiyah's dedicated post-closure prediction/optimization
+model \cite{Dzakiyah2026Thesis}, which was built and validated specifically
+for this scenario rather than repurposed from the pre-closure fit.]}
+
+\begin{figure}[h]
+    \centering
+    \fbox{\parbox{0.9\linewidth}{\centering\vspace{3cm}\textcolor{red}{[PLACEHOLDER FIGURE: pre-closure vs.\ post-closure P--V loop overlay, and/or predicted-vs-measured scatter for the post-closure target set with the identity line and $\pm$10\% band drawn.]}\vspace{3cm}}}
+    \caption{\textcolor{red}{[PLACEHOLDER]} Post-closure out-of-sample prediction, P1.}
+    \label{fig:post_closure_prediction}
+\end{figure}
+
+\subsection{Run-to-run uncertainty analysis (three independent repeats)}
+\label{sec:uncertainty}
+
+Every result reported in \S\ref{sec:results_calibration}--\S\ref{sec:results_post_closure} above is, at the time of this outline, drawn from a single pipeline execution. That is sufficient to demonstrate that the pipeline runs end to end and produces a physiologically coherent candidate, but it is not sufficient to claim the specific numbers quoted are stable rather than a favorable (or unfavorable) draw of the multi-start search. This subsection exists to close that gap before any number in this manuscript is treated as final.
+
+\textcolor{red}{[SECTION PLACEHOLDER -- this is the specific deliverable
+requested for this outline pass. Three independent repeats of the full
+pre-closure pipeline (scaling $\to$ GSA screening $\to$ multi-start
+calibration $\to$ validation) are to be executed with different
+multi-start random seeds, holding the clinical inputs and calibration
+recipe fixed, to characterize run-to-run numerical variability distinct
+from patient-to-patient variability (which $N=1$ cannot address). The
+post-closure prediction (\S\ref{sec:post_closure_results}) should be
+recomputed once per repeat's accepted candidate, not only once, since the
+prediction is itself a deterministic function of which candidate is
+accepted.]}
+
+\begin{table*}[ht]
+\centering
+\caption{Run-to-run uncertainty across three independent pipeline repeats, pre-closure, P1. \textcolor{red}{PLACEHOLDER -- only Repeat 1 has been executed as of this outline; Repeats 2-3 are pending (planned for the same evening this outline was drafted, per session notes).}}
+\label{tab:uncertainty}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Metric} & \textbf{Repeat 1} & \textbf{Repeat 2} & \textbf{Repeat 3} & \textbf{Mean $\pm$ SD} & \textbf{Clinical target} \\
+\midrule
+RAP\_mean (mmHg)        & 5.29  & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 5 \\
+PAP\_mean (mmHg)        & 15.62 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 15 \\
+SAP\_mean (mmHg)        & 79.78 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 77 \\
+$Q_p/Q_s$ (--)          & 1.137 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 1.194 \\
+CO (L/min)              & 2.95  & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 3.423 \\
+PAP\_min (mmHg)         & 11.09 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 10 \\
+PAP\_max (mmHg)         & 20.60 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 20 \\
+SAP\_min (mmHg)         & 62.21 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 57 \\
+SAP\_max (mmHg)         & 98.58 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & 100 \\
+\midrule
+Primary RMSE (governed) & 0.0739 & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & --- \\
+Governed gate (of 9)    & 7/9    & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & --- \\
+$\chi^2/N$ (pre-closure) & 1.14  & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & consistent band: 0.5--2.0 \\
+Calibration status      & Physiological, poor fit & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & --- & ACCEPT \\
+$\chi^2/N$ (post-closure prediction) & \textcolor{red}{[see \S\ref{sec:post_closure_results}]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & \textcolor{red}{[TBD]} & consistent band: 0.5--2.0 \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\textcolor{red}{[PLACEHOLDER: once Repeats 2-3 land, add one paragraph
+here interpreting the spread -- e.g.\ whether the accepted candidate is
+stable across repeats (tight SD, same qualifying/failing metrics each
+time) or whether the reported single-run numbers elsewhere in this
+manuscript happened to land on a favorable or unfavorable draw. If the
+governed-gate pass/fail set changes between repeats, that must be reported
+explicitly, not smoothed over by the mean.]}
+
+% =========================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+The workflow demonstrated here produces a patient-specific pre-closure fit that is quantitatively evaluable rather than merely plausible-looking, a fair rather than assumed comparison between two published pediatric scaling laws, and -- unusually for a single-patient lumped-parameter study -- a genuine out-of-sample test against real post-closure measurements rather than an idealized simulated scenario. The discussion below is organized around what these results do and do not license as claims, deliberately separating what the pipeline can already show from what still needs the three-repeat confirmation in \S\ref{sec:uncertainty}.
+
+\subsection{Principal findings}
+\textcolor{red}{[PLACEHOLDER: summarize, once \S\ref{sec:uncertainty} is
+final, (i) pre-closure hemodynamic fit quality and stability across
+repeats, (ii) the Zhang-vs-Lundquist fair-prior comparison outcome and
+whether it replicates across repeats, (iii) how much the identifiability
+picture improves under the $p{=}7$ reduced set once independently
+validated, and (iv) the post-closure prediction's honest strengths
+(systemic pressures) and weaknesses (pulmonary pressures and, if included,
+chamber function).]}
+
+\subsection{Comparison with related work}
+\textcolor{red}{[PLACEHOLDER: situate the fair-prior scaling-comparison
+result against Zhang \cite{zhang2019multiscale} and Lundquist
+\cite{Lundquist2025} directly, and situate the post-closure prediction
+result against Dzakiyah's dedicated post-closure model
+\cite{Dzakiyah2026Thesis} -- a purpose-built post-closure model should be
+expected to outperform a pre-closure-fitted forward prediction, and the
+size of that gap is itself an informative result about how much
+post-closure-specific information the pre-closure fit is missing.]}
+
+\subsection{Limitations}
+\label{sec:limitations}
+\textcolor{red}{[PLACEHOLDER, non-exhaustive starting list:]}
+\begin{itemize}[leftmargin=1.5em]
+    \item Single-patient (\(N=1\)) proof-of-concept; no claim of population-level performance.
+    \item Purposeful case selection (an accepted-run patient) introduces selection bias, distinct from the run-to-run numerical uncertainty reported in \S\ref{sec:uncertainty}.
+    \item Structural non-identifiability at the full $p=12$ parameter count (\S\ref{sec:identifiability}); the $p=7$ reduced candidate is not yet independently validated.
+    \item The clinical-data reconciliation in \S\ref{sec:data_reconciliation} (and, if applicable, any chamber-volume timing reinterpretation) means earlier internal analyses of this same patient used different input values; this manuscript reports the reconciled values only, and that history should be disclosed rather than hidden.
+    \item Post-closure prediction uses the pre-closure-fitted parameter set unchanged; it is not a claim that no post-closure remodeling occurs, only a test of how far a static parameter set generalizes across the intervention.
+\end{itemize}
+
+% =========================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+This case study set out to build a patient-specific pre- and post-closure lumped-parameter model for a single pediatric VSD patient, compare two candidate pediatric scaling laws under fair conditions rather than assuming one, and test that model's post-closure prediction against real, not simulated, follow-up measurements. \textcolor{red}{[PLACEHOLDER -- two to four further sentences once \S\ref{sec:results} and \S\ref{sec:discussion} are final. Provisional shape only: (1) restate whether the pre-closure fit is numerically reproducible across the three repeats in \S\ref{sec:uncertainty}, stated honestly either way; (2) state the scaling-comparison finding as a single-patient comparison, not a universal claim; (3) state the post-closure generalization finding plainly, including its weak points, since that is this paper's most clinically consequential result; (4) name independently validating the $p{=}7$ reduced parameter set as the concrete next step this work identifies but does not itself complete.]}
+
+\appendix
+\section{Nominal Adult Reference Parameters}
+\label{app:nominal_parameters}
+
+Table~\ref{tab:nominal_parameters} reports the complete nominal parameter
+set used before patient-specific scaling. The implementation adapts the
+published Ferrero intracardiac-shunt architecture \cite{Ferrero2026Shunts}
+and incorporates locally harmonized baseline values documented in the
+released code. The table therefore reports the values actually used by the
+model rather than attributing every entry to a single source.
+
+\begin{table*}[ht]
+\centering
+\caption{Nominal adult reference values used before pediatric scaling and patient-specific initialization.}
+\label{tab:nominal_parameters}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{2.7cm}}
+\toprule
+\textbf{Group} & \textbf{Parameter(s)} & \textbf{Nominal value(s)} & \textbf{Unit} \\
+\midrule
+Heart rate & HR & 75 & bpm \\
+LV elastance & $E_{A,LV}$; $E_{B,LV}$ & 3.5; 0.08 & mmHg/mL \\
+RV elastance & $E_{A,RV}$; $E_{B,RV}$ & 0.5; 0.042 & mmHg/mL \\
+LA elastance & $E_{A,LA}$; $E_{B,LA}$ & 0.35; 0.20 & mmHg/mL \\
+RA elastance & $E_{A,RA}$; $E_{B,RA}$ & 0.30; 0.10 & mmHg/mL \\
+Chamber $V_0$ & $V_{0,RA}$; $V_{0,RV}$; $V_{0,LA}$; $V_{0,LV}$ & 3.5385; 8.4067; 2.3085; 3.5385 & mL \\
+Systemic resistance & $R_{SAR}$; $R_{SC}$; $R_{SVEN}$ & 0.050; 0.80; 0.050 & mmHg$\cdot$s/mL \\
+Systemic compliance & $C_{SAR}$; $C_{SC}$; $C_{SVEN}$ & 1.33; 1.000; 30.0 & mL/mmHg \\
+Systemic inertance & $L_{SAR}$; $L_{SVEN}$ & $1.0\times10^{-5}$; $1.0\times10^{-5}$ & mmHg$\cdot$s$^2$/mL \\
+Systemic vascular $V_0$ & $V_{0,SAR}$; $V_{0,SC}$; $V_{0,SVEN}$ & 90.9; 49.0; 450.0 & mL \\
+Pulmonary resistance & $R_{PAR}$; $R_{PCOX}$; $R_{PCNO}$; $R_{PVEN}$ & 0.010; 0.0630; 1.2640; 0.020 & mmHg$\cdot$s/mL \\
+Pulmonary compliance & $C_{PAR}$; $C_{PCOX}$; $C_{PCNO}$; $C_{PVEN}$ & 5.000; 0.1983; 0.0017; 13.750 & mL/mmHg \\
+Pulmonary inertance & $L_{PAR}$; $L_{PVEN}$ & $1.0\times10^{-5}$; $1.0\times10^{-5}$ & mmHg$\cdot$s$^2$/mL \\
+Pulmonary vascular $V_0$ & $V_{0,PAR}$; $V_{0,PCOX}$; $V_{0,PCNO}$; $V_{0,PVEN}$ & 196.0; 0; 0; 0 & mL \\
+Valve resistance & $R_{valve,open}$; $R_{valve,closed}$ & $4.0\times10^{-3}$; $9.4168\times10^4$ & mmHg$\cdot$s/mL \\
+Valve smoothing & $\epsilon_{valve}$; $\epsilon_{VSD}$ & 0.5; 0.1 & mmHg \\
+VSD reference & $R_{VSD,closed}$; $C_d$; $\rho_{blood}$; $\Delta P_{ref}$ & $1.0\times10^6$; 0.7; 1060; 20 & mixed$^{a}$ \\
+Ventricular timing & $T_{c,LV}$; $T_{r,LV}$; $T_{c,RV}$; $T_{r,RV}$ & 0.265; 0.40; 0.30; 0.40 & fraction of $T_{HB}$ \\
+LA timing & $t_{ac,LA}$; $T_{c,LA}$; $T_{r,LA}$ & 0.75; 0.10; 0.80 & fraction of $T_{HB}$ \\
+RA timing & $t_{ac,RA}$; $T_{c,RA}$; $T_{r,RA}$ & 0.80; 0.10; 0.70 & fraction of $T_{HB}$ \\
+Solver control & steady cycles; retained cycles; batch size & 80; 2; 5 & cardiac cycles \\
+ODE tolerance & relative; absolute & $10^{-5}$; $10^{-6}$ & dimensionless \\
+Steady-state tolerance & pressure; volume; flow & 0.1; 0.1; 0.005 & mmHg; mL; relative \\
+\bottomrule
+\end{tabularx}
+
+\vspace{2pt}
+\footnotesize{$^{a}$Units in order: mmHg$\cdot$s/mL; dimensionless; kg/m$^3$; mmHg.}
+\end{table*}
+
+\textcolor{red}{[PLACEHOLDER: add refs.bib entries for
+\texttt{Dzakiyah2026Thesis} (Aisyah Dzakiyah Muthmainnah's post-closure
+thesis) and \texttt{Subagyo2026Thesis} (Muhammad Hafiz Aqilla S's
+pre-closure 9-patient cohort thesis) if they are to be cited as
+companion/source theses -- both are currently referenced above by these
+keys but not yet confirmed present in refs.bib.]}
+
+\printbibliography
+
+\end{document}
