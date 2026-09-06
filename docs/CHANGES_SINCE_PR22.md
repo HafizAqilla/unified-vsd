@@ -826,6 +826,18 @@ assumed 10 mmHg pressure sigma of the RFA reading used as the fitted target);
 LVOT 1.2 cm / RVOT 1.4 cm diameters (Doppler VTIs blank, so echo Qp/Qs is not
 computable from them); and header vitals SpO2 88%, RR 28/min.
 
+**Addendum, 2026-09-06 (study-owner decision, after seeing the re-run
+results):** of the five consistency-only chamber values above, **LVEF,
+LVEDV, and LVESV are excluded from any publication-facing report** — the
+LV pair itself is internally implausible (SV_LV = 8.4 mL vs. ~34 mL implied
+by Qp), not just poorly fit, so it is not trustworthy enough to state as a
+finding. RVEDV and RVESV are unaffected by this and remain reportable. This
+is a reporting-only decision: the code, `config/patient_reyna.m`, the
+recipe, and the consistency-only tier all stay exactly as documented above
+— nothing was reverted to NaN, so the model still computes and exports all
+five for audit. See `docs/reyna_publication_readiness_results_20260906.md`
+§2.2 for where this applies to the actual calibrated result.
+
 ### 14.2 Why this invalidates every existing result in this document
 
 Sections 1-13 above report results calibrated against HR 136 and VSD diameter

@@ -128,12 +128,23 @@ from the governed primary RMSE by design (`primary_rmse_holdout`); its
 39.2% error is large and worth noting as a real limitation even though it
 does not count against the gate.
 
-Consistency-only chamber rows (never fitted, reported for transparency —
-see `docs/CHANGES_SINCE_PR22.md` §14 for why these are internally
-implausible by design): LVEF predicted 0.610 vs. clinical 0.2625 (+132%),
-LVEDV 45.66 vs. 32 (+42.7%), LVESV 17.80 vs. 23.6 (−24.6%), RVEDV 35.48 vs.
-30.5 (+16.3%), RVESV 9.09 vs. 12 (−24.2%). These are exactly what
-consistency-only means: reported honestly, never used to grade or fit.
+Consistency-only chamber rows (never fitted; see `docs/CHANGES_SINCE_PR22.md`
+§14 for why): RVEDV predicted 35.48 vs. clinical 30.5 mL (+16.3%), RVESV
+9.09 vs. 12 mL (−24.2%). These two are reported for transparency and are
+fine to quote.
+
+**LVEF, LVEDV, and LVESV are excluded from this and any publication-facing
+report (study-owner decision, 2026-09-06).** The model still computes and
+exports them in the full metric gate CSV for code-level transparency and
+audit — nothing in `config/patient_reyna.m` or the calibration pipeline
+changed — but their source values are the internally implausible LV pair
+documented in `docs/CHANGES_SINCE_PR22.md` §14 (SV_LV = 8.4 mL vs. an SV of
+roughly 34 mL implied by the protocol's own Qp = 4.087 L/min): the data
+itself, not just the model's fit to it, is not trustworthy enough to state
+as a finding. For the record, the raw numbers were LVEF predicted 0.610 vs.
+clinical 0.2625 (+132%), LVEDV 45.66 vs. 32 mL (+42.7%), LVESV 17.80 vs.
+23.6 mL (−24.6%) — kept here only so the exclusion is auditable, not as
+something to cite.
 
 Full data: `results/runs/20260906_002327_reyna_pre_surgery/tables/full_metric_gate_pre_surgery.csv`.
 
