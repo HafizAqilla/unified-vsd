@@ -17,17 +17,20 @@ Every prior results document in `docs/` is superseded and carries a banner
 pointing there.
 
 The Reyna clinical inputs were reconciled against the IRB-approved source
-protocol form in September 2026 (HR, VSD diameter, and pre-surgery chamber
-volumes all changed — see `docs/CHANGES_SINCE_PR22.md` §14), then re-run
-through the full statistical pipeline (σ-weighting, χ², identifiability,
-multi-start, out-of-sample holdout). Honest summary of that re-run: under a
-fair (no historical warm-start) prior, **Zhang scaling clearly beats
-Lundquist-BSA scaling** on this patient's data (RMSE 0.118 vs 0.222). A full
-6-start multi-start on the Zhang arm reaches primary RMSE 0.0739, governed
-gate 7/9, χ²/N = 1.14 (consistent, not overfit) — the best-supported single
-result this repository has produced for Reyna pre-surgery, but it does
-**not** reach ACCEPT status, and its **out-of-sample post-closure
-prediction is poor** (3 of 7 within 10%, χ²/N = 4.64). A parameter-reduction
+protocol form in September 2026 (HR and VSD diameter changed; the
+"pre-release occluder" chamber volumes were determined to be post-closure
+measurements, not pre-surgery ones — see `docs/CHANGES_SINCE_PR22.md` §14),
+then re-run through the full statistical pipeline (σ-weighting, χ²,
+identifiability, multi-start, out-of-sample holdout). Honest summary of
+that re-run: under a fair (no historical warm-start) prior, **Zhang scaling
+clearly beats Lundquist-BSA scaling** on this patient's data (RMSE 0.118 vs
+0.222). A full 6-start multi-start on the Zhang arm reaches primary RMSE
+0.0739, governed gate 7/9, χ²/N = 1.14 (consistent, not overfit) on the
+pre-surgery hemodynamics — the best-supported single result this
+repository has produced for Reyna, but it does **not** reach ACCEPT status.
+Its **out-of-sample post-closure prediction is poor, badly so once chamber
+function is counted**: only 3 of 13 targets within 10%, χ²/N = 15.48,
+driven by a 115% over-prediction of post-closure LVEF. A parameter-reduction
 analysis found a p=7 subset that raises degrees of freedom from −3 to +2
 (cond(S) 223 → 17.17), but that reduced set has not itself been validated
 by its own calibration run.
@@ -53,8 +56,9 @@ Scientific interpretation remains important:
   source files; fixed three live code defects (D2/D4/D5) with regression
   tests.
 - Reconciled Reyna's clinical inputs against the IRB-approved source
-  protocol form: HR, VSD diameter, and pre-surgery chamber volumes all
-  changed (`docs/CHANGES_SINCE_PR22.md` §14).
+  protocol form: HR, VSD diameter changed, and the "pre-release occluder"
+  chamber volumes were determined to be post-closure measurements, not
+  pre-surgery ones (`docs/CHANGES_SINCE_PR22.md` §14).
 - Added `docs/references.bib`; independently re-verified the Zhang and
   Lundquist scaling-law citations against Crossref/PubMed (catching a
   wrong title recorded for the Lundquist paper); fixed the inverted

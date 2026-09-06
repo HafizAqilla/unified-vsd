@@ -817,7 +817,7 @@ reconciliation commit.
 |---|---|---|---|
 | `common.HR` | 136 bpm (§4.1 above) | **119 bpm** | Protocol form row 6 states 119 bpm is the session's *average* heart rate; the 136 bpm figure was a single spot pulse reading. This is a third, distinct value from the original untraceable 119 — this one is cited to the IRB document. |
 | `pre.VSD_diameter_mm` | 3.665 mm in `patient_reyna.m`, but silently overridden to 3.025 mm by the calibration recipe (no documented justification for the divergence) | **3.665 mm**, override deleted | Protocol row 7 mean RV-side diameter. The recipe override was a D1-class silent-drift trap: two files disagreed and only one of them ever actually ran. |
-| `pre.LVEDV_mL` / `LVESV_mL` / `RVEDV_mL` / `RVESV_mL` / `EF` | `NaN`, excluded entirely under an "H+1 post-operative echo" justification | **32 / 23.6 / 30.5 / 12 mL, EF 0.2625** — added as **consistency-only** (reported and predicted against, never fitted) | Protocol rows 26-29 report these as PRE-release (same catheterisation session), not a separate post-operative study, contradicting the exclusion reason. They are still not fitted: the LV pair is internally implausible (SV_LV = 8.4 mL vs. an SV of roughly 34 mL implied by the protocol's own Qp = 4.087 L/min at HR 119), which is exactly why consistency-only is the correct tier rather than hard/soft. |
+| `pre.LVEDV_mL` / `LVESV_mL` / `RVEDV_mL` / `RVESV_mL` / `EF` | `NaN`, excluded entirely under an "H+1 post-operative echo" justification | `NaN` — **superseded same day, see the 2026-09-06 addendum below: these values belong to `post.*`, not `pre.*`.** (Originally added here as pre-surgery consistency-only, reading protocol rows 26-29 as same-session pre-surgery evidence; that reading did not survive the day.) | Protocol rows 26-29, "PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE OCCLUDER" -- see the addendum for the corrected interpretation. |
 
 Also recorded as pure provenance (not model targets, no established field for
 them in this model): descending-aorta pressures 91/57 mmHg (protocol rows
@@ -826,17 +826,50 @@ assumed 10 mmHg pressure sigma of the RFA reading used as the fitted target);
 LVOT 1.2 cm / RVOT 1.4 cm diameters (Doppler VTIs blank, so echo Qp/Qs is not
 computable from them); and header vitals SpO2 88%, RR 28/min.
 
-**Addendum, 2026-09-06 (study-owner decision, after seeing the re-run
-results):** of the five consistency-only chamber values above, **LVEF,
-LVEDV, and LVESV are excluded from any publication-facing report** — the
-LV pair itself is internally implausible (SV_LV = 8.4 mL vs. ~34 mL implied
-by Qp), not just poorly fit, so it is not trustworthy enough to state as a
-finding. RVEDV and RVESV are unaffected by this and remain reportable. This
-is a reporting-only decision: the code, `config/patient_reyna.m`, the
-recipe, and the consistency-only tier all stay exactly as documented above
-— nothing was reverted to NaN, so the model still computes and exports all
-five for audit. See `docs/reyna_publication_readiness_results_20260906.md`
-§2.2 for where this applies to the actual calibrated result.
+**Addendum 1, 2026-09-06 morning (study-owner decision, after seeing the
+re-run results) — SUPERSEDED a few hours later, see Addendum 2:** of the
+five consistency-only chamber values above, LVEF, LVEDV, and LVESV were
+excluded from any publication-facing report, reasoning the LV pair was
+internally implausible (SV_LV = 8.4 mL vs. ~34 mL implied by pre-op Qp).
+That reasoning assumed a pre-surgery timing that Addendum 2 below
+overturns.
+
+**Addendum 2, 2026-09-06 afternoon (study-owner correction) — this is the
+final, current state:** the protocol form's "PRE RELEASE OCCLUDER" chamber
+volumes are **post-closure measurements, not pre-surgery ones.** Per the
+study owner: the closure device is already deployed and occluding the
+defect at that measurement, simply not yet mechanically detached
+("released") — the VSD is already functionally closed. This means:
+
+- `pre.LVEDV_mL` / `LVESV_mL` / `RVEDV_mL` / `RVESV_mL` / `EF` in
+  `config/patient_reyna.m` are `NaN` again — there is **no confirmed
+  pre-surgery chamber-volume measurement for Reyna at all.**
+- The same five values (plus `RVEF`, newly computed) now live in
+  `clinical.post_surgery`: LVEDV 32, LVESV 23.6, RVEDV 30.5, RVESV 12 mL,
+  LVEF 0.2625, RVEF 0.6066.
+- This also retroactively resolves the "internally implausible LV pair"
+  concern from Addendum 1: a small stroke volume is exactly what is
+  physiologically expected *after* closure removes the shunt's volume
+  load, not evidence of bad data. Addendum 1's exclusion is withdrawn —
+  all six post-surgery values are legitimate, reportable, genuine
+  out-of-sample comparators.
+- A real pre-existing gap was found and fixed alongside this:
+  `src/utils/get_calibration_targets.m`'s post-surgery metric table had no
+  row for `LVESV`/`RVESV` at all, so those two values were silently
+  invisible to every consumer (including the out-of-sample prediction
+  script) regardless of this timing question. Fixed by adding the missing
+  rows, matching the pre-surgery pattern.
+- Consequence: these six values are now genuine held-out comparators in
+  the post-closure out-of-sample prediction, substantially worsening that
+  result. See `docs/reyna_publication_readiness_results_20260906.md` §4
+  for the corrected numbers (χ²/N rose from 4.64 to 15.48, driven by a
+  115% over-prediction of post-closure LVEF).
+- `config/calibration_recipes/reyna_pre_surgery.m`'s `excluded_evidence`
+  struct (an old, separately unconfirmed LV/RV pair, previously
+  mislabelled "H+1 post-operative echo") is retained only as a loose
+  direction-check reference for the model's *predicted* pre-surgery
+  chamber state, there being no real pre-surgery measurement to compare
+  against instead.
 
 ### 14.2 Why this invalidates every existing result in this document
 

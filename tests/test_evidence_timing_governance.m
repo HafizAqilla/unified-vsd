@@ -3,22 +3,23 @@ function tests = test_evidence_timing_governance()
 % -----------------------------------------------------------------------
 % Two things are tested here:
 %
-%   (A) Reyna's pre-surgery chamber volumes (LVEDV/LVESV/RVEDV/RVESV/LVEF).
-%       CORRECTED (publication-readiness reconciliation, 2026-09):
-%       these were previously believed to be H+1 POST-operative echo and
-%       were excluded from pre-surgery entirely. The IRB-governed protocol
-%       form contradicts that: rows 26-29 report them as PRE-release
-%       (same pre-surgery catheterisation session), so config/patient_reyna.m
-%       now carries them as finite values. They still must never be FITTED
-%       — the LV pair is internally implausible (SV_LV = 8.4 mL vs ~34 mL
-%       implied by protocol Qp) — so they are governed as consistency-only
-%       via recipe.consistency_only, not via a (now factually wrong)
-%       cross-timing exclusion.
+%   (A) Reyna's chamber volumes (LVEDV/LVESV/RVEDV/RVESV/LVEF/RVEF).
+%       CORRECTED TWICE (publication-readiness reconciliation, 2026-09-05
+%       then 2026-09-06). Originally believed to be H+1 post-operative
+%       echo, excluded from pre-surgery entirely. The 2026-09-05 pass
+%       read protocol form rows 26-29 ("PRE RELEASE OCCLUDER") as
+%       same-session PRE-surgery evidence instead. That reading was
+%       itself wrong, per the study owner: "pre-release occluder" means
+%       the closure device is deployed and occluding the defect, just not
+%       yet mechanically detached -- i.e. the VSD is already functionally
+%       CLOSED at that measurement. So this data belongs to
+%       clinical.post_surgery, and there is currently NO confirmed
+%       pre-surgery chamber-volume measurement for Reyna at all.
 %
 %   (B) The generic assert_evidence_timing_governance mechanism itself,
-%       using a synthetic fixture decoupled from Reyna's corrected data, so
-%       the cross-timing guard is still exercised even though it is no
-%       longer the reason Reyna's chamber block is unfitted.
+%       using a synthetic fixture decoupled from Reyna's data, so the
+%       cross-timing guard stays under test regardless of which way
+%       Reyna's own chamber-volume timing gets read.
 %
 % REFERENCES:
 %   [1] config/patient_reyna.m
@@ -27,8 +28,8 @@ function tests = test_evidence_timing_governance()
 %
 % AUTHOR:   Unified VSD Model
 % DATE:     2026-09-03
-% VERSION:  2.0 (rewritten for the corrected pre-release chamber-volume
-%           timing; see git history for the pre-rewrite version)
+% VERSION:  3.0 (rewritten again for the post-closure, not pre-surgery,
+%           chamber-volume timing; see git history for prior versions)
 % -----------------------------------------------------------------------
 tests = functiontests(localfunctions);
 end
@@ -39,13 +40,30 @@ clinical = patient_reyna();
 clinical = apply_calibration_recipe_to_clinical(clinical, 'pre_surgery', recipe);
 end
 
-%% ---- (A) Reyna: consistency-only, not cross-timing ----------------------
+%% ---- (A) Reyna: chamber volumes belong to post_surgery ------------------
 
-function test_reyna_chamber_block_is_finite_pre_surgery(tc)
-% The protocol form's pre-release volumes must now be visible, not NaN'd
-% out by either patient_reyna() or the recipe overrides.
+function test_reyna_chamber_block_is_unavailable_pre_surgery(tc)
+% There is currently no confirmed pre-surgery chamber-volume measurement
+% for Reyna at all; patient_reyna() must not fabricate one.
 [clinical, ~] = reyna_fixture();
 targets = get_calibration_targets('pre_surgery', clinical);
+
+for metric = {'LVEDV','LVESV','RVEDV','RVESV','LVEF'}
+    name = metric{1};
+    idx = find(strcmp({targets.Metric}, name), 1, 'first');
+    verifyNotEmpty(tc, idx, sprintf('%s should still be a known metric.', name));
+    verifyFalse(tc, isfinite(targets(idx).ClinicalValue), sprintf( ...
+        ['%s must have no pre-surgery clinical comparator: the only ', ...
+         'measured chamber-volume evidence is post-closure ("pre-release ', ...
+         'occluder" = device deployed and occluding, not yet detached).'], name));
+end
+end
+
+function test_reyna_chamber_block_is_finite_post_surgery(tc)
+% The protocol form's "pre-release occluder" volumes are post-closure
+% measurements and belong in clinical.post_surgery.
+clinical = patient_reyna();
+targets = get_calibration_targets('post_surgery', clinical);
 
 expected = struct('LVEDV', 32.0, 'LVESV', 23.6, 'RVEDV', 30.5, 'RVESV', 12.0);
 for metric = fieldnames(expected)'
@@ -53,11 +71,11 @@ for metric = fieldnames(expected)'
     idx = find(strcmp({targets.Metric}, name), 1, 'first');
     verifyNotEmpty(tc, idx, sprintf('%s should be a known metric.', name));
     verifyEqual(tc, targets(idx).ClinicalValue, expected.(name), 'AbsTol', 1e-9, ...
-        sprintf('%s should carry the protocol pre-release value.', name));
+        sprintf('%s should carry the protocol post-closure value.', name));
 end
 end
 
-function test_reyna_chamber_rows_are_consistency_only_not_fitted(tc)
+function test_reyna_chamber_rows_are_unavailable_not_fitted_pre_surgery(tc)
 [clinical, ~] = reyna_fixture();
 profile = build_case_calibration_profile(clinical, 'pre_surgery');
 tbl = profile.targetTiers.table;
@@ -66,23 +84,23 @@ for metric = {'LVEDV','LVESV','RVEDV','RVESV','LVEF'}
     name = metric{1};
     row = find(strcmp(tbl.Metric, name), 1, 'first');
     verifyNotEmpty(tc, row, sprintf('%s must appear in the tier table.', name));
-    verifyEqual(tc, tbl.Tier{row}, 'consistency_check_only', sprintf( ...
-        '%s must be governed as consistency-only, not silently fitted.', name));
+    verifyEqual(tc, tbl.Tier{row}, 'unavailable', sprintf( ...
+        '%s has no pre-surgery clinical value, so its tier must be unavailable.', name));
     verifyFalse(tc, tbl.IncludedInCalibration(row), sprintf( ...
-        '%s must not be fitted pre-surgery (internally implausible LV pair).', name));
+        '%s must not be fitted pre-surgery.', name));
     verifyFalse(tc, tbl.IncludedInPrimaryRMSE(row), sprintf( ...
         '%s must not count toward the governed pre-surgery primary RMSE.', name));
 end
 end
 
 function test_reyna_superseded_evidence_is_retained_for_provenance(tc)
-% The previous (unconfirmed) H+1-labelled LV pair must not be silently
-% deleted just because it was superseded by the protocol form. It is kept
-% as recipe.excluded_evidence purely for the direction-consistency check in
-% predicted_chamber_state_report.m; it is no longer an exclusion record.
+% An old, unconfirmed-provenance LV/RV pair (previously mislabelled "H+1
+% post-operative echo") must not be silently deleted; it is kept purely as
+% a direction-check reference in predicted_chamber_state_report.m, since
+% there is no real pre-surgery chamber comparator to use instead.
 [~, recipe] = reyna_fixture();
 verifyTrue(tc, isfield(recipe, 'excluded_evidence'), ...
-    'Superseded chamber evidence must remain documented, not deleted.');
+    'The historical reference figure must remain documented, not deleted.');
 ev = recipe.excluded_evidence;
 verifyEqual(tc, ev.LVEDV_mL, 41.0, 'AbsTol', 1e-12);
 verifyEqual(tc, ev.LVESV_mL, 19.3, 'AbsTol', 1e-12);
@@ -90,8 +108,6 @@ verifyEqual(tc, ev.RVEDV_mL, 30.5, 'AbsTol', 1e-12);
 verifyEqual(tc, ev.RVESV_mL, 12.0, 'AbsTol', 1e-12);
 verifyEqual(tc, ev.LVEF, 0.528, 'AbsTol', 1e-12);
 verifyNotEmpty(tc, ev.reason);
-verifyEqual(tc, ev.recommended_scenario, 'pre_surgery', ...
-    'Unlike the old H+1 framing, this evidence now belongs to pre_surgery, not post_surgery.');
 end
 
 function test_reyna_chamber_ic_override_is_disabled_pre_surgery(tc)

@@ -53,51 +53,40 @@ pre = struct();
 pre.LAP_mean_mmHg = NaN;           % [mmHg] not directly measured; exclude from RMSE
 pre.LVEDP_mmHg = NaN;              % [mmHg] not directly measured; exclude from RMSE
 
-% ---- Chamber volumes: consistency-only, not fitted ---------------------
-% CORRECTED (publication-readiness reconciliation): this recipe previously
-% nulled the LV/RV volume block to NaN here, on top of patient_reyna()
-% already recording it as NaN, believing the block was H+1 POST-operative
-% echo describing a different physiological state (VSD still open,
-% volume-loaded LV). The IRB-governed protocol form contradicts that: rows
-% 26-29 report these volumes as PRE-release (same pre-surgery
-% catheterisation session), not a separate post-operative study. See
-% config/patient_reyna.m for the full account and the matching-RV-values
-% evidence that motivated the original mistaken story.
-%
-% patient_reyna() now records the protocol's pre-release values directly
-% (LVEDV 32, LVESV 23.6, RVEDV 30.5, RVESV 12, EF 0.2625 mL/-), so this
-% recipe no longer overrides them to NaN — that would silently re-exclude
-% corrected evidence. They remain consistency-only (recipe.consistency_only
-% below) because the LV pair is internally implausible (SV_LV = 8.4 mL vs
-% ~34 mL implied by protocol Qp), never entering the fitted primary/soft
-% RMSE. override_IC stays false so they also never seed the initial chamber
-% state.
-pre.override_IC = false;           % [-] consistency-only volumes never seed IC
+% ---- Chamber volumes: genuinely unavailable pre-surgery -----------------
+% CORRECTED TWICE (publication-readiness reconciliation, 2026-09-05 then
+% 2026-09-06). The 2026-09-05 pass read protocol form rows 26-29
+% ("PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE OCCLUDER") as
+% same-session PRE-surgery evidence and injected it here as
+% consistency-only. That reading was itself wrong, per the study owner:
+% "pre-release occluder" means the closure device is already deployed and
+% occluding the defect, simply not yet mechanically detached — i.e. the
+% VSD is already functionally CLOSED at that measurement. This data now
+% lives in clinical.post_surgery (config/patient_reyna.m), not here, and
+% there is currently no confirmed pre-surgery chamber-volume measurement
+% for Reyna at all. override_IC stays false regardless.
+pre.override_IC = false;           % [-] no pre-surgery chamber evidence exists to seed IC from
 recipe.pre_surgery_overrides = pre;
 
-% Historical reference figures, kept for the direction-consistency check in
-% src/utils/predicted_chamber_state_report.m (called via
-% recipe.excluded_evidence, src/utils/validation_report.m:379-394) and for
-% provenance — NOT enforced as an exclusion any more.
-%
-% An earlier revision of this recipe recorded this LV/RV pair under the
-% label "H+1 post-operative echo" and used it to justify excluding chamber
-% volumes from pre-surgery entirely. That label was never independently
-% confirmed and is now superseded: the protocol form's pre-release values
-% (used directly in config/patient_reyna.m: LVEDV 32, LVESV 23.6, RVEDV
-% 30.5, RVESV 12) are the correct pre-surgery chamber comparators. This
-% struct's field name (excluded_evidence) and its 'timing'/'reason' fields
-% are retained for the reporting integration above; its semantic meaning is
-% now "a superseded reference figure to direction-check the model's
-% predicted chamber state against", not "excluded evidence".
+% Historical reference figure, kept ONLY for the direction-consistency
+% check in src/utils/predicted_chamber_state_report.m (called via
+% recipe.excluded_evidence, src/utils/validation_report.m:379-394), which
+% reports the model's PREDICTED pre-surgery chamber state (there being no
+% real comparator, see above) and direction-checks it against this figure.
+% Its provenance was never independently confirmed (an earlier revision of
+% this recipe mislabelled it "H+1 post-operative echo" and used it to
+% justify excluding chamber volumes from pre-surgery entirely — a
+% different, likely-unconfirmed dataset from the protocol-form values
+% above, despite the RV pair coincidentally matching). Keep it only as a
+% loose sanity reference, not as anything approaching ground truth.
 recipe.excluded_evidence = struct( ...
-    'timing', 'superseded_unconfirmed_provenance', ...
-    'reason', ['Previously labelled H+1 post-operative echo and used to ', ...
-        'exclude chamber volumes from pre-surgery entirely. That label was ', ...
-        'never independently confirmed; the protocol form''s pre-release ', ...
-        'values (config/patient_reyna.m) are now the actual pre-surgery ', ...
-        'chamber targets (consistency-only). This figure is kept only as a ', ...
-        'secondary direction-check reference, not as an exclusion record.'], ...
+    'timing', 'unconfirmed_provenance_reference_only', ...
+    'reason', ['No confirmed pre-surgery chamber-volume measurement exists ', ...
+        'for Reyna. This LV/RV pair is a historical figure of unconfirmed ', ...
+        'provenance, previously mislabelled "H+1 post-operative echo", ', ...
+        'kept only as a loose direction-check reference for the model''s ', ...
+        'predicted pre-surgery chamber state -- not a real pre-surgery ', ...
+        'measurement, and not to be quoted as one.'], ...
     'recommended_scenario', 'pre_surgery', ...
     'LVEDV_mL', 41.0, ...
     'LVESV_mL', 19.3, ...

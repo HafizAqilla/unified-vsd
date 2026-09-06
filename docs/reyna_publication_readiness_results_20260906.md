@@ -6,17 +6,33 @@ carries a superseded-banner pointing here or to
 `docs/CHANGES_SINCE_PR22.md` §14). It reports the execution of
 `docs/publication_readiness_prd.md` against the protocol-corrected clinical
 inputs from `docs/CHANGES_SINCE_PR22.md` §14 (HR 119 bpm, VSD diameter
-3.665 mm, pre-surgery chamber volumes 32/23.6/30.5/12 mL as
-consistency-only).
+3.665 mm).
+
+**Updated 2026-09-06 (same day), timing correction:** the protocol form's
+chamber volumes (32/23.6/30.5/12 mL, rows 26-29, "PRE RELEASE OCCLUDER")
+were initially placed under pre-surgery consistency-only. That was wrong:
+per the study owner, "pre-release occluder" means the closure device is
+already deployed and occluding the defect, simply not yet mechanically
+detached — the VSD is already functionally **closed** at that measurement.
+This data now lives in `clinical.post_surgery`
+(`config/patient_reyna.m`), and there is **no confirmed pre-surgery
+chamber-volume measurement for Reyna at all.** This also means these six
+values (LVEDV, LVESV, RVEDV, RVESV, LVEF, RVEF) are now genuine **held-out
+comparators in the Step 4 out-of-sample post-closure prediction** below,
+not consistency-only pre-surgery rows — §4 is revised accordingly and the
+result is substantially worse than first reported.
 
 **One-line honest summary:** under a fair prior (no historical warm start),
 Zhang scaling clearly outperforms Lundquist-BSA scaling on Reyna's corrected
 data (RMSE 0.118 vs 0.222). A full 6-start multi-start on the Zhang arm
-reaches primary RMSE 0.0739, governed gate 7/9, and a χ²/N of 1.14 —
-consistent, not overfit. **The model does not reach ACCEPT status, and its
-out-of-sample post-closure prediction is poor (3 of 7 within 10%,
-χ²/N = 4.64).** Every number below is reported as obtained, including the
-ones that are unfavorable, per this repo's own governance rule (G3).
+reaches primary RMSE 0.0739, governed gate 7/9, and a χ²/N of 1.14 on the
+pre-surgery hemodynamics — consistent, not overfit. **The model does not
+reach ACCEPT status, and its out-of-sample post-closure prediction is
+poor: 3 of 13 targets within 10% once chamber volumes/EF are correctly
+included (χ²/N = 15.48), driven substantially by ejection fraction and
+chamber volumes the pre-surgery fit had no way to anticipate.** Every
+number below is reported as obtained, including the ones that are
+unfavorable, per this repo's own governance rule (G3).
 
 ---
 
@@ -128,25 +144,18 @@ from the governed primary RMSE by design (`primary_rmse_holdout`); its
 39.2% error is large and worth noting as a real limitation even though it
 does not count against the gate.
 
-Consistency-only chamber rows (never fitted; see `docs/CHANGES_SINCE_PR22.md`
-§14 for why): RVEDV predicted 35.48 vs. clinical 30.5 mL (+16.3%), RVESV
-9.09 vs. 12 mL (−24.2%). These two are reported for transparency and are
-fine to quote.
+**Chamber volumes are not pre-surgery rows at all (revised 2026-09-06, same
+day).** The `full_metric_gate_pre_surgery.csv` tracked from this run still
+shows LVEDV/LVESV/RVEDV/RVESV/LVEF as `consistency_check_only` — that
+reflects the understanding in place when the run was generated, since
+superseded (see the correction note at the top of this document). Under
+the corrected timing, none of these five have a pre-surgery clinical value
+at all (tier `unavailable` in current code); the real comparators are
+post-closure and are evaluated properly in §4 below, where — unlike the
+pre-surgery report — they matter a great deal.
 
-**LVEF, LVEDV, and LVESV are excluded from this and any publication-facing
-report (study-owner decision, 2026-09-06).** The model still computes and
-exports them in the full metric gate CSV for code-level transparency and
-audit — nothing in `config/patient_reyna.m` or the calibration pipeline
-changed — but their source values are the internally implausible LV pair
-documented in `docs/CHANGES_SINCE_PR22.md` §14 (SV_LV = 8.4 mL vs. an SV of
-roughly 34 mL implied by the protocol's own Qp = 4.087 L/min): the data
-itself, not just the model's fit to it, is not trustworthy enough to state
-as a finding. For the record, the raw numbers were LVEF predicted 0.610 vs.
-clinical 0.2625 (+132%), LVEDV 45.66 vs. 32 mL (+42.7%), LVESV 17.80 vs.
-23.6 mL (−24.6%) — kept here only so the exclusion is auditable, not as
-something to cite.
-
-Full data: `results/runs/20260906_002327_reyna_pre_surgery/tables/full_metric_gate_pre_surgery.csv`.
+Full data: `results/runs/20260906_002327_reyna_pre_surgery/tables/full_metric_gate_pre_surgery.csv`
+(historical artifact; read alongside the correction note above).
 
 ---
 
@@ -187,36 +196,58 @@ suggested. That run was out of scope for this time-boxed execution (see
 
 ## 4. Step 4 — Out-of-sample post-closure prediction
 
-Genuine holdout: post-closure catheter pressures were **never used to fit**
-these parameters. The only change applied is closing the defect (no
-refitting, no parameter adjustment).
+**Revised 2026-09-06 (same day)** after the chamber-volume timing
+correction (see the note at the top of this document):
+`config/patient_reyna.m`'s protocol-sourced chamber volumes belong to
+`clinical.post_surgery`, and a pre-existing gap in
+`src/utils/get_calibration_targets.m` (the post-surgery metric table had
+no row for `LVESV`/`RVESV` at all, so they were silently invisible to
+every consumer, including this test) was fixed alongside it. Both changes
+mean this out-of-sample test now includes six chamber-volume/EF
+comparators it did not see the first time it ran.
+
+Genuine holdout: **none** of these 13 post-closure measurements were used
+to fit the pre-surgery parameters. The only change applied to the fitted
+parameter set is closing the defect (no refitting, no adjustment).
 
 | Metric | Measured | Predicted | Error% | Z-score |
 |---|---:|---:|---:|---:|
 | RAP_mean | 5 | 5.29 | +5.77% | 1.15 |
-| PAP_min | 9 | 10.55 | **+17.17%** | 3.43 |
+| PAP_min | 9 | 10.55 | +17.17% | 3.43 |
 | PAP_max | 17 | 19.54 | +14.92% | 2.98 |
 | PAP_mean | 13 | 14.73 | +13.30% | 2.66 |
 | SAP_min | 68 | 64.64 | −4.95% | −0.49 |
 | SAP_max | 89 | 102.22 | +14.85% | 1.48 |
 | SAP_mean | 79 | 82.87 | +4.90% | 0.98 |
+| LVEDV | 32 | 45.92 | **+43.48%** | 4.35 |
+| LVESV | 23.6 | 20.02 | −15.18% | −1.52 |
+| RVEDV | 30.5 | 34.62 | +13.52% | 1.35 |
+| RVESV | 12 | 8.61 | −28.28% | −2.83 |
+| LVEF | 0.2625 | 0.5640 | **+114.87%** | 11.49 |
+| RVEF | 0.6066 | 0.7514 | +23.87% | 2.39 |
 
-**Within 10%: 3 of 7. χ² = 32.51 over 7 targets, χ²/N = 4.64 (overfit
-band — well above the 2.0 threshold).**
+**Within 10%: 3 of 13. χ² = 201.20 over 13 targets, χ²/N = 15.48** — far
+into the overfit/misspecification band (>2.0), and substantially worse
+than the pressure-only reading (χ²/N = 4.64) this document first reported
+before the timing correction.
 
-**Honest reading:** the pre-surgery fit does not generalize well to the
-post-closure state without refitting. The systematic direction is
-informative: every pulmonary-pressure metric (PAP_min/mean/max) is
-*over*-predicted by 13-17%, suggesting the calibrated pulmonary
-resistance/compliance combination is too restrictive for the closed-VSD
-state, or that the pre-surgery fit compensated for something (most likely
-the consistency-only chamber-volume mismatch documented in §2.2) in a way
-that does not transfer. SAP tracks better (both systemic pressures within
-or near 10%). This is a real limitation of the current shared-parameter
-assumption (Phase 4's premise: one patient, one parameter set, only the
-defect changes) and is reported as such, not minimized — a large error here
-is a finding, not a disappointment to be tuned away (see the script's own
-docstring, which anticipated exactly this outcome as a possibility).
+**Honest reading:** the pre-surgery fit does not generalize to the
+post-closure state, and the failure is concentrated in chamber function,
+not pressures. The pressure story is unchanged from the first pass
+(pulmonary pressures over-predicted 13-17%, systemic pressures within or
+near 10%). The new information is damning: **LVEF is over-predicted by
+115%** (0.564 predicted vs. 0.263 measured) and every chamber volume misses
+by 13-43%. This says the calibrated ventricular elastance/volume
+parameters (`E.LV.EA/EB`, `E.RV.EA/EB`, `V0.LV/RV` — fit only against
+pre-surgery hemodynamics, since no pre-surgery chamber-volume evidence
+exists to constrain them at all) do not capture the actual post-closure
+ventricular state. This is exactly the failure mode a shared-parameter
+model (Phase 4's premise: one patient, one parameter set, only the defect
+changes) is vulnerable to when chamber compliance/geometry are
+underconstrained by the fitted data — reported here as a finding, not
+minimized, per this repo's own governance rule (G3) and the evaluation
+script's own docstring, which anticipated exactly this outcome as a
+possibility.
 
 ---
 
@@ -251,16 +282,33 @@ parameters Step 3 drops.
   sweep (more repeats, more starts on every arm, the p=7 set validated by
   its own multi-start) is future work, not something this session's budget
   covered.
+- **No pre-surgery chamber-volume calibration target exists for Reyna at
+  all**, following the 2026-09-06 timing correction. If genuine pre-surgery
+  echo/cath chamber volumes are ever obtained, they would materially change
+  what is identifiable in the pre-surgery fit (see Step 3/5 — `V0.LV` is
+  currently the least-constrained parameter in the model).
+- **No post-surgery calibration recipe exists for Reyna.** The chamber
+  volumes now correctly placed in `clinical.post_surgery` are consumed
+  generically by `get_calibration_targets`/`evaluate_post_closure_prediction`,
+  but a future post-surgery calibration run would fall back to the
+  *default* target-tier policy, which treats LVEDV/LVESV/LVEF as hard and
+  RVEDV/RVESV/RVEF as soft **fitted** targets, not consistency-only —
+  documented as an explicit trap in `config/patient_reyna.m`, not yet
+  addressed.
 
 ## 7. Bottom line for anyone deciding whether to publish this
 
 The corrected-data, fair-prior, Zhang-scaled, 6-start result
 (`results/runs/20260906_002327_reyna_pre_surgery/`) is the best-supported
-single candidate this repository has ever produced for Reyna pre-surgery:
-positive-χ²/N-adjacent fit quality at the pre-surgery operating point
-(1.14, computed honestly at dof=−3), a real (not illusory) multi-start
-search, and a concrete, quantified path to positive degrees of freedom
-(p=7). It is **not** an ACCEPT-status result, and its **out-of-sample
-generalization to the post-closure state is poor**. Both facts belong in
-any publication draft built on this work, stated as plainly as they are
-here.
+single candidate this repository has ever produced for Reyna's pre-surgery
+**hemodynamics**: positive-χ²/N-adjacent fit quality at the pre-surgery
+operating point (1.14, computed honestly at dof=−3), a real (not illusory)
+multi-start search, and a concrete, quantified path to positive degrees of
+freedom (p=7). It is **not** an ACCEPT-status result. Its **out-of-sample
+generalization to the post-closure state is poor and, once chamber function
+is correctly counted, badly so**: χ²/N = 15.48, driven by a 115%
+over-prediction of post-closure LVEF. The pre-surgery hemodynamic fit and
+the model's ability to predict post-closure chamber function are two
+separate claims with very different strength, and any publication draft
+built on this work should state both exactly that plainly, not average them
+into one impression.

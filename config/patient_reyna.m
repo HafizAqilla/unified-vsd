@@ -130,33 +130,31 @@ pre.LVEDP_mmHg        = NaN;
 pre.RVEDP_mmHg        = NaN;    % [mmHg] not captured in the protocol form
 
 % ---- Ventricular volumes and ejection fraction -----------------------
-% CORRECTED (publication-readiness reconciliation): earlier revisions of
-% this file justified excluding this block as "H+1 post-operative echo".
-% That justification is contradicted by the IRB-governed protocol form:
-% rows 26-29, section "PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE
-% OCCLUDER", report these volumes as PRE-release, i.e. from the same
-% pre-surgery catheterisation session as every pressure above, not a
-% separate post-operative echo. (The RV values below match a previously
-% recorded "H+1" figure exactly, which is what motivated the mistaken
-% story; the matching RV figures more likely reflect one session with a
-% re-measured LV, not two different sessions.)
-%
-% They are still NOT fitted: LV values are internally implausible
-% (SV_LV = 32-23.6 = 8.4 mL, LVEF = 26%, versus an SV of roughly 34 mL
-% implied by the protocol's own Qp = 4.087 L/min at HR 119). They are kept
-% as documented, reported, and predicted-against CONSISTENCY-ONLY targets
-% (recipe.consistency_only) — never part of the fitted primary/soft RMSE,
-% per config/calibration_recipes/reyna_pre_surgery.m.
-pre.LVEDV_mL          = 32.0;    % [mL] protocol row 26, pre-release occluder
-pre.LVESV_mL          = 23.6;    % [mL] protocol row 27, pre-release occluder
-pre.RVEDV_mL          = 30.5;    % [mL] protocol row 28, pre-release occluder
-pre.RVESV_mL          = 12.0;    % [mL] protocol row 29, pre-release occluder
-pre.EF                = 0.2625;  % [-] LV EF = (32-23.6)/32; consistency-only, implausible by design (see above)
+% CORRECTED TWICE (publication-readiness reconciliation, 2026-09-05 then
+% 2026-09-06). The first correction moved this block from "excluded
+% entirely, believed to be H+1 post-operative echo" to "pre-surgery
+% consistency-only", reading the protocol form's rows 26-29 header
+% ("PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE OCCLUDER") as
+% same-session pre-surgery evidence. That reading was itself wrong: per
+% the study owner, "pre-release occluder" means the closure device is
+% already deployed and occluding the defect, simply not yet mechanically
+% detached from its delivery cable — see the post-surgery block below,
+% where the device is placed at 11.50.19 and released (detached) at
+% 12.06.23. These volumes were measured in that placed-but-undetached
+% window, i.e. the VSD is already functionally CLOSED. They belong in
+% clinical.post_surgery (below), not here. This also resolves the earlier
+% "internally implausible LV pair" flag (SV_LV = 8.4 mL looked far too
+% small against the PRE-op Qp-implied SV of ~34 mL): a small post-closure
+% stroke volume is exactly what is physiologically expected once the
+% left-to-right shunt's volume load is removed, so that comparison never
+% applied in the first place.
+pre.LVEDV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.LVESV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.RVEDV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.RVESV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.EF                = NaN;    % [-] not a pre-surgery measurement; see clinical.post_surgery
 
 % ---- IC override flag -------------------------------------------------
-% Do not tune chamber elastance/V0 from these consistency-only volumes:
-% they are internally implausible (see note above) and must not seed or
-% drive the pre-surgery fit even though they are no longer excluded.
 pre.override_IC       = false;
 pre.CO_comparator     = 'Qs_Lmin'; % [-] compare model systemic flow with protocol-derived Qs
 pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowance
@@ -169,9 +167,8 @@ pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowan
 %
 % We calibrate to Qs (3.423) as the CO target because:
 %   - Qp and Qp/Qs are catheter/Fick entries, and Qs follows directly from them
-%   - The chamber volume block above is consistency-only (internally
-%     implausible), not a fitted target, so the pre-surgery objective
-%     remains hemodynamic-only in practice.
+%   - The chamber volume block belongs to post-surgery (see above), not
+%     pre-surgery, so the pre-surgery objective remains hemodynamic-only.
 pre.CO_Lmin           = 3.423;   % [L/min] Qs = Qp/QpQs = 4.087/1.194 (rows 21 and 23)
 
 clinical.pre_surgery = pre;
@@ -233,13 +230,26 @@ post.LAP_mean_mmHg    = NaN;   % [mmHg] not measured
 post.LVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 post.RVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 
-% ---- Ventricular volumes and function (normalised post-surgery) ------
-post.LVEDV_mL         = NaN;
-post.LVESV_mL         = NaN;
-post.RVEDV_mL         = NaN;
-post.RVESV_mL         = NaN;
-post.EF               = NaN;
-post.RVEF             = NaN;
+% ---- Ventricular volumes and function ---------------------------------
+% Protocol form rows 26-29, section "PARAMETER VOLUME UNTUK VALIDASI MODEL
+% - PRE RELEASE OCCLUDER": measured with the closure device already
+% deployed and occluding the defect, placed at 11.50.19, before mechanical
+% detachment ("release") at 12.06.23. See the note in the pre-surgery
+% block above for why this timing places these values here, not there.
+% Reported and predicted-against as consistency-only evidence (no
+% dedicated post-surgery recipe/tier config exists yet for Reyna, so
+% get_calibration_targets/build_target_tiers will apply the DEFAULT tier
+% policy for any future post_surgery calibration run — that default
+% treats LVEDV/LVESV/LVEF as hard and RVEDV/RVESV/RVEF as soft FITTED
+% targets, not consistency-only. Anyone adding a post_surgery calibration
+% recipe for Reyna should decide deliberately whether that default is
+% appropriate, rather than inheriting it silently.
+post.LVEDV_mL         = 32.0;    % [mL] protocol row 26, pre-release occluder (= post-closure)
+post.LVESV_mL         = 23.6;    % [mL] protocol row 27, pre-release occluder (= post-closure)
+post.RVEDV_mL         = 30.5;    % [mL] protocol row 28, pre-release occluder (= post-closure)
+post.RVESV_mL         = 12.0;    % [mL] protocol row 29, pre-release occluder (= post-closure)
+post.EF               = 0.2625;  % [-] LV EF = (32-23.6)/32
+post.RVEF             = 0.6066;  % [-] RV EF = (30.5-12)/30.5
 
 % ---- Cardiac output --------------------------------------------------
 post.CO_Lmin          = NaN;
