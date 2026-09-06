@@ -1,0 +1,6 @@
+Parameter,ColumnNorm,Inactive,MaxAbsCorrelation,MostCorrelatedWith,Flagged
+group.R_sys_scale,19.748456328401,0,0.572861738047841,group.R_pul_scale,0
+R.SVEN,20.2928788635187,0,0.574424063068402,group.R_pul_scale,0
+group.R_pul_scale,21.5276778438831,0,0.574424063068402,R.SVEN,0
+C.PAR,8.44967280524408,0,0.171089539499821,R.SVEN,0
+E.RV.EB,11.5923513303548,0,0.295107643444274,group.R_pul_scale,0
