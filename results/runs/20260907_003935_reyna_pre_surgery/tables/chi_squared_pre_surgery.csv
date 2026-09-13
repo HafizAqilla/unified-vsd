@@ -1,0 +1,2 @@
+chi2,n_obs,n_skipped,n_parameters,dof,chi2_per_obs,chi2_reduced,interpretation,dof_note,worst_metric,worst_z
+16.9169927145674,9,0,12,-3,1.87966585717416,NaN,consistent_but_underdetermined,over_parameterised,PAP_min,2.4981719166857

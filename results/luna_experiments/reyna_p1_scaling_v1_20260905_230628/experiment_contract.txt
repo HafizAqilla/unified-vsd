@@ -1,0 +1,20 @@
+Luna Reyna Scaling Experiment Contract
+======================================
+ExperimentId: reyna_p1_scaling_v1
+Version: 2026-08-27
+Scenario: pre_surgery
+PrimaryMetrics: RAP_mean,PAP_mean,SAP_mean,QpQs,CO_Lmin
+GsaTrainingSamples: 128
+SelectedArms: fair_prior_zhang,fair_prior_lundquist,operational_zhang,operational_lundquist
+Repeats: 1
+DoGSA: 1
+GsaN: 128
+MaxFunctionEvaluations: 300
+MaxIterations: 40
+ScreeningMode: 0
+TargetGovernance: reyna_pre_surgery recipe; primary metrics and clinical values locked
+ForbiddenChanges: clinical values; target tiers; primary RMSE membership; acceptance thresholds; historical run folders
+Arm_fair_prior_zhang: mode=zhang; historical_seeds_disabled=1; policy=disabled_fair_prior
+Arm_fair_prior_lundquist: mode=lundquist_bsa; historical_seeds_disabled=1; policy=disabled_fair_prior
+Arm_operational_zhang: mode=zhang; historical_seeds_disabled=0; policy=recipe_controlled
+Arm_operational_lundquist: mode=lundquist_bsa; historical_seeds_disabled=0; policy=recipe_controlled

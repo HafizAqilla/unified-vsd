@@ -1,0 +1,56 @@
+function provenance = patient_provenance_local()
+% PATIENT_PROVENANCE_LOCAL — TEMPLATE, not the real file.
+% -----------------------------------------------------------------------
+% This is the checked-in TEMPLATE for a file that must never be committed
+% with real values: config/private/patient_provenance.local.m
+%
+% That real file is gitignored (see .gitignore: "config/private/*.local.m").
+% Copy this template to that path and fill in the actual identifiers kept
+% out of every tracked file — hospital name, MRN, CaseID, DOB, full patient
+% name — per AGENTS.md §9.2 (patient data must never be hardcoded in a
+% tracked .m file) and the publication-readiness de-identification pass.
+%
+% Tracked files (config/patient_*.m, calibration recipes, docs, tests) now
+% cite only the STUDY LABEL (e.g. "reyna", "razka" — first-name folder
+% labels, the existing cohort convention in
+% config/patient_cohort_cases.m) and a generic source description
+% ("study <label> procedure log, see local provenance file"). This file
+% is the only place the label maps back to a real identity, and it never
+% leaves this machine.
+%
+% OUTPUTS:
+%   provenance - struct keyed by study label, each entry:
+%       .full_name         [char] patient's full name
+%       .mrn               [char] medical record number
+%       .case_id           [char] hospital case/episode ID
+%       .dob               [char] date of birth, DD/MM/YYYY
+%       .facility          [char] hospital/clinic name
+%       .procedure_date    [char] DD/MM/YYYY
+%       .source_document   [char] which scanned log/protocol this came from
+%
+% AUTHOR:   Unified VSD Model
+% DATE:     2026-08-31
+% VERSION:  1.0
+% -----------------------------------------------------------------------
+
+provenance = struct();
+
+provenance.reyna = struct( ...
+    'full_name', 'FILL IN', ...
+    'mrn', 'FILL IN', ...
+    'case_id', 'FILL IN', ...
+    'dob', 'FILL IN', ...
+    'facility', 'FILL IN', ...
+    'procedure_date', 'FILL IN', ...
+    'source_document', 'FILL IN');
+
+provenance.razka = struct( ...
+    'full_name', 'FILL IN', ...
+    'mrn', 'FILL IN', ...
+    'case_id', '', ...
+    'dob', 'FILL IN', ...
+    'facility', 'FILL IN', ...
+    'procedure_date', 'FILL IN', ...
+    'source_document', 'FILL IN');
+
+end

@@ -501,7 +501,7 @@ Note: the current branch still has post-op fields largely empty in `config/patie
 | Field | Value | Status | Notes |
 |---|---:|---|---|
 | `patient_name` | `razka` | model setting | reproducibility only |
-| `patient_id` | `00948048` | model setting | identifier only |
+| `patient_id` | `` (unset; `patient_name` takes priority) | model setting | identifier kept locally, see `config/private/patient_provenance.local.m` |
 | `age_years` | `4.64` | direct/derived from DOB | procedure date based |
 | `weight_kg` | `14.3` | direct | measured |
 | `height_cm` | `100.4` | direct | measured |

@@ -55,7 +55,7 @@ end
 env_state = capture_environment();
 cleanup_env = onCleanup(@() restore_environment(env_state)); %#ok<NASGU>
 
-rows = cell(0, 18);
+rows = cell(0, 24);
 run_records = cell(0, 1);
 for arm_idx = 1:numel(experiment.arms)
     arm = experiment.arms(arm_idx);

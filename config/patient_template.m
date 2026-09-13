@@ -35,7 +35,7 @@ clinical = struct();
 clinical.common.age_years  = NaN;   % [years]  patient age at measurement
 clinical.common.weight_kg  = NaN;   % [kg]
 clinical.common.height_cm  = NaN;   % [cm]
-clinical.common.sex        = 'M';   % 'M' or 'F'
+clinical.common.sex        = 1;     % [-] 0 = female, 1 = male — AGENTS.md §3.10
 clinical.common.BSA        = NaN;   % [m²]  leave NaN → computed by Mosteller
 clinical.common.HR         = NaN;   % [bpm]  resting heart rate
 clinical.common.patient_name = '';  % [char] patient label for run folders and reports

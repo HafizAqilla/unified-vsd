@@ -29,16 +29,51 @@ function clinical = patient_reyna()
 
 clinical = struct();
 clinical.common.patient_name = 'reyna'; % [char] patient label for run folders
+clinical.common.patient_id   = '';      % [char] real MRN kept in config/private/ only, see below
+clinical.common.maturation_mode = 'normal'; % 'normal' | 'pvr_fixed_day3' | 'pvr_fixed_day30' | 'none'
 
 %% =====================================================================
 %  COMMON — patient demographics, measured for any scenario
 %% =====================================================================
+% Source of record for demographics and HR: the study "reyna" procedure log
+% (dated 06/04/2026) — the catheterisation session that produced every pre-
+% and post-closure pressure below. Full provenance (facility, MRN, case ID)
+% is kept out of this tracked file per AGENTS.md Section 9.2; see
+% config/private/patient_provenance.local.m (gitignored) or its checked-in
+% template config/private/patient_provenance.local.m.example.
+%
+% These superseded an earlier "Keisya 2026-05-11 revision" (14.0 kg, 98.0 cm,
+% BSA 0.6173 by Mosteller, HR 119). That revision is dated five weeks AFTER
+% this catheterisation: the child had grown, so pairing May anthropometry
+% with April haemodynamics mis-scaled every demographically scaled parameter.
+% The measurement-day values are the correct ones for this fit.
 clinical.common.age_years  = 3.17;    % [years] 3 years 2 months [cite: 80]
-clinical.common.weight_kg  = 14.0;    % [kg] Keisya 2026-05-11 revision
-clinical.common.height_cm  = 98.0;    % [cm] Keisya 2026-05-11 revision
+clinical.common.weight_kg  = 13.4;    % [kg] procedure log 06/04/2026 07.53.01
+clinical.common.height_cm  = 95.0;    % [cm] procedure log 06/04/2026 07.53.09
 clinical.common.sex        = 0;       % 0 = female, 1 = male — AGENTS.md §3.10
-clinical.common.BSA        = 0.6173419726; % [m^2] Keisya 2026-05-11 revision, Mosteller: sqrt(98*14/3600)
-clinical.common.HR         = 119;     % [bpm] [cite: 81]
+% BSA as stamped by the hospital system (DuBois: 0.007184*95^0.725*13.4^0.425
+% = 0.5879). Note the prior config value used Mosteller instead; the stamped
+% value is retained here so the model matches the source record exactly.
+clinical.common.BSA        = 0.588;   % [m^2] procedure log 06/04/2026 07.53.20
+% HR: the IRB-approved protocol form (Filled Protokol_VSD Pre_Reyna (2).pdf,
+% IRB/65/08/ETIK/2025, row 6, "average heart rate") records 119 bpm as the
+% authoritative averaged rate for this session. A prior revision of this file
+% used 136 bpm ("Nadi 136 bpm", procedure log 06/04/2026 09.24.57), reasoning
+% it was a single spot pulse reading close to the pressure measurements. That
+% reasoning is superseded: the protocol form is the IRB-governed record and
+% explicitly labels its value as an average, not a spot reading, so it takes
+% precedence. HR sets cycle length, so this is a model input, not just a
+% reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s — reverting this
+% value invalidates every previously published fit and is expected to change
+% downstream RMSE; see docs/CHANGES_SINCE_PR22.md for the reconciliation.
+clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart rate
+
+% PROVENANCE ONLY — not modelled as struct fields, no established target in
+% this model for outflow tract diameters or non-invasive vitals:
+%   LVOT diameter 1.2 cm, RVOT diameter 1.4 cm (protocol rows 33, 35).
+%   Doppler VTIs for these tracts are blank in the form, so echo Qp/Qs is
+%   not computable from them.
+%   Header vitals at the start of the session: SpO2 88%, RR 28/min.
 
 %% =====================================================================
 %  PRE-SURGERY — haemodynamics in the presence of the open VSD
@@ -65,29 +100,61 @@ pre.PVR_WU            = NaN;     % [WU] protocol row 24 blank; not used as clini
 % MAP is recomputed from catheter sys/dia using MAP = dia + (sys-dia)/3.
 % The protocol MAP of 95 mmHg used NIBP cuff (119/83) — different method, not used here.
 % NIBP reference only: sys=119, dia=83, MAP_nibp=95 mmHg (row 10–11, 20)
-pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12)
-pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13)
-pre.SAP_mean_mmHg     = 71.3;    % [mmHg] recomputed: 57 + (100-57)/3 = 71.3
-                                  %        Source: catheter RFA, consistent with sys/dia above
+pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12; log 10.39.12)
+pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13; log 10.39.12)
+% MEAN: use the catheter's OWN stamped mean, not a form-factor reconstruction.
+% The procedure log records this reading as "RFA 100/57 (77)" — the transducer
+% reports 77 mmHg directly. The previous value of 71.3 came from applying
+% MAP = dia + (sys-dia)/3, which assumes a form factor this patient's waveform
+% does not have; the same ~5-6 mmHg offset recurs post-closure (formula 75 vs
+% stamped 79), so it is systematic, not noise.
+% Three MAP candidates existed: NIBP cuff 95 (different method, rejected),
+% form-factor 71.3 (reconstructed, rejected), catheter-stamped 77 (used).
+pre.SAP_mean_mmHg     = 77;      % [mmHg] procedure log 06/04/2026 10.39.12 "RFA 100/57 (77)"
+%
+% PROVENANCE ONLY — descending aorta (DAO), not used as a fitted target:
+% protocol form rows 14-15 record DAO systolic/diastolic 91/57 mmHg, a
+% second catheter site from the same session. RFA 100/57 vs DAO 91/57 is a
+% ~9 mmHg systolic spread between two simultaneous sites in the same
+% patient, and it doubles as an empirical sigma check against the
+% objective's assumed pressure uncertainty of 10 mmHg (see AGENTS.md
+% sigma-weighting section): the two sites disagree by less than that
+% assumed measurement noise.
 
 pre.SVR_WU            = NaN;     % [WU] protocol row 25 blank; not used as clinical target
 
 % ---- Atrial and ventricular filling pressures -------------------------
 pre.RAP_mean_mmHg     = 5;       % [mmHg] catheter, mean of 5/5/5 mmHg (row 19)
-pre.LAP_mean_mmHg     = NaN;      
+pre.LAP_mean_mmHg     = NaN;
 pre.LVEDP_mmHg        = NaN;
+pre.RVEDP_mmHg        = NaN;    % [mmHg] not captured in the protocol form
 
 % ---- Ventricular volumes and ejection fraction -----------------------
-% The available LV/RV volume and EF block was confirmed to be H+1 after
-% surgery, so it is not a valid pre-surgery calibration target.
-pre.LVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.LVESV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.RVEDV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.RVESV_mL          = NaN;     % [mL] unavailable pre-surgery
-pre.EF                = NaN;     % [-] unavailable pre-surgery
+% CORRECTED TWICE (publication-readiness reconciliation, 2026-09-05 then
+% 2026-09-06). The first correction moved this block from "excluded
+% entirely, believed to be H+1 post-operative echo" to "pre-surgery
+% consistency-only", reading the protocol form's rows 26-29 header
+% ("PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE OCCLUDER") as
+% same-session pre-surgery evidence. That reading was itself wrong: per
+% the study owner, "pre-release occluder" means the closure device is
+% already deployed and occluding the defect, simply not yet mechanically
+% detached from its delivery cable — see the post-surgery block below,
+% where the device is placed at 11.50.19 and released (detached) at
+% 12.06.23. These volumes were measured in that placed-but-undetached
+% window, i.e. the VSD is already functionally CLOSED. They belong in
+% clinical.post_surgery (below), not here. This also resolves the earlier
+% "internally implausible LV pair" flag (SV_LV = 8.4 mL looked far too
+% small against the PRE-op Qp-implied SV of ~34 mL): a small post-closure
+% stroke volume is exactly what is physiologically expected once the
+% left-to-right shunt's volume load is removed, so that comparison never
+% applied in the first place.
+pre.LVEDV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.LVESV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.RVEDV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.RVESV_mL          = NaN;    % [mL] not a pre-surgery measurement; see clinical.post_surgery
+pre.EF                = NaN;    % [-] not a pre-surgery measurement; see clinical.post_surgery
 
 % ---- IC override flag -------------------------------------------------
-% Do not tune chamber elastance/V0 from H+1 post-operative echo volumes.
 pre.override_IC       = false;
 pre.CO_comparator     = 'Qs_Lmin'; % [-] compare model systemic flow with protocol-derived Qs
 pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowance
@@ -100,8 +167,8 @@ pre.CO_uncertainty_Lmin = 0.50;    % [L/min] Fick/derived Qs uncertainty allowan
 %
 % We calibrate to Qs (3.423) as the CO target because:
 %   - Qp and Qp/Qs are catheter/Fick entries, and Qs follows directly from them
-%   - The H+1 post-operative echo volume block is excluded from pre-operative
-%     fitting, so the pre-surgery objective is hemodynamic-only.
+%   - The chamber volume block belongs to post-surgery (see above), not
+%     pre-surgery, so the pre-surgery objective remains hemodynamic-only.
 pre.CO_Lmin           = 3.423;   % [L/min] Qs = Qp/QpQs = 4.087/1.194 (rows 21 and 23)
 
 clinical.pre_surgery = pre;
@@ -116,29 +183,73 @@ post = struct();
 % QpQs should be ~1.0; residual shunt is modelled by a small, finite R_VSD
 post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
 
+% ======================================================================
+% SOURCE: the study "reyna" procedure log, 06/04/2026 (see
+% config/private/patient_provenance.local.m for full provenance).
+% Same catheterisation session as the pre-surgery block above.
+% The VSD closure device was placed at 11.50.19 and released at 12.06.23;
+% every value below is stamped AFTER that release (12.15-12.32), with the
+% patient under the same anaesthesia and ventilator settings as the
+% pre-closure readings. This is a genuine paired pre/post dataset rather
+% than two separate studies, which is why the two states are directly
+% comparable.
+%
+% Repeated measures are recorded as the hospital reported them; where three
+% consecutive readings exist the modal/mean value is taken, matching the
+% convention already used for the pre-surgery rows.
+%
+% DIRECTION CHECK (expected physiology after closure): PA pressure falls
+% (20/10 mean 15 -> 17/9 mean 13), RAP unchanged (5 -> 5). Both consistent
+% with removal of the left-to-right shunt.
+% ======================================================================
+
 % ---- Pulmonary circulation (normalised post-surgery) -----------------
-post.PAP_sys_mmHg     = NaN;   % [mmHg]
-post.PAP_dia_mmHg     = NaN;   % [mmHg]
-post.PAP_mean_mmHg    = NaN;   % [mmHg]
-post.PVR_WU           = NaN;   % [WU]     should be lower than pre-surgery
+% log 12.26.48 / 12.27.00 / 12.27.11: PA 17/8 (13), 17/9 (13), 17/9 (13)
+post.PAP_sys_mmHg     = 17;    % [mmHg] post-closure PA systolic
+post.PAP_dia_mmHg     = 9;     % [mmHg] post-closure PA diastolic
+post.PAP_mean_mmHg    = 13;    % [mmHg] post-closure PA mean
+post.PVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
 
 % ---- Systemic circulation --------------------------------------------
-post.SAP_sys_mmHg     = NaN;   % [mmHg]
-post.SAP_dia_mmHg     = NaN;   % [mmHg]
-post.MAP_mmHg         = NaN;   % [mmHg]   mean arterial pressure
-post.SVR_WU           = NaN;   % [WU]
+% log 12.31.35 / 12.32.10 / 12.32.39: RFA 91/68 (79), 89/68 (78), 89/68 (79)
+% RFA is used for consistency with the pre-surgery systemic rows, which also
+% come from the right femoral artery rather than the descending aorta.
+post.SAP_sys_mmHg     = 89;    % [mmHg] post-closure RFA systolic
+post.SAP_dia_mmHg     = 68;    % [mmHg] post-closure RFA diastolic
+% Catheter-stamped mean, same policy as pre.SAP_mean_mmHg above. The
+% form-factor reconstruction would give 68 + (89-68)/3 = 75, again ~4 mmHg
+% below the transducer's own figure - the same systematic offset seen
+% pre-closure (71.3 vs 77).
+post.MAP_mmHg         = 79;    % [mmHg] mean arterial pressure (maps to SAP_mean target)
+post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
 
 % ---- Atrial pressures ------------------------------------------------
-post.RAP_mean_mmHg    = NaN;
-post.LAP_mean_mmHg    = NaN;
+% log 12.28.14 / 12.28.24 / 12.28.35: RA 8/5 (5), 8/5 (5), 7/5 (5)
+post.RAP_mean_mmHg    = 5;     % [mmHg] post-closure RA mean
+post.LAP_mean_mmHg    = NaN;   % [mmHg] not measured
+post.LVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
+post.RVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 
-% ---- Ventricular volumes and function (normalised post-surgery) ------
-post.LVEDV_mL         = NaN;
-post.LVESV_mL         = NaN;
-post.RVEDV_mL         = NaN;
-post.RVESV_mL         = NaN;
-post.EF               = NaN;
-post.RVEF             = NaN;
+% ---- Ventricular volumes and function ---------------------------------
+% Protocol form rows 26-29, section "PARAMETER VOLUME UNTUK VALIDASI MODEL
+% - PRE RELEASE OCCLUDER": measured with the closure device already
+% deployed and occluding the defect, placed at 11.50.19, before mechanical
+% detachment ("release") at 12.06.23. See the note in the pre-surgery
+% block above for why this timing places these values here, not there.
+% Reported and predicted-against as consistency-only evidence (no
+% dedicated post-surgery recipe/tier config exists yet for Reyna, so
+% get_calibration_targets/build_target_tiers will apply the DEFAULT tier
+% policy for any future post_surgery calibration run — that default
+% treats LVEDV/LVESV/LVEF as hard and RVEDV/RVESV/RVEF as soft FITTED
+% targets, not consistency-only. Anyone adding a post_surgery calibration
+% recipe for Reyna should decide deliberately whether that default is
+% appropriate, rather than inheriting it silently.
+post.LVEDV_mL         = 32.0;    % [mL] protocol row 26, pre-release occluder (= post-closure)
+post.LVESV_mL         = 23.6;    % [mL] protocol row 27, pre-release occluder (= post-closure)
+post.RVEDV_mL         = 30.5;    % [mL] protocol row 28, pre-release occluder (= post-closure)
+post.RVESV_mL         = 12.0;    % [mL] protocol row 29, pre-release occluder (= post-closure)
+post.EF               = 0.2625;  % [-] LV EF = (32-23.6)/32
+post.RVEF             = 0.6066;  % [-] RV EF = (30.5-12)/30.5
 
 % ---- Cardiac output --------------------------------------------------
 post.CO_Lmin          = NaN;

@@ -1,5 +1,16 @@
 # Reyna Zhang Full-Metric Campaign — Results, 2026-08-28
 
+> ## ⚠ Superseded — do not quote these numbers
+>
+> This document's results were calibrated against clinical inputs that the
+> publication-readiness protocol-data reconciliation (2026-09-05) has since
+> corrected: heart rate 136→119 bpm, VSD diameter 3.025→3.665 mm, and
+> pre-surgery chamber volumes NaN→consistency-only 32/23.6/30.5/12 mL. See
+> `docs/CHANGES_SINCE_PR22.md` §14 for the full before/after and
+> `docs/publication_readiness_prd.md` for the re-run this triggered. This
+> document is retained for its process findings (the seven governance
+> defects it found and fixed), not for its numbers.
+
 Branch: `codex/reyna-zhang-fullmetric-10pct`
 Scope: Reyna `pre_surgery`, Zhang scaling prior, fair-prior (historical seeds disabled)
 PRD: [reyna_zhang_full_metric_prd.md](reyna_zhang_full_metric_prd.md)

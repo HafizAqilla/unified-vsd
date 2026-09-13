@@ -5,8 +5,15 @@ title: "Unified VSD: Cardiovascular Simulation and Optimization Framework"
 authors:
   - family-names: "Aqilla S"
     given-names: "Muhammad Hafiz"
+  # NOTE (publication-readiness cleanup, 2026-09-05): the second author's
+  # name below is recorded as it appears in project history ("Keisya"), but
+  # "Collab" is very likely a placeholder rather than a real family name
+  # (compare git history: the collaborator's own commits are authored under
+  # "AisyahDzakiyah"). This needs the actual co-author to confirm and
+  # correct their legal family/given names before this file is treated as
+  # authoritative for citation purposes; left as-is rather than guessing.
   - family-names: "Keisya"
     given-names: "Collab"
-version: 1.0.0
-date-released: 2026-03-16
+version: 1.1.0
+date-released: 2026-09-05
 url: "https://github.com/HafizAqilla/unified-vsd"

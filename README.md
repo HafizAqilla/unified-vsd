@@ -8,15 +8,32 @@ main model combines a Valenti-style 14-state lumped-parameter circulation,
 time-varying chamber elastance, VSD shunt physiology, evidence-aware clinical
 target handling, and reproducible calibration outputs.
 
-Last updated: 2026-05-27.
+Last updated: 2026-09-06.
 
 ## Current Status
 
-The current `main` branch includes the latest systemic-flow calibration,
-Reyna recipe governance, Zhang seed separation, and clinical-vs-model-derived
-reporting split. The model now produces auditable pre-surgery and post-surgery
-run folders with clinical consistency checks, parameter plausibility tables,
-baseline provenance, candidate snapshots, and validation reports.
+**Authoritative results:** [`docs/reyna_publication_readiness_results_20260906.md`](docs/reyna_publication_readiness_results_20260906.md).
+Every prior results document in `docs/` is superseded and carries a banner
+pointing there.
+
+The Reyna clinical inputs were reconciled against the IRB-approved source
+protocol form in September 2026 (HR and VSD diameter changed; the
+"pre-release occluder" chamber volumes were determined to be post-closure
+measurements, not pre-surgery ones — see `docs/CHANGES_SINCE_PR22.md` §14),
+then re-run through the full statistical pipeline (σ-weighting, χ²,
+identifiability, multi-start, out-of-sample holdout). Honest summary of
+that re-run: under a fair (no historical warm-start) prior, **Zhang scaling
+clearly beats Lundquist-BSA scaling** on this patient's data (RMSE 0.118 vs
+0.222). A full 6-start multi-start on the Zhang arm reaches primary RMSE
+0.0739, governed gate 7/9, χ²/N = 1.14 (consistent, not overfit) on the
+pre-surgery hemodynamics — the best-supported single result this
+repository has produced for Reyna, but it does **not** reach ACCEPT status.
+Its **out-of-sample post-closure prediction is poor, badly so once chamber
+function is counted**: only 3 of 13 targets within 10%, χ²/N = 15.48,
+driven by a 115% over-prediction of post-closure LVEF. A parameter-reduction
+analysis found a p=7 subset that raises degrees of freedom from −3 to +2
+(cond(S) 223 → 17.17), but that reduced set has not itself been validated
+by its own calibration run.
 
 Scientific interpretation remains important:
 
@@ -27,8 +44,32 @@ Scientific interpretation remains important:
   (`Qs_Lmin`) rather than raw LV outflow (`LVCO_Lmin`).
 - Derived quantities such as EF, SVR, Qp/Qs, and stroke volumes are audited so
   they are not silently double-counted as independent measurements.
+- The model's fit to the pre-surgery operating point does not currently
+  imply it will predict the post-closure state well — treat these as two
+  separate claims, not one.
 
 ## Latest Changes On Main
+
+**Publication-readiness cleanup and re-run (2026-09):**
+- De-identified all tracked patient data (real identifiers now live only in
+  a gitignored local provenance file); removed confirmed-dead scripts and
+  source files; fixed three live code defects (D2/D4/D5) with regression
+  tests.
+- Reconciled Reyna's clinical inputs against the IRB-approved source
+  protocol form: HR, VSD diameter changed, and the "pre-release occluder"
+  chamber volumes were determined to be post-closure measurements, not
+  pre-surgery ones (`docs/CHANGES_SINCE_PR22.md` §14).
+- Added `docs/references.bib`; independently re-verified the Zhang and
+  Lundquist scaling-law citations against Crossref/PubMed (catching a
+  wrong title recorded for the Lundquist paper); fixed the inverted
+  scaling-mode claim below.
+- Fixed a real orchestration bug in `scripts/run_reyna_scaling_experiment.m`
+  (a column-count mismatch that had silently prevented this script from
+  ever completing a real run) and executed the full 4-arm Zhang-vs-Lundquist
+  head-to-head plus a 6-start multi-start, parameter-reduction analysis,
+  and out-of-sample post-closure prediction against the corrected data. See
+  "Current Status" above and
+  [`docs/reyna_publication_readiness_results_20260906.md`](docs/reyna_publication_readiness_results_20260906.md).
 
 - Added a centralized parameter registry in `config/build_parameter_registry.m`
   with scenario-aware bounds, units, source notes, and plausibility anchors.
@@ -49,8 +90,17 @@ Scientific interpretation remains important:
 - Added best, scientific, and accepted candidate snapshots to `main_run.m`.
   Conservative rollback behavior is now visible instead of hiding strong
   but rejected candidates.
-- Added age-validity and scaling annotations, including `lundquist_bsa` as the
-  preferred pediatric scaling mode and `zhang` as a comparator.
+- Added age-validity and scaling annotations. **Correction (2026-09-05):**
+  this previously said `lundquist_bsa` is the preferred pediatric scaling
+  mode; that was backwards. `src/utils/resolve_scaling_policy.m` defaults
+  publication mode to **Zhang** (`config/scaling_method_registry.m`:
+  `DefaultPublicationRole = 'primary_prior'`) and raises an error
+  (`missingOverrideRationale`) if `lundquist_bsa` is made primary without a
+  written justification, because the current `lundquist_bsa` implementation
+  is a simplified BSA-only variant, not the full published Lundquist method
+  — see `config/scaling_method_registry.m` for the documented deviation from
+  each citation. See "Pediatric Scaling Methods" below for the current,
+  correct picture.
 - Added Reyna recipe-owned seed controls so Zhang scaling no longer inherits
   Lundquist-calibrated disease vectors or initial-condition packages.
 - Split clinical validation target exports from model-derived finding exports,
@@ -119,12 +169,32 @@ run run_post_surgery
 | `UNIFIED_VSD_GSA_PCE_N` | Overrides PCE training sample count for GSA; default is `128` |
 | `UNIFIED_VSD_DO_PLOTS` | `0` disables figure generation; `1` enables figures |
 | `UNIFIED_VSD_DO_OVERLAY` | `0` disables overlay figures; `1` enables overlays |
-| `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` |
+| `UNIFIED_VSD_SCALING_MODE` | Selects scaling mode, commonly `lundquist_bsa` or `zhang` — see "Pediatric Scaling Methods" below for which one is the publication default |
 | `UNIFIED_VSD_FAST_CALIBRATION` | Enables shorter calibration settings for triage |
 | `UNIFIED_VSD_FMINCON_PARALLEL` | Enables parallel fmincon behavior when appropriate |
 | `UNIFIED_VSD_USE_PARPOOL` | Allows `main_run.m` to start a MATLAB parallel pool |
 | `UNIFIED_VSD_MAX_FUN_EVALS` | Overrides calibration function-evaluation budget |
 | `UNIFIED_VSD_MAX_ITERATIONS` | Overrides calibration iteration budget |
+| `UNIFIED_VSD_UQLAB_PATH` | Absolute path to a local UQLab install (e.g. `toolbox/UQLab_Rel2.2.0`); **required** whenever `UNIFIED_VSD_DO_GSA=1` — GSA/PCE preflight fails without it. UQLab is not committed to this repo (see Requirements above) |
+| `UNIFIED_VSD_NUM_STARTS` | Number of Sobol-scrambled multi-start optimization starting points |
+| `UNIFIED_VSD_MULTISTART_SEED` | Seeds the multi-start Sobol sampler for reproducibility |
+| `UNIFIED_VSD_OBJECTIVE_WEIGHTING` | `sigma` uses per-metric measurement-uncertainty weighting in the calibration objective; `legacy` (default) uses the original flat-percentage weighting |
+| `UNIFIED_VSD_RUN_HEAVY_TESTS` | `1` enables the small number of long-running regression tests skipped by default (`tests/test_reyna_rmse_regression.m`, `tests/test_scaling_mode_parity.m`) |
+
+## Pediatric Scaling Methods
+
+Two allometric pediatric scaling laws are implemented; their provenance,
+implementation deviations from the cited paper, and default role are recorded
+in `config/scaling_method_registry.m` (queried by
+`src/utils/resolve_scaling_policy.m`), not just in prose here:
+
+| Mode (`UNIFIED_VSD_SCALING_MODE`) | Citation | Default publication role |
+|---|---|---|
+| `zhang` | Zhang, Haneishi & Liu (2019), *Comput Biol Med* 108:200–212, DOI 10.1016/j.compbiomed.2019.03.021 | **Primary prior.** Directly targets pediatric age-related cardiovascular allometry for infants, children, and adolescents. |
+| `lundquist_bsa` | Lundquist, Maksuti, Donker & Broumé (2025), *ASAIO J* 72(3):207–215, DOI 10.1097/MAT.0000000000002528 | Comparator/exploratory only. The current implementation is a simplified BSA-only variant, not the full age/sex/growth-chart scaling in the published method — making it primary requires an explicit override and a written rationale (`resolve_scaling_policy.m` raises `missingOverrideRationale` otherwise). |
+
+Full bibliographic entries, including entries not yet traced to a specific
+code location, are in `docs/references.bib`.
 
 ## Common Workflows
 
@@ -195,9 +265,15 @@ Important generated files include:
 - `run_manifest.txt`
 
 `results/`, root-level `figures/`, and root-level `outputs/` are intentionally
-ignored by Git. Commit code, documentation, and figure/workbook generation logic;
-do not commit regenerated run dumps, workbook exports, figure bundles, or patient
-data without documented authorization.
+ignored by Git, with one curated exception (see `.gitignore`): every run's
+`tables/full_metric_gate_*.csv`, `tables/chi_squared_*.csv`,
+`tables/parameter_identifiability_*.csv`, and
+`tables/parameter_identifiability_pairs_*.csv` ARE tracked, so the numeric
+evidence behind a published result stays in git history even after the
+run folder that produced it is deleted locally. Commit code, documentation,
+and figure/workbook generation logic; do not commit regenerated run dumps,
+workbook exports, figure bundles, or patient data without documented
+authorization.
 
 ## Calibration And Validation Design
 
@@ -270,6 +346,42 @@ For broad smoke testing:
 ```matlab
 run_quick_regression_suite
 ```
+
+Run the newer statistical/governance test suite (added PR #24 onward — chi-
+squared reporting, full metric gate export, gate hinge penalty, governed
+gate acceptance, joint pre/post objective, multistart starts, ungoverned
+calibration targets, parameter identifiability, post-closure prediction,
+sigma-weighted objective, validation holdout, evidence-timing governance,
+de-identification governance, and the D2/D4 regression tests from the
+publication-readiness cleanup). **These use MATLAB's `matlab.unittest`
+framework and must be run with `runtests`, not `run`** — `run` on a
+`functiontests`-style file just returns a `Test` array without executing
+any assertions:
+
+```matlab
+runtests('tests/test_chi_squared_report.m')
+runtests('tests/test_full_metric_gate_export.m')
+runtests('tests/test_gate_hinge_penalty.m')
+runtests('tests/test_governed_gate_acceptance.m')
+runtests('tests/test_joint_pre_post_objective.m')
+runtests('tests/test_multistart_starts.m')
+runtests('tests/test_no_ungoverned_calibration_targets.m')
+runtests('tests/test_parameter_identifiability.m')
+runtests('tests/test_post_closure_prediction.m')
+runtests('tests/test_sigma_weighted_objective.m')
+runtests('tests/test_validation_holdout.m')
+runtests('tests/test_evidence_timing_governance.m')
+runtests('tests/test_deidentification_governance.m')
+runtests('tests/test_post_surgery_pressure_mode_routing.m')
+runtests('tests/test_patient_profile_field_completeness.m')
+```
+
+Conversely, every test listed earlier in this section
+(`test_reyna_systemic_flow_profile.m` and the rest) is **script-style**:
+running it with `runtests` instead of `run` silently splits it into
+separate "tests" that all report as failed/incomplete even when the script
+itself passes everything, because `runtests` does not execute the script
+body the way `run` does. Do not mix the two invocation styles.
 
 ## Patient Data Policy
 

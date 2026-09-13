@@ -18,7 +18,7 @@ function recipe = reyna_pre_surgery()
 
 recipe = struct();
 recipe.id = 'reyna_pre_surgery';
-recipe.version = '2026-05-24';
+recipe.version = '2026-09-03';
 recipe.patient_label = 'reyna';
 recipe.scenario = 'pre_surgery';
 recipe.profile_mode = 'reyna_recipe';
@@ -26,67 +26,73 @@ recipe.description = ['Reyna pre-surgery explicit pressure-flow recipe; ', ...
     'direct hemodynamics drive calibration while inconsistent chamber rows ', ...
     'remain transparent consistency evidence.'];
 
+% Measurement-day anthropometry from the study "reyna" procedure log,
+% 06/04/2026 07.53 — the same session that produced every pre- and
+% post-closure pressure this recipe fits. Full provenance is kept out of
+% this tracked file; see config/private/patient_provenance.local.m.
+%
+% These values are merged OVER clinical.common by
+% apply_calibration_recipe_to_clinical.m:24, so they must stay in step with
+% config/patient_reyna.m. The previous entry (14.0 kg, 98.0 cm, Mosteller BSA
+% 0.6173) came from a 2026-05-11 revision recorded five weeks after this
+% catheterisation, and silently re-scaled the model to a larger child than
+% the one who was measured.
 recipe.demographics = struct( ...
-    'weight_kg', 14.0, ...
-    'height_cm', 98.0, ...
-    'BSA', 0.6173419726);
+    'weight_kg', 13.4, ...
+    'height_cm', 95.0, ...
+    'BSA', 0.588);
 
 pre = struct();
-pre.VSD_diameter_mm = 3.025;       % [mm] accepted effective RV-side diameter
+% VSD diameter: NOT overridden here (publication-readiness reconciliation).
+% This recipe previously forced 3.025 mm over patient_reyna()'s own 3.665 mm
+% (mean RV-side protocol range), with no documented justification for the
+% divergence. Deleting the override lets the protocol-sourced 3.665 mm from
+% config/patient_reyna.m flow through undisturbed, per the study owner's
+% decision to use the measured protocol value. See
+% docs/CHANGES_SINCE_PR22.md for the before/after numbers.
 pre.LAP_mean_mmHg = NaN;           % [mmHg] not directly measured; exclude from RMSE
 pre.LVEDP_mmHg = NaN;              % [mmHg] not directly measured; exclude from RMSE
 
-% ---- Chamber volumes: removed as pre-surgery targets -------------------
-% The LV/RV volume and EF block is H+1 POST-operative echo. It measures a
-% different physiological state: with the VSD open the LV is volume-loaded
-% by the left-to-right shunt, so pre-operative LVEDV is expected to exceed
-% the post-closure value, not equal it. Fitting a pre-operative model to
-% post-closure volumes would make the model wrong, not accurate.
-%
-% patient_reyna() already records these as NaN for exactly this reason. The
-% recipe previously re-injected them as consistency-only evidence, which
-% still let them drive the clinical consistency audit and (through
-% override_IC) the initial chamber state. Both channels are now closed.
-%
-% The values are retained below as documented excluded evidence, and are
-% recommended for relocation to clinical.post_surgery, where their timing is
-% valid and where no clinical target currently exists at all.
-pre.LVEDV_mL = NaN;                % [mL] post-operative evidence; not a pre-surgery target
-pre.LVESV_mL = NaN;                % [mL] post-operative evidence; not a pre-surgery target
-pre.RVEDV_mL = NaN;                % [mL] post-operative evidence; not a pre-surgery target
-pre.RVESV_mL = NaN;                % [mL] post-operative evidence; not a pre-surgery target
-pre.LVEF = NaN;                    % [-] derived from the same post-operative block
-pre.EF = NaN;                      % [-] legacy alias for target mapping
-pre.override_IC = false;           % [-] pre-surgery fit stays purely haemodynamic
+% ---- Chamber volumes: genuinely unavailable pre-surgery -----------------
+% CORRECTED TWICE (publication-readiness reconciliation, 2026-09-05 then
+% 2026-09-06). The 2026-09-05 pass read protocol form rows 26-29
+% ("PARAMETER VOLUME UNTUK VALIDASI MODEL - PRE RELEASE OCCLUDER") as
+% same-session PRE-surgery evidence and injected it here as
+% consistency-only. That reading was itself wrong, per the study owner:
+% "pre-release occluder" means the closure device is already deployed and
+% occluding the defect, simply not yet mechanically detached — i.e. the
+% VSD is already functionally CLOSED at that measurement. This data now
+% lives in clinical.post_surgery (config/patient_reyna.m), not here, and
+% there is currently no confirmed pre-surgery chamber-volume measurement
+% for Reyna at all. override_IC stays false regardless.
+pre.override_IC = false;           % [-] no pre-surgery chamber evidence exists to seed IC from
 recipe.pre_surgery_overrides = pre;
 
-% Excluded evidence, retained for provenance and reporting only. These values
-% are never mapped into clinical.pre_surgery targets; they document what was
-% measured, when, and why it is not a pre-operative comparator.
+% Historical reference figure, kept ONLY for the direction-consistency
+% check in src/utils/predicted_chamber_state_report.m (called via
+% recipe.excluded_evidence, src/utils/validation_report.m:379-394), which
+% reports the model's PREDICTED pre-surgery chamber state (there being no
+% real comparator, see above) and direction-checks it against this figure.
+% Its provenance was never independently confirmed (an earlier revision of
+% this recipe mislabelled it "H+1 post-operative echo" and used it to
+% justify excluding chamber volumes from pre-surgery entirely — a
+% different, likely-unconfirmed dataset from the protocol-form values
+% above, despite the RV pair coincidentally matching). Keep it only as a
+% loose sanity reference, not as anything approaching ground truth.
 recipe.excluded_evidence = struct( ...
-    'timing', 'post_operative_H1', ...
-    'reason', ['Chamber volumes and EF were recorded at H+1 after VSD ', ...
-        'closure. Pre-operative LV loading differs (left-to-right shunt), ', ...
-        'so these are not valid pre-surgery comparators.'], ...
-    'recommended_scenario', 'post_surgery', ...
+    'timing', 'unconfirmed_provenance_reference_only', ...
+    'reason', ['No confirmed pre-surgery chamber-volume measurement exists ', ...
+        'for Reyna. This LV/RV pair is a historical figure of unconfirmed ', ...
+        'provenance, previously mislabelled "H+1 post-operative echo", ', ...
+        'kept only as a loose direction-check reference for the model''s ', ...
+        'predicted pre-surgery chamber state -- not a real pre-surgery ', ...
+        'measurement, and not to be quoted as one.'], ...
+    'recommended_scenario', 'pre_surgery', ...
     'LVEDV_mL', 41.0, ...
     'LVESV_mL', 19.3, ...
     'RVEDV_mL', 30.5, ...
     'RVESV_mL', 12.0, ...
     'LVEF', 0.528);
-
-% Provenance for recipe-supplied clinical overrides. Enforced by
-% assert_evidence_timing_governance: nothing marked post_operative_H1 may
-% carry a fitted tier in a pre_surgery run. Retained so that re-adding any of
-% the excluded rows fails loudly rather than silently.
-recipe.evidence_timing = struct( ...
-    'LVEDV_mL', 'post_operative_H1', ...
-    'LVESV_mL', 'post_operative_H1', ...
-    'RVEDV_mL', 'post_operative_H1', ...
-    'RVESV_mL', 'post_operative_H1', ...
-    'LVEF', 'post_operative_H1', ...
-    'EF', 'post_operative_H1');
-recipe.allow_cross_timing_evidence = false;
 
 recipe.primary_metrics = {'RAP_mean','PAP_mean','SAP_mean','QpQs','CO_Lmin'};
 % PAP_max/PAP_min are directly measured catheter pressures (rows 16-17,

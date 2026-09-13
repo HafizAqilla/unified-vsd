@@ -1,0 +1,2 @@
+chi2,n_obs,n_skipped,n_parameters,dof,chi2_per_obs,chi2_reduced,interpretation,dof_note,worst_metric,worst_z
+33.4122955374356,11,0,5,6,3.03748141249415,5.56871592290594,underfit,sufficient_dof,LVESV,-4.25298863752714

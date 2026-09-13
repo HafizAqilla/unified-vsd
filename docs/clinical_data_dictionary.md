@@ -1,6 +1,6 @@
 # Clinical Data Dictionary
 
-**Last updated:** 2026-05-11
+**Last updated:** 2026-09-03
 
 Maps clinical record terminology to MATLAB variable names in the unified VSD model.
 All values derive from `patient_template.m`; filled examples are in
@@ -50,19 +50,22 @@ clinical.post_surgery % measurements after VSD closure
 | `age_years` | Patient age | Medical record | years | High | YYYY-MM |
 | `weight_kg` | Body weight | Anthropometry | kg | High | YYYY-MM |
 | `height_cm` | Standing height | Anthropometry | cm | High | YYYY-MM |
-| `sex` | Biological sex | Medical record | 'M' / 'F' | High | YYYY-MM |
+| `sex` | Biological sex | Medical record | 0 (female) / 1 (male) | High | YYYY-MM |
 | `BSA` | Body surface area | Mosteller formula | m² | Derived | YYYY-MM |
 | `HR` | Resting heart rate | ECG / pulse ox | bpm | High | YYYY-MM |
 
 ### Reyna anthropometry note
 
 The active Reyna patient file follows the raw protocol anthropometry so the
-main case remains strictly patient-specific:
+main case remains strictly patient-specific. Source of record: the study
+"reyna" procedure log, 06/04/2026 07.53 — the same session that produced the
+pre- and post-closure catheter pressures. Full provenance is kept locally,
+not in this tracked file — see `config/private/patient_provenance.local.m`.
 
 ```text
 weight_kg = 13.4
 height_cm = 95.0
-BSA = 0.588 m^2
+BSA = 0.588 m^2      % as stamped by the hospital system (DuBois)
 ```
 
 Keisya's 2026-05-11 anthropometry revision was tested as an alternate
@@ -71,8 +74,43 @@ baseline-scaling experiment:
 ```text
 weight_kg = 14.0
 height_cm = 98.0
-BSA = sqrt(14.0 * 98.0 / 3600) = 0.6173419726 m^2
+BSA = sqrt(14.0 * 98.0 / 3600) = 0.6173419726 m^2   % Mosteller
 ```
+
+> **Drift found and corrected, 2026-08-29.** Between the writing of this note
+> and 2026-08-29, the *experiment* values above had leaked into the active
+> files — both `config/patient_reyna.m` and `recipe.demographics` in
+> `config/calibration_recipes/reyna_pre_surgery.m` carried 14.0 kg / 98.0 cm /
+> 0.6173, so this section's opening sentence was false and every Reyna run was
+> demographically scaled to a larger child than the one measured. The 2026-05-11
+> revision post-dates the 06/04/2026 catheterisation by five weeks; the child
+> had grown, so those values do not belong with April haemodynamics.
+> Both files were restored to the protocol anthropometry and
+> `tests/test_reyna_systemic_flow_profile.m::Test2` now asserts the *effective*
+> post-merge values, so the pair cannot drift apart again silently.
+> Note the two BSA figures also use different formulae (DuBois vs Mosteller);
+> the hospital-stamped DuBois value is authoritative for this patient.
+>
+> The same review corrected `HR` (119 → **136 bpm**; the old value coincided
+> with the NIBP systolic on the adjacent log line) and pre-surgery `SAP_mean`
+> (form-factor 71.3 → catheter-stamped **77 mmHg**). See
+> `docs/reyna_statistical_calibration_results_20260829.md` §0.
+>
+> **HR reverted again, 2026-09-03 (publication-readiness reconciliation).**
+> The IRB-approved protocol form (`Filled Protokol_VSD Pre_Reyna (2).pdf`,
+> IRB/65/08/ETIK/2025, row 6) records `HR = 119 bpm`, explicitly labelled as
+> the session's *average* heart rate. That protocol figure now supersedes the
+> 136 bpm spot reading used above: `config/patient_reyna.m` carries 119 bpm
+> again. This is a genuine third value, not a return to the original 119 — the
+> earlier 119 was untraceable to a specific source, while this one is cited to
+> an IRB-governed document. The same reconciliation also: adopted the
+> protocol's `VSD_diameter_mm = 3.665` as the single value everywhere (a
+> recipe override had silently forced 3.025 mm in calibration runs while this
+> file said 3.665 mm — see `config/calibration_recipes/reyna_pre_surgery.m`),
+> and added the protocol's pre-release chamber volumes (LVEDV 32, LVESV 23.6,
+> RVEDV 30.5, RVESV 12 mL) as consistency-only pre-surgery targets, replacing
+> an unconfirmed "H+1 post-operative echo" story for that block. See
+> `docs/CHANGES_SINCE_PR22.md` for the before/after numbers this produces.
 
 The adult reference for the current Lundquist-BSA scaling mode remains
 `BSA_ref = 1.73 m^2`, matching the Valenti adult baseline convention used by

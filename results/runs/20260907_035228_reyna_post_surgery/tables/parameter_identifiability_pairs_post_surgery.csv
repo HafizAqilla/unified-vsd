@@ -1,0 +1,11 @@
+ParameterA,ParameterB,Correlation,Collinear
+R.SVEN,group.R_pul_scale,0.574424063068402,0
+group.R_sys_scale,group.R_pul_scale,-0.572861738047841,0
+group.R_pul_scale,E.RV.EB,-0.295107643444274,0
+group.R_sys_scale,E.RV.EB,-0.230292774657547,0
+R.SVEN,C.PAR,-0.171089539499821,0
+group.R_sys_scale,C.PAR,0.168029595184359,0
+R.SVEN,E.RV.EB,0.0718649861871891,0
+group.R_pul_scale,C.PAR,0.033531064490713,0
+group.R_sys_scale,R.SVEN,-0.0313847946642377,0
+C.PAR,E.RV.EB,-0.00517196454448356,0

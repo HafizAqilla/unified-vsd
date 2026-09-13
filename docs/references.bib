@@ -1,0 +1,122 @@
+% docs/references.bib
+% -----------------------------------------------------------------------
+% Bibliography for the unified_vsd lumped-parameter cardiovascular model.
+%
+% Provenance policy: every entry below was either (a) independently
+% verified against a bibliographic database (Crossref / PubMed) during the
+% publication-readiness cleanup on 2026-09-05, noted per entry, or
+% (b) transcribed from an existing in-repo citation (docs/theory_notes.md)
+% that predates this file and was not independently re-verified here.
+% Nothing in this file was invented; where a claim in the model code could
+% not be traced to a specific citation, it is marked as an unsourced
+% screening heuristic at the point of use (see
+% src/utils/clinical_reference_ranges.m) rather than backed by an entry
+% here.
+% -----------------------------------------------------------------------
+
+@article{zhang2019multiscale,
+  author  = {Zhang, Xingjian and Haneishi, Hideaki and Liu, Huafeng},
+  title   = {Multiscale modeling of the cardiovascular system for infants, children, and adolescents: Age-related alterations in cardiovascular parameters and hemodynamics},
+  journal = {Computers in Biology and Medicine},
+  year    = {2019},
+  volume  = {108},
+  pages   = {200--212},
+  doi     = {10.1016/j.compbiomed.2019.03.021},
+  note    = {Verified via Crossref/PubMed (PMID 31005012) on 2026-09-05. Source of the Zhang allometric pediatric scaling law (config/scaling_method_registry.m, UNIFIED_VSD_SCALING_MODE = 'zhang').}
+}
+
+@article{lundquist2025patientspecific,
+  author  = {Lundquist, August and Maksuti, Elira and Donker, Dirk W. and Broum{\'e}, Michael},
+  title   = {Patient-Specific Size and Age Scaling in a Zero Dimensional Cardiovascular Model},
+  journal = {ASAIO Journal},
+  year    = {2025},
+  volume  = {72},
+  number  = {3},
+  pages   = {207--215},
+  doi     = {10.1097/MAT.0000000000002528},
+  note    = {Verified via Crossref (DOI) on 2026-09-05. Title corrects a paraphrase previously recorded in docs/theory_notes.md ("Patient-Specific Pediatric Cardiovascular Lumped Parameter Modeling -- Scaling Across Ages and Sizes"), which does not match the publisher record. Source of the Lundquist/BSA pediatric scaling law (config/scaling_method_registry.m, UNIFIED_VSD_SCALING_MODE = 'lundquist_bsa'); Table 2 (cardiac: HR, E, V0, blood volume) and Table 3 (valve open/closed area, shunt area, ventilation) per docs/theory_notes.md.}
+}
+
+@phdthesis{valenti2023fullorder,
+  author = {Valenti, [given name not recorded in repo]},
+  title  = {Full-order 0D cardiovascular model},
+  year   = {2023},
+  school = {[institution not recorded in repo]},
+  note   = {Transcribed from docs/theory_notes.md Reference 1 (Eqs. 2.1--2.7, Table 3.3); not independently re-verified during the 2026-09-05 cleanup. This model's baseline circuit topology and parameter provenance trace to this thesis via config/build_baseline_provenance.m. The bracketed fields above are placeholders -- fill in from the actual thesis document before using this entry in a formal submission.}
+}
+
+@article{saltelli2010variance,
+  author  = {Saltelli, Andrea and Annoni, Paola and Azzini, Ivano and Campolongo, Francesca and Ratto, Marco and Tarantola, Stefano},
+  title   = {Variance based sensitivity analysis of model output. Design and estimator for the total sensitivity index},
+  journal = {Computer Physics Communications},
+  year    = {2010},
+  volume  = {181},
+  number  = {2},
+  pages   = {259--270},
+  doi     = {10.1016/j.cpc.2009.09.018},
+  note    = {Transcribed from docs/theory_notes.md Reference 3; not independently re-verified during the 2026-09-05 cleanup. Sobol/Saltelli GSA method used in src/gsa/.}
+}
+
+@article{jansen1999analysis,
+  author  = {Jansen, Michiel J. W.},
+  title   = {Analysis of variance designs for model output},
+  journal = {Computer Physics Communications},
+  year    = {1999},
+  volume  = {117},
+  number  = {1-2},
+  pages   = {35--43},
+  doi     = {10.1016/S0010-4655(98)00154-4},
+  note    = {Transcribed from docs/theory_notes.md Reference 4; not independently re-verified during the 2026-09-05 cleanup. Sobol total-effect index estimator used in src/gsa/.}
+}
+
+@article{gorlin1951hydraulic,
+  author  = {Gorlin, Richard and Gorlin, S. G.},
+  title   = {Hydraulic formula for calculation of the area of the stenotic mitral valve, other cardiac valves, and central circulatory shunts},
+  journal = {American Heart Journal},
+  year    = {1951},
+  volume  = {41},
+  number  = {1},
+  pages   = {1--29},
+  doi     = {10.1016/0002-8703(51)90002-6},
+  note    = {Transcribed from docs/theory_notes.md Reference 5; not independently re-verified during the 2026-09-05 cleanup. Source of the orifice discharge coefficient Cd = 0.7 used in the VSD orifice equation.}
+}
+
+@article{baumgartner2009echocardiographic,
+  author  = {Baumgartner, Helmut and Hung, Judy and Bermejo, Javier and Chambers, John B. and Evangelista, Arturo and Griffin, Brian P. and Iung, Bernard and Otto, Catherine M. and Pellikka, Patricia A. and Qui{\~n}ones, Miguel},
+  title   = {Echocardiographic Assessment of Valve Stenosis: EAE/ASE Recommendations for Clinical Practice},
+  journal = {Journal of the American Society of Echocardiography},
+  year    = {2009},
+  volume  = {22},
+  number  = {1},
+  pages   = {1--23},
+  doi     = {10.1016/j.echo.2008.11.029},
+  note    = {Transcribed from docs/theory_notes.md Reference 6; not independently re-verified during the 2026-09-05 cleanup. Cross-confirmation of the orifice discharge coefficient.}
+}
+
+@book{levick2010introduction,
+  author    = {Levick, J. Rodney},
+  title     = {An Introduction to Cardiovascular Physiology},
+  edition   = {5th},
+  publisher = {Hodder Arnold},
+  address   = {London},
+  year      = {2010},
+  note      = {Transcribed from docs/theory_notes.md Reference 7 (p. 13); not independently re-verified during the 2026-09-05 cleanup. Source of the blood density constant rho_blood = 1060 kg/m^3.}
+}
+
+% -----------------------------------------------------------------------
+% Clinical reference ranges (src/utils/clinical_reference_ranges.m)
+%
+% These 14 metric bands (HR, RAP_mean, PAP_mean, SAP_mean, CO_Lmin, QpQs,
+% LVEF, RVEF, LVEDV, LVESV, RVEDV, RVESV, PVR, SVR) are broad plausibility
+% screening bounds, not peer-reviewed normative percentiles. They were
+% informally widened from the aggregate Group I / Group II cohort
+% mean +/- SD statistics reported in
+% docs/Pediatric_VSD_Clinical_Parameters.md Sections 4-6 (which itself
+% cites 18 sources, several of mixed provenance -- PubMed/PMC alongside
+% non-peer-reviewed clinical-education sites -- listed in that document's
+% own References section). No single band in the code traces to one
+% specific numbered source with the precision a formal citation implies,
+% so none is cited per-band here; per src/utils/clinical_reference_ranges.m
+% this is stated explicitly as an unsourced screening heuristic rather than
+% backed by an invented citation.
+% -----------------------------------------------------------------------
