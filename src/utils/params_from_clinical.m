@@ -32,9 +32,10 @@ if nargin < 5
     case_profile = struct();
 end
 
-if isfield(common, 'HR') && ~isnan(common.HR)
-    params.HR = common.HR;
-    params = recompute_timing(params);
+HR_scenario = clinical_heart_rate(clinical, scenario);
+if isfinite(HR_scenario)
+    params.HR = HR_scenario;
+    params = recompute_cycle_timing(params);
 end
 
 rv_edv_consistency_only = is_metric_consistency_only(case_profile, 'RVEDV');
@@ -458,22 +459,6 @@ PP_pul = resolve_pulse_pressure(src, {'PAP_sys_mmHg'}, {'PAP_dia_mmHg'});
 if isfinite(SV_pul) && isfinite(PP_pul) && PP_pul > 1e-6
     params.C.PAR = max(SV_pul / PP_pul, 0.05);
 end
-end
-
-function params = recompute_timing(params)
-T_HB = 60 / params.HR;
-params.Tc_LV   = params.Tc_LV_frac   * T_HB;
-params.Tr_LV   = params.Tr_LV_frac   * T_HB;
-params.Tc_RV   = params.Tc_RV_frac   * T_HB;
-params.Tr_RV   = params.Tr_RV_frac   * T_HB;
-params.t_ac_LA = params.t_ac_LA_frac * T_HB;
-params.Tc_LA   = params.Tc_LA_frac   * T_HB;
-params.t_ar_LA = params.t_ac_LA + params.Tc_LA;
-params.Tr_LA   = params.Tr_LA_frac   * T_HB;
-params.t_ac_RA = params.t_ac_RA_frac * T_HB;
-params.Tc_RA   = params.Tc_RA_frac   * T_HB;
-params.t_ar_RA = params.t_ac_RA + params.Tc_RA;
-params.Tr_RA   = params.Tr_RA_frac   * T_HB;
 end
 
 function tf = is_metric_consistency_only(case_profile, metric_name)

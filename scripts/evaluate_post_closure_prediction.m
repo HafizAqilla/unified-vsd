@@ -63,6 +63,15 @@ if isfield(params_post, 'vsd')
     if isfield(params_post.vsd, 'D_mm');     params_post.vsd.D_mm = 0;     end
 end
 
+% The closed state runs at its own recorded heart rate. HR is a model input
+% (cycle length), not an evaluated target, so this does not use post-closure
+% data for fitting; without it the pre-closure rate would leak into this state.
+HR_post = clinical_heart_rate(clinical, 'post_surgery');
+if isfinite(HR_post)
+    params_post.HR = HR_post;
+    params_post = recompute_cycle_timing(params_post);
+end
+
 % Sanity: the shunt must actually be shut, or this measures nothing.
 q_res = vsd_shunt_model(90, 20, params_post);
 assert(abs(q_res) < 1e-9, ...
@@ -94,6 +103,7 @@ out.table = table(names(:), measured(:), predicted(:), err_pct(:), zs(:), ...
 out.chi2 = sum(zs.^2);
 out.n = numel(zs);
 out.within10 = sum(abs(err_pct) <= 10);
+out.HR_bpm = params_post.HR;
 
 if verbose
     fprintf('\n=== POST-CLOSURE PREDICTION (OUT-OF-SAMPLE) ===\n');
