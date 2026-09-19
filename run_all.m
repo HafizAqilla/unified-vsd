@@ -97,6 +97,13 @@ for k = 1:numel(opt.Seeds)
         message = err.message;
         fprintf(2, '%s\n', getReport(err, 'extended'));
     end
+    % main_run redirects the diary to its own run log and switches it off on
+    % exit; resume the batch log (the per-seed detail stays in that run log).
+    diary(fullfile(batch_dir, 'run_all.log'));
+    diary on;
+    if ~isempty(run_dir)
+        fprintf('Seed %d detailed log: %s\n', seed, fullfile(run_dir, 'logs'));
+    end
     t_end = datetime('now');
     row = table(seed, {run_dir}, {status}, {export_status}, {message}, ...
         {char(t_start, 'yyyy-MM-dd HH:mm:ss')}, {char(t_end, 'yyyy-MM-dd HH:mm:ss')}, ...
