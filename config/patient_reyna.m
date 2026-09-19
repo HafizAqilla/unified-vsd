@@ -66,7 +66,9 @@ clinical.common.BSA        = 0.588;   % [m^2] procedure log 06/04/2026 07.53.20
 % reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s — reverting this
 % value invalidates every previously published fit and is expected to change
 % downstream RMSE; see docs/CHANGES_SINCE_PR22.md for the reconciliation.
-clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart rate
+% Heart rate is recorded separately on each protocol form and is therefore
+% stored per scenario (pre.HR, post.HR below), never shared, so the two
+% states cannot inherit each other's cycle length.
 
 % PROVENANCE ONLY — not modelled as struct fields, no established target in
 % this model for outflow tract diameters or non-invasive vitals:
@@ -80,6 +82,8 @@ clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart
 %  Source: right-heart catheterisation and echocardiography
 %% =====================================================================
 pre = struct();
+
+pre.HR                = 119;     % [bpm] pre-closure protocol form row 6
 
 % ---- Shunt geometry / severity ----------------------------------------
 % VSD diameter: protocol row 7 — LV side 4.46–6.43 mm, RV side 3.63–3.70 mm.
@@ -102,15 +106,13 @@ pre.PVR_WU            = NaN;     % [WU] protocol row 24 blank; not used as clini
 % NIBP reference only: sys=119, dia=83, MAP_nibp=95 mmHg (row 10–11, 20)
 pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12; log 10.39.12)
 pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13; log 10.39.12)
-% MEAN: use the catheter's OWN stamped mean, not a form-factor reconstruction.
-% The procedure log records this reading as "RFA 100/57 (77)" — the transducer
-% reports 77 mmHg directly. The previous value of 71.3 came from applying
-% MAP = dia + (sys-dia)/3, which assumes a form factor this patient's waveform
-% does not have; the same ~5-6 mmHg offset recurs post-closure (formula 75 vs
-% stamped 79), so it is systematic, not noise.
-% Three MAP candidates existed: NIBP cuff 95 (different method, rejected),
-% form-factor 71.3 (reconstructed, rejected), catheter-stamped 77 (used).
-pre.SAP_mean_mmHg     = 77;      % [mmHg] procedure log 06/04/2026 10.39.12 "RFA 100/57 (77)"
+% MEAN: the protocol's own definition (row 20, MAP = 1/3 sys + 2/3 dia)
+% applied to the catheter RFA readings of rows 12-13, so every value is
+% traceable to the IRB protocol form. Applied identically post-closure.
+% Not used: the catheter-stamped mean of 77 mmHg (procedure log, not part of
+% the protocol record) and the form's MAP of 95 mmHg (row 20 computed from
+% the NIBP cuff, a different measurement method).
+pre.SAP_mean_mmHg     = (100 + 2*57)/3;   % [mmHg] = 71.33, protocol row 20 formula on rows 12-13
 %
 % PROVENANCE ONLY — descending aorta (DAO), not used as a fitted target:
 % protocol form rows 14-15 record DAO systolic/diastolic 91/57 mmHg, a
@@ -179,6 +181,8 @@ clinical.pre_surgery = pre;
 %% =====================================================================
 post = struct();
 
+post.HR               = 108;     % [bpm] post-closure protocol form row 6 (108, 108)
+
 % ---- Shunt (absent after closure) ------------------------------------
 % QpQs should be ~1.0; residual shunt is modelled by a small, finite R_VSD
 post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
@@ -216,11 +220,9 @@ post.PVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorde
 % come from the right femoral artery rather than the descending aorta.
 post.SAP_sys_mmHg     = 89;    % [mmHg] post-closure RFA systolic
 post.SAP_dia_mmHg     = 68;    % [mmHg] post-closure RFA diastolic
-% Catheter-stamped mean, same policy as pre.SAP_mean_mmHg above. The
-% form-factor reconstruction would give 68 + (89-68)/3 = 75, again ~4 mmHg
-% below the transducer's own figure - the same systematic offset seen
-% pre-closure (71.3 vs 77).
-post.MAP_mmHg         = 79;    % [mmHg] mean arterial pressure (maps to SAP_mean target)
+% Same definition as pre.SAP_mean_mmHg: protocol row 17 formula
+% (MAP = 1/3 sys + 2/3 dia) applied to the catheter RFA readings of rows 9-10.
+post.MAP_mmHg         = (89 + 2*68)/3;    % [mmHg] = 75.0 (maps to SAP_mean target)
 post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
 
 % ---- Atrial pressures ------------------------------------------------

@@ -69,13 +69,13 @@ out = evalc_pred(candidate_path(), clinical);
 
 expect = containers.Map( ...
     {'PAP_max','PAP_min','PAP_mean','SAP_max','SAP_min','SAP_mean','RAP_mean'}, ...
-    {17, 9, 13, 89, 68, 79, 5});
+    {17, 9, 13, 89, 68, 75, 5});
 
 for i = 1:height(out.table)
     name = out.table.Metric{i};
     if isKey(expect, name)
         verifyEqual(tc, out.table.Measured(i), expect(name), ...
-            sprintf('%s measured value must match the procedure log.', name));
+            sprintf('%s measured value must match the protocol record.', name));
     end
 end
 end
