@@ -218,8 +218,9 @@ if numel(optMask) ~= numel(calib.names_all)
         'Mask length (%d) must match parameter count (%d).', ...
         numel(optMask), numel(calib.names_all));
 end
+% The sensitivity mask is final: case-profile polish lists may only choose
+% among masked parameters, never re-activate ones the GSA screened out.
 optMask = apply_case_profile_parameter_mask(optMask, calib.names_all, caseProfile);
-optMask = apply_case_profile_required_mask(optMask, calib.names_all, caseProfile);
 if ~any(optMask)
     error('calibration_param_sets:emptyActiveSet', ...
         'Mask deactivates all parameters.');
@@ -358,15 +359,6 @@ optMask = optMask & allowed_mask;
 if ~any(optMask) && any(allowed_mask)
     first_allowed = find(allowed_mask, 1, 'first');
     optMask(first_allowed) = true;
-end
-end
-
-function optMask = apply_case_profile_required_mask(optMask, names_all, case_profile)
-if isfield(case_profile, 'systemicPolishEnabled') && case_profile.systemicPolishEnabled && ...
-        isfield(case_profile, 'systemicPolishNames') && ~isempty(case_profile.systemicPolishNames)
-    required_mask = ismember(names_all(:), case_profile.systemicPolishNames(:));
-    optMask = optMask | required_mask;
-    return;
 end
 end
 
