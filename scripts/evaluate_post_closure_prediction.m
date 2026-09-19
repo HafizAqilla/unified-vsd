@@ -104,6 +104,9 @@ out.chi2 = sum(zs.^2);
 out.n = numel(zs);
 out.within10 = sum(abs(err_pct) <= 10);
 out.HR_bpm = params_post.HR;
+out.params = params_post;
+out.sim = sim;
+out.metrics = metrics;
 
 if verbose
     fprintf('\n=== POST-CLOSURE PREDICTION (OUT-OF-SAMPLE) ===\n');

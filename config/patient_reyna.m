@@ -258,4 +258,84 @@ post.CO_Lmin          = NaN;
 
 clinical.post_surgery = post;
 
+clinical.protocol = reyna_protocol_record();
+
+end
+
+% =======================================================================
+function rec = reyna_protocol_record()
+% REYNA_PROTOCOL_RECORD - every entry of the two IRB protocol forms, verbatim.
+% Kept outside clinical.pre_surgery/post_surgery on purpose: nothing here is
+% read by calibration. It exists so every protocol value, used or not, can be
+% reported against the model with its row number (export_run_supplement).
+% Sources: "Filled Protokol_VSD Pre_Reyna (2).pdf" and
+% "Half-Filled Protokol_VSD Post_Reyna_09-04-2026.pdf", protocol V.03,
+% IRB/65/08/ETIK/2025. Repeated readings are listed in recorded order;
+% blank cells are empty ([]).
+f = @(row, name, readings, unit, method, note) struct('row', row, ...
+    'name', name, 'readings', readings, 'unit', unit, 'method', method, 'note', note);
+
+rec.pre = [ ...
+    f(1,  'Age',                         3 + 2/12,  'yr',    'medical record', '3 years 2 months')
+    f(3,  'Height',                      95,        'cm',    'direct measurement', '')
+    f(4,  'Weight',                      13.4,      'kg',    'medical record', '')
+    f(5,  'Body surface area',           0.588,     'm2',    'calculated from height and weight', '')
+    f(6,  'Heart rate',                  119,       'bpm',   'ECG monitor', '')
+    f(7,  'VSD diameter, LV side',       [4.46 6.43], 'mm',  'echocardiography Doppler', 'range')
+    f(7,  'VSD diameter, RV side',       [3.63 3.70], 'mm',  'echocardiography Doppler', 'range')
+    f(9,  'LV systolic pressure',        94,        'mmHg',  'catheterization', 'recorded as gradient row')
+    f(9,  'RV systolic pressure',        25,        'mmHg',  'catheterization', 'recorded as gradient row')
+    f(10, 'Systolic pressure, NIBP',     119,       'mmHg',  'NIBP cuff', '')
+    f(11, 'Diastolic pressure, NIBP',    83,        'mmHg',  'NIBP cuff', '')
+    f(12, 'Systolic pressure, RFA',      100,       'mmHg',  'catheterization', '')
+    f(13, 'Diastolic pressure, RFA',     57,        'mmHg',  'catheterization', '')
+    f(14, 'Systolic pressure, DAo',      91,        'mmHg',  'catheterization', '')
+    f(15, 'Diastolic pressure, DAo',     57,        'mmHg',  'catheterization', '')
+    f(16, 'PA systolic pressure',        [20 20 20], 'mmHg', 'catheterization', '')
+    f(17, 'PA diastolic pressure',       [10 10 10], 'mmHg', 'catheterization', '')
+    f(18, 'PA mean pressure',            [14 15 15], 'mmHg', 'catheterization', '')
+    f(19, 'RA mean pressure',            [5 5 5],   'mmHg',  'catheterization', '')
+    f(20, 'Mean arterial pressure, form', 95,       'mmHg',  'formula on NIBP', 'form value computed from rows 10-11')
+    f(21, 'Pulmonary flow Qp',           4.087,     'L/min', 'Fick (catheterization)', 'an earlier entry is crossed out')
+    f(22, 'Systemic flow Qs',            [],        'L/min', 'Fick (catheterization)', 'blank')
+    f(23, 'Qp/Qs',                       1.194,     '-',     'Fick (catheterization)', '')
+    f(24, 'PVR',                         [],        'WU',    'calculation', 'blank')
+    f(25, 'SVR',                         [],        'WU',    'calculation', 'blank')
+    f(26, 'LVEDV',                       32,        'mL',    'echocardiography biplane Simpson', 'post-closure state per study decision')
+    f(27, 'LVESV',                       23.6,      'mL',    'echocardiography biplane Simpson', 'post-closure state per study decision')
+    f(28, 'RVEDV',                       30.5,      'mL',    'echocardiography 3D', 'post-closure state per study decision')
+    f(29, 'RVESV',                       12,        'mL',    'echocardiography 3D', 'post-closure state per study decision')
+    f(30, 'Stroke volume',               [],        'mL',    'echocardiography', 'blank')
+    f(31, 'Cardiac output, echo',        [],        'L/min', 'echocardiography', 'blank')
+    f(32, 'Ejection fraction',           [],        '%',     'echocardiography', 'blank')
+    f(33, 'LVOT diameter',               1.2,       'cm',    'echocardiography', '')
+    f(34, 'LVOT VTI',                    [],        'cm',    'echocardiography', 'blank')
+    f(35, 'RVOT diameter',               1.4,       'cm',    'echocardiography', '')
+    f(36, 'RVOT VTI',                    [],        'cm',    'echocardiography', 'blank')];
+
+rec.post = [ ...
+    f(6,  'Heart rate',                  [108 108], 'bpm',   'ECG monitor', '')
+    f(7,  'Systolic pressure, NIBP',     [87 85 88], 'mmHg', 'NIBP cuff', '')
+    f(8,  'Diastolic pressure, NIBP',    [56 55 55], 'mmHg', 'NIBP cuff', '')
+    f(9,  'Systolic pressure, RFA',      [91 89 89], 'mmHg', 'catheterization', '')
+    f(10, 'Diastolic pressure, RFA',     [68 68 68], 'mmHg', 'catheterization', '')
+    f(11, 'Systolic pressure, DAo',      [104 106 103], 'mmHg', 'catheterization', 'handwritten values overwritten on form')
+    f(12, 'Diastolic pressure, DAo',     [75 72 68], 'mmHg', 'catheterization', 'handwritten values overwritten on form')
+    f(13, 'PA systolic pressure',        [17 17 17], 'mmHg', 'catheterization', '')
+    f(14, 'PA diastolic pressure',       [8 9 9],   'mmHg',  'catheterization', '')
+    f(15, 'PA mean pressure',            [13 13 13], 'mmHg', 'catheterization', '')
+    f(16, 'RA mean pressure',            [5 5 5],   'mmHg',  'catheterization', '')
+    f(17, 'Mean arterial pressure, form', [66 65 66], 'mmHg', 'formula on NIBP', 'each cell holds two numbers (67/66, 64/65, 66/66); lower values listed')
+    f(18, 'Pulmonary flow Qp',           [],        'L/min', 'echocardiography estimate', 'blank')
+    f(19, 'Systemic flow Qs',            [],        'L/min', 'echocardiography estimate', 'blank')
+    f(20, 'Qp/Qs',                       [],        '-',     'echocardiography estimate', 'blank')
+    f(21, 'PVR',                         [],        'WU',    'calculation', 'blank')
+    f(22, 'SVR',                         [],        'WU',    'calculation', 'blank')
+    f(23, 'LVEDV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 26')
+    f(24, 'LVESV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 27')
+    f(25, 'RVEDV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 28')
+    f(26, 'RVESV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 29')
+    f(27, 'Stroke volume',               [],        'mL',    'echocardiography', 'blank')
+    f(28, 'Cardiac output',              [],        'L/min', 'echocardiography', 'blank')
+    f(29, 'Ejection fraction',           [],        '%',     'echocardiography', 'blank')];
 end
