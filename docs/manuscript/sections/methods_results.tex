@@ -53,7 +53,7 @@ RVEDV / RVESV (mL) & evaluation & --- & 30.5 / 12.0$^{\mathrm{a}}$ \\
 LVEF / RVEF (--) & evaluation & --- & 0.618 / 0.607$^{\mathrm{a}}$ \\
 \bottomrule
 \end{tabular}
-\vspace{2pt}
+\par\vspace{2pt}
 \footnotesize{$^{\mathrm{a}}$Medical-record dataset (primary). The protocol form reports LVEDV/LVESV $=32.0/23.6$~mL (LVEF 0.263) for the same state; both are evaluated in Section~\ref{sec:results_post}. $^{\mathrm{b}}$Included in the objective but excluded from the governed error metric (Section~\ref{sec:statistics}).}
 \end{table}
 
@@ -161,7 +161,7 @@ Inertance & all $L$ & $-1.00$\,$^{\mathrm{a}}$ \\
 Valve open resistance & $R_{\mathrm{open}}$ & $-0.50$ \\
 \bottomrule
 \end{tabular}
-\vspace{2pt}
+\par\vspace{2pt}
 \footnotesize{$^{\mathrm{a}}$From Lundquist et al.~\cite{Lundquist2025}; all other exponents from Zhang et al.~\cite{zhang2019multiscale}.}
 \end{table}
 
@@ -222,7 +222,7 @@ $E_{\mathrm{B,RV}}$ & mmHg/mL & 0.1451 & 0.1451 & 0.0798 & 0.3773 & 0.0799$^{\as
 $C_d$ & -- & 0.7000 & 0.3561 & 0.2849 & 0.7350 & 0.3697 & 0.53 \\
 \bottomrule
 \end{tabular}
-\vspace{2pt}
+\par\vspace{2pt}
 \footnotesize{$^{\ast}$Converged onto the lower bound (within $10^{-4}$ of it).}
 \end{table}
 
@@ -399,40 +399,55 @@ $p$ & dof & $\mathrm{cond}(S)$ & \textbf{Parameters} \\
 \label{sec:results_post}
 Applying the calibrated parameters unchanged with the defect closed reproduced 4 of the 16 withheld post-closure targets within 10\%, with $\chi^2/N = 9.03$ (Table~\ref{tab:post}, Figure~\ref{fig:prediction}). Systemic systolic pressure (+1.2\%), mean arterial pressure ($-6.4\%$), pulmonary diastolic pressure (+3.2\%) and mean right atrial pressure (+8.2\%) were predicted within the gate without any post-closure information.
 
-The prediction failed in three places. Systemic diastolic pressure was under-predicted by 23.6\% (52.0 against 68~mmHg); the same measurement is reported as 55.3~mmHg by cuff and 71.7~mmHg in the descending aorta, so part of this gap reflects disagreement between measurement sites rather than model error, and the model value lies within 6\% of the cuff reading. Pulmonary systolic pressure was over-predicted by 40.7\%, consistent with the same failure before closure. Right ventricular volumes were over-predicted (RVEDV +42.1\%), and the derived quantities inherited these errors: cardiac output +24.8\%, $Q_p/Q_s$ +11.2\% and SVR $-25.9\%$. Left ventricular volumes were closer, at +13.8\% for LVEDV and $-15.8\%$ for LVESV, giving LVEF +16.1\%.
+The prediction failed in three places. Systemic diastolic pressure was under-predicted by 23.6\% (52.0 against 68~mmHg); the same measurement is reported as 55.3~mmHg by cuff and 71.7~mmHg in the descending aorta, so part of this gap reflects disagreement between measurement sites rather than model error, and the model value lies within 6\% of the cuff reading. Pulmonary systolic pressure was over-predicted by 40.7\%, consistent with the same failure before closure. Measured against the declared uncertainties, the largest standardized residuals were pulmonary systolic pressure ($z = 8.1$), cardiac output ($4.97$) and RVEDV ($4.21$); no other target exceeded $z = 3$. Right ventricular volumes were over-predicted (RVEDV +42.1\%), and the derived quantities inherited these errors: cardiac output +24.8\%, $Q_p/Q_s$ +11.2\% and SVR $-25.9\%$. Left ventricular volumes were closer, at +13.8\% for LVEDV and $-15.8\%$ for LVESV, giving LVEF +16.1\%.
 
 Evaluated instead against the protocol-form dataset, the same prediction reads $-50.8\%$ for LVESV and $+173.3\%$ for LVEF, against $-15.8\%$ and $+16.1\%$ for the medical record. The prediction is unchanged; only the reference differs. Resolving which record is correct requires the source echocardiography report, which is not currently filed with the study data.
 
 \begin{table}[ht]
 \centering\small
 \setlength{\tabcolsep}{4pt}
-\caption{Post-closure prediction from the pre-closure parameters with the shunt closed, no refitting, against the withheld measurements (medical-record dataset). The last column gives the error against the alternative protocol-form dataset where it differs. Values are identical in all three runs.}
+\caption{Complete post-closure record and the zero-shot prediction. The calibrated pre-closure parameters were applied unchanged with the defect closed and the heart rate set to its measured post-closure value (108~bpm); nothing in this table entered calibration. $\sigma$ is the declared measurement uncertainty used in $\chi^2$, $z = (\text{predicted}-\text{measured})/\sigma$, and the gate is $\lvert\varepsilon\rvert \le 10\%$. Values are identical in all three runs.}
 \label{tab:post}
-\begin{tabular}{lrrrcr}
+\begin{tabular}{lrrrrrc}
 \toprule
-\textbf{Target} & \textbf{Measured} & \textbf{Predicted} & $\varepsilon$ (\%) & \textbf{Gate} & \textbf{Alt.\ $\varepsilon$ (\%)} \\
+\textbf{Target} & $\sigma$ & \textbf{Measured} & \textbf{Predicted} & $\varepsilon$ (\%) & $z$ & \textbf{Gate} \\
 \midrule
-Systemic systolic pressure (mmHg) & 89.00 & 90.08 & $+1.2$ & pass & --- \\
-Systemic diastolic pressure (mmHg) & 68.00 & 51.95 & $-23.6$ & fail & --- \\
-Mean arterial pressure (mmHg) & 75.00 & 70.19 & $-6.4$ & pass & --- \\
-PA systolic pressure (mmHg) & 17.00 & 23.92 & $+40.7$ & fail & --- \\
-PA diastolic pressure (mmHg) & 9.00 & 9.29 & $+3.2$ & pass & --- \\
-Mean PA pressure (mmHg) & 13.00 & 14.86 & $+14.3$ & fail & --- \\
-Mean RA pressure (mmHg) & 5.00 & 5.41 & $+8.2$ & pass & --- \\
-LVEDV (mL) & 36.13 & 41.10 & $+13.8$ & fail & $+28.4$ \\
-LVESV (mL) & 13.80 & 11.62 & $-15.8$ & fail & $-50.8$ \\
-RVEDV (mL) & 30.50 & 43.35 & $+42.1$ & fail & --- \\
-RVESV (mL) & 12.00 & 13.78 & $+14.8$ & fail & --- \\
-LVEF (--) & 0.618 & 0.717 & $+16.1$ & fail & $+173.3$ \\
-RVEF (--) & 0.607 & 0.682 & $+12.5$ & fail & --- \\
-Cardiac output (L/min) & 2.54 & 3.17 & $+24.8$ & fail & --- \\
-$Q_p/Q_s$ (--) & 0.90 & 1.00 & $+11.2$ & fail & --- \\
-SVR (WU) & 27.56 & 20.43 & $-25.9$ & fail & --- \\
+\multicolumn{7}{l}{\emph{(a) Governed post-closure targets (medical-record dataset)}} \\
+Mean RA pressure (mmHg) & 0.25 & 5.00 & 5.41 & $+8.2$ & $+1.64$ & pass \\
+PA diastolic pressure (mmHg) & 0.45 & 9.00 & 9.29 & $+3.2$ & $+0.65$ & pass \\
+PA systolic pressure (mmHg) & 0.85 & 17.00 & 23.92 & $+40.7$ & $+8.14$ & \textbf{fail} \\
+Mean PA pressure (mmHg) & 0.65 & 13.00 & 14.86 & $+14.3$ & $+2.86$ & \textbf{fail} \\
+Systemic systolic pressure, RFA (mmHg) & 8.90 & 89.00 & 90.08 & $+1.2$ & $+0.12$ & pass \\
+Systemic diastolic pressure, RFA (mmHg) & 6.80 & 68.00 & 51.95 & $-23.6$ & $-2.36$ & \textbf{fail} \\
+Mean arterial pressure, RFA (mmHg) & 3.75 & 75.00 & 70.19 & $-6.4$ & $-1.28$ & pass \\
+$Q_p/Q_s$ (--) & 0.045 & 0.900 & 1.000 & $+11.2$ & $+2.23$ & \textbf{fail} \\
+Cardiac output (L/min) & 0.127 & 2.540 & 3.171 & $+24.8$ & $+4.97$ & \textbf{fail} \\
+SVR (WU) & 5.51 & 27.56 & 20.43 & $-25.9$ & $-1.29$ & \textbf{fail} \\
+LVEDV (mL) & 3.61 & 36.13 & 41.10 & $+13.8$ & $+1.38$ & \textbf{fail} \\
+LVESV (mL) & 1.38 & 13.80 & 11.62 & $-15.8$ & $-1.58$ & \textbf{fail} \\
+RVEDV (mL) & 3.05 & 30.50 & 43.35 & $+42.1$ & $+4.21$ & \textbf{fail} \\
+RVESV (mL) & 1.20 & 12.00 & 13.78 & $+14.8$ & $+1.48$ & \textbf{fail} \\
+LVEF (--) & 0.062 & 0.618 & 0.717 & $+16.1$ & $+1.61$ & \textbf{fail} \\
+RVEF (--) & 0.061 & 0.607 & 0.682 & $+12.5$ & $+1.25$ & \textbf{fail} \\
+\addlinespace
+Within 10\,\% & \multicolumn{6}{l}{4 of 16} \\
+$\chi^2 / N$ & \multicolumn{6}{l}{$144.53 / 16 = 9.03$} \\
 \midrule
-Within 10\% & --- & \multicolumn{2}{l}{4 / 16} & & \\
-$\chi^2/N$ & --- & \multicolumn{2}{l}{9.03} & & \\
+\multicolumn{7}{l}{\emph{(b) Same state, other measurement sites (evaluation only, excluded from $\chi^2$)}} \\
+Systolic pressure, cuff (mmHg) & --- & 86.67 & 90.08 & $+3.9$ & --- & pass \\
+Diastolic pressure, cuff (mmHg) & --- & 55.33 & 51.95 & $-6.1$ & --- & pass \\
+Systolic pressure, DAo (mmHg) & --- & 104.33 & 90.08 & $-13.7$ & --- & fail \\
+Diastolic pressure, DAo (mmHg) & --- & 71.67 & 51.95 & $-27.5$ & --- & fail \\
+Mean arterial pressure, formula on cuff (mmHg) & --- & 65.67 & 70.19 & $+6.9$ & --- & pass \\
+\midrule
+\multicolumn{7}{l}{\emph{(c) Alternative dataset: protocol form rows 26--29, same prediction}} \\
+LVEDV (mL) & --- & 32.00 & 41.10 & $+28.4$ & --- & fail \\
+LVESV (mL) & --- & 23.60 & 11.62 & $-50.8$ & --- & fail \\
+LVEF (--) & --- & 0.263 & 0.717 & $+173.3$ & --- & fail \\
 \bottomrule
 \end{tabular}
+\par\vspace{2pt}
+\footnotesize{The echocardiography block of the post-closure protocol form ($Q_p$, $Q_s$, $Q_p/Q_s$, PVR, SVR, chamber volumes, stroke volume, cardiac output and ejection fraction) was left blank, which is why block (a) draws those quantities from the medical record. RVEDV and RVESV are identical in both datasets, so they appear once. Heart rate is a model input, not a target.}
 \end{table}
 
 % FIGURE SOURCE: results/batches/paper_20260920_005408/figures/F05_post_prediction_vs_protocol.pdf
