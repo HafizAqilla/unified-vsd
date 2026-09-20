@@ -149,7 +149,10 @@ error_panel <- function(d, name, title) {
   p <- ggplot(d, aes(x = ErrorPct, y = reorder(Label, abs(ErrorPct)), colour = Seed, shape = RoleLabel)) +
     annotate("rect", xmin = -10, xmax = 10, ymin = -Inf, ymax = Inf, alpha = 0.12) +
     geom_vline(xintercept = 0, linewidth = 0.3) +
-    geom_point(size = 1.6, alpha = 0.9) +
+    # The runs can coincide exactly (the accepted candidate is deterministic),
+    # so separate them vertically; otherwise one run hides the others.
+    geom_point(size = 1.6, alpha = 0.9,
+               position = position_dodge(width = 0.5)) +
     scale_colour_manual(values = seed_palette, name = "Run (multi-start seed)") +
     scale_shape_manual(values = c(16, 1, 17), name = NULL) +
     labs(x = "Model minus measurement (% of measurement); shaded band: within 10%", y = NULL) +
