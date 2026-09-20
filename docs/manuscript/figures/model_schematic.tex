@@ -37,7 +37,7 @@
 \coordinate (RV) at (6.2,0);
 \coordinate (RA) at (8.8,0);
 
-\draw (LA) to[D*, l=MV, *-*] (LV);
+\draw (LA) to[D*, l_=MV, *-*] (LV);
 \draw (RA) to[D*, l_=TV, *-*] (RV);
 
 \draw (LA) to[vC, l_=$E_{LA}(t)$] (0,-2.4) node[ground]{};
@@ -46,7 +46,7 @@
 \draw (RA) to[vC, l=$E_{RA}(t)$] (8.8,2.4) node[ground, rotate=180]{};
 
 \node[chamber, above left=3pt and 1pt of LA] {LA};
-\node[chamber, above right=7pt and 4pt of LV] {LV};
+\node[chamber, above left=6pt and 5pt of LV] {LV};
 \node[chamber, below right=3pt and 1pt of RV] {RV};
 \node[chamber, below right=3pt and 1pt of RA] {RA};
 \node[calib, font=\normalsize, anchor=south] at (6.2,3.1) {$E_{B,RV}$ fitted};
@@ -98,13 +98,13 @@
 \node[banner] at (4.4,-8.7) {pulmonary circulation};
 
 % ---------------------------------------------------------------- legend
-% placed inside the systemic loop, where nothing else is drawn
-\draw[fixedel] (1.7,6.5) -- (2.7,6.5);
-\node[anchor=west, font=\normalsize] at (2.85,6.5) {fixed by allometric scaling};
-\draw[calib, line width=1.1pt] (1.7,5.6) -- (2.7,5.6);
-\node[anchor=west, font=\normalsize] at (2.85,5.6) {calibrated ($S_T \ge 0.10$)};
-\draw[shunt, line width=1.1pt] (1.7,4.7) -- (2.7,4.7);
-\node[anchor=west, font=\normalsize] at (2.85,4.7) {septal defect ($C_d$ calibrated)};
+% top-right corner, above the systemic return rail
+\draw[fixedel] (8.6,10.2) -- (9.6,10.2);
+\node[anchor=west, font=\normalsize] at (9.75,10.2) {fixed by allometric scaling};
+\draw[calib, line width=1.1pt] (8.6,9.3) -- (9.6,9.3);
+\node[anchor=west, font=\normalsize] at (9.75,9.3) {calibrated ($S_T \ge 0.10$)};
+\draw[shunt, line width=1.1pt] (8.6,8.4) -- (9.6,8.4);
+\node[anchor=west, font=\normalsize] at (9.75,8.4) {septal defect ($C_d$ calibrated)};
 
 \end{circuitikz}
 \end{document}
