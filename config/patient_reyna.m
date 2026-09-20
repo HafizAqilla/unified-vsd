@@ -185,7 +185,7 @@ post.HR               = 108;     % [bpm] post-closure protocol form row 6 (108, 
 
 % ---- Shunt (absent after closure) ------------------------------------
 % QpQs should be ~1.0; residual shunt is modelled by a small, finite R_VSD
-post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
+post.QpQs             = 0.90;  % [-] medical record, echocardiographic estimate (Dzakiyah 2026)
 
 % ======================================================================
 % SOURCE: the study "reyna" procedure log, 06/04/2026 (see
@@ -223,7 +223,7 @@ post.SAP_dia_mmHg     = 68;    % [mmHg] post-closure RFA diastolic
 % Same definition as pre.SAP_mean_mmHg: protocol row 17 formula
 % (MAP = 1/3 sys + 2/3 dia) applied to the catheter RFA readings of rows 9-10.
 post.MAP_mmHg         = (89 + 2*68)/3;    % [mmHg] = 75.0 (maps to SAP_mean target)
-post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
+post.SVR_WU           = 27.56; % [WU]  medical record, derived from MAP, RAP and CO
 
 % ---- Atrial pressures ------------------------------------------------
 % log 12.28.14 / 12.28.24 / 12.28.35: RA 8/5 (5), 8/5 (5), 7/5 (5)
@@ -246,15 +246,22 @@ post.RVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 % targets, not consistency-only. Anyone adding a post_surgery calibration
 % recipe for Reyna should decide deliberately whether that default is
 % appropriate, rather than inheriting it silently.
-post.LVEDV_mL         = 32.0;    % [mL] protocol row 26, pre-release occluder (= post-closure)
-post.LVESV_mL         = 23.6;    % [mL] protocol row 27, pre-release occluder (= post-closure)
-post.RVEDV_mL         = 30.5;    % [mL] protocol row 28, pre-release occluder (= post-closure)
-post.RVESV_mL         = 12.0;    % [mL] protocol row 29, pre-release occluder (= post-closure)
-post.EF               = 0.2625;  % [-] LV EF = (32-23.6)/32
-post.RVEF             = 0.6066;  % [-] RV EF = (30.5-12)/30.5
+% Post-closure echocardiography from the medical record, as used in the
+% companion post-closure thesis (Dzakiyah 2026, Tables 4.4-4.6) for this same
+% patient. Confirmed by the study owner (2026-09-20) as the medical-record
+% values; the underlying report is not filed in this repository.
+% The protocol form's rows 26-29 (32 / 23.6 / 30.5 / 12) are a different
+% reading of the same patient and remain declared as the alternative dataset
+% in clinical.post_surgery_variants, so both are reported.
+post.LVEDV_mL         = 36.13;   % [mL] medical record, post-closure echocardiography
+post.LVESV_mL         = 13.80;   % [mL] medical record, post-closure echocardiography
+post.RVEDV_mL         = 30.5;    % [mL] medical record (same in both datasets)
+post.RVESV_mL         = 12.0;    % [mL] medical record (same in both datasets)
+post.EF               = (36.13 - 13.80) / 36.13;  % [-] 0.618
+post.RVEF             = (30.5 - 12.0) / 30.5;     % [-] 0.607
 
 % ---- Cardiac output --------------------------------------------------
-post.CO_Lmin          = NaN;
+post.CO_Lmin          = 2.54;    % [L/min] medical record, echocardiographic estimate
 
 clinical.post_surgery = post;
 
@@ -283,22 +290,25 @@ function v = reyna_post_variants(post_protocol)
 % Resolving them needs the source echocardiography report.
 v = struct('name', {}, 'source', {}, 'provenance', {}, 'data', {});
 
-v(1).name = 'protocol_form';
-v(1).source = 'IRB protocol form (pre-closure sheet rows 26-29)';
-v(1).provenance = 'verified against the scanned form';
+v(1).name = 'medical_record';
+v(1).source = ['post-closure echocardiography from the medical record, as used in ' ...
+    'the companion post-closure thesis (Dzakiyah 2026, Tables 4.4-4.6)'];
+v(1).provenance = ['medical record per the study owner (2026-09-20); the underlying ' ...
+    'echocardiography report is not filed in this repository'];
 v(1).data = post_protocol;
 
 alt = post_protocol;
-alt.LVEDV_mL = 36.13;
-alt.LVESV_mL = 13.80;
-alt.EF = (36.13 - 13.80) / 36.13;   % 0.618
-alt.CO_Lmin = 2.54;
-alt.QpQs = 0.90;
-alt.SVR_WU = 27.56;
-alt.MAP_mmHg = (89 + 2*68)/3;       % same protocol formula, unchanged
-v(2).name = 'thesis_dzakiyah';
-v(2).source = 'Dzakiyah 2026 post-closure thesis, Tables 4.4-4.6';
-v(2).provenance = 'UNVERIFIED: not on either protocol form, no source report cited';
+alt.LVEDV_mL = 32.0;
+alt.LVESV_mL = 23.6;
+alt.EF = (32.0 - 23.6) / 32.0;      % 0.2625
+alt.RVEF = (30.5 - 12.0) / 30.5;
+alt.CO_Lmin = NaN;
+alt.QpQs = NaN;
+alt.SVR_WU = NaN;
+v(2).name = 'protocol_form_rows_26_29';
+v(2).source = 'IRB protocol form, pre-closure sheet rows 26-29 ("pre release occluder")';
+v(2).provenance = ['verified against the scanned form; timing disputed (the same rows ' ...
+    'were read earlier as device-deployed-but-not-released)'];
 v(2).data = alt;
 end
 
