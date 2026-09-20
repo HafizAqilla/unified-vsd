@@ -259,7 +259,47 @@ post.CO_Lmin          = NaN;
 clinical.post_surgery = post;
 
 clinical.protocol = reyna_protocol_record();
+clinical.post_surgery_variants = reyna_post_variants(post);
 
+end
+
+% =======================================================================
+function v = reyna_post_variants(post_protocol)
+% REYNA_POST_VARIANTS - declared post-closure comparison datasets.
+%
+% Two datasets describe this patient's post-closure state and they disagree.
+% Both are evaluated and reported; neither overwrites the other.
+%
+%   protocol_form  IRB protocol form rows 26-29 (LVEDV 32, LVESV 23.6).
+%                  Primary, because it is the IRB-governed record.
+%   thesis_dzakiyah  The companion post-closure thesis (Dzakiyah 2026),
+%                  Tables 4.4-4.6, same patient: LVEDV 36.13, LVESV 13.80,
+%                  plus flow values absent from both forms. That thesis
+%                  cites only "medical record / echocardiography" and gives
+%                  no date or report, so its provenance is UNVERIFIED here.
+%                  The study owner asks that it be reported alongside.
+%
+% The two imply different left-ventricular function: LVEF 0.263 versus 0.618.
+% Resolving them needs the source echocardiography report.
+v = struct('name', {}, 'source', {}, 'provenance', {}, 'data', {});
+
+v(1).name = 'protocol_form';
+v(1).source = 'IRB protocol form (pre-closure sheet rows 26-29)';
+v(1).provenance = 'verified against the scanned form';
+v(1).data = post_protocol;
+
+alt = post_protocol;
+alt.LVEDV_mL = 36.13;
+alt.LVESV_mL = 13.80;
+alt.EF = (36.13 - 13.80) / 36.13;   % 0.618
+alt.CO_Lmin = 2.54;
+alt.QpQs = 0.90;
+alt.SVR_WU = 27.56;
+alt.MAP_mmHg = (89 + 2*68)/3;       % same protocol formula, unchanged
+v(2).name = 'thesis_dzakiyah';
+v(2).source = 'Dzakiyah 2026 post-closure thesis, Tables 4.4-4.6';
+v(2).provenance = 'UNVERIFIED: not on either protocol form, no source report cited';
+v(2).data = alt;
 end
 
 % =======================================================================

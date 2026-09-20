@@ -54,9 +54,26 @@ pred = evaluate_post_closure_prediction( ...
 % ---- protocol comparisons ---------------------------------------------
 tiers = read_tiers(run_dir);
 pre_tbl = protocol_table('pre', clinical, rp.metrics_baseline, ac.metrics, tiers);
-post_tbl = protocol_table('post', clinical, [], pred.metrics, table());
+% The post-closure state has more than one declared dataset (they disagree on
+% ventricular volume); every one is evaluated and labelled, none overwrites
+% another. The first variant is the primary one.
+variants = post_variants(clinical);
+post_parts = cell(1, numel(variants));
+for v = 1:numel(variants)
+    cv = clinical;
+    cv.post_surgery = variants(v).data;
+    t = protocol_table('post', cv, [], pred.metrics, table());
+    t = addvars(t, repmat({variants(v).name}, height(t), 1), ...
+        repmat({variants(v).provenance}, height(t), 1), 'Before', 1, ...
+        'NewVariableNames', {'Dataset', 'DatasetProvenance'});
+    post_parts{v} = t;
+    if v == 1
+        writetable(t, fullfile(out_dir, 'protocol_comparison_post.csv'));
+    end
+end
+post_tbl = vertcat(post_parts{:});
 writetable(pre_tbl, fullfile(out_dir, 'protocol_comparison_pre.csv'));
-writetable(post_tbl, fullfile(out_dir, 'protocol_comparison_post.csv'));
+writetable(post_tbl, fullfile(out_dir, 'protocol_comparison_post_all_datasets.csv'));
 writetable(inputs_table(clinical, ac.params, pred.params), fullfile(out_dir, 'inputs.csv'));
 
 % ---- parameters ---------------------------------------------------------
@@ -483,6 +500,17 @@ for f = fieldnames(Q)'
 end
 for f = fieldnames(params.idx)'
     T.(['state_' f{1}]) = XV(:, params.idx.(f{1}));
+end
+end
+
+function v = post_variants(clinical)
+% Declared post-closure datasets; falls back to the single struct when a
+% patient has only one.
+if isfield(clinical, 'post_surgery_variants') && ~isempty(clinical.post_surgery_variants)
+    v = clinical.post_surgery_variants;
+else
+    v = struct('name', 'post_surgery', 'source', 'clinical.post_surgery', ...
+        'provenance', 'single declared dataset', 'data', clinical.post_surgery);
 end
 end
 
