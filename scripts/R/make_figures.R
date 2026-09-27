@@ -141,10 +141,9 @@ run_fig("F03_calibration_before_after", function() {
     geom_col(data = s, aes(x = Mean, y = Label, fill = Stage), inherit.aes = FALSE,
              position = position_dodge(0.8), width = 0.7, alpha = 0.35) +
     geom_point(position = position_dodge(0.8), size = 1.3) +
-    geom_vline(xintercept = 10, linetype = "dashed", linewidth = 0.3) +
     scale_colour_manual(values = c("grey40", "#0072B2"), name = NULL) +
     scale_fill_manual(values = c("grey40", "#0072B2"), name = NULL) +
-    labs(x = "Absolute error relative to measurement (%) (dashed line: 10% acceptance)", y = NULL) + theme_paper
+    labs(x = "Absolute error relative to measurement (%)", y = NULL) + theme_paper
   save_fig(p, "F03_calibration_before_after", d)
 })
 

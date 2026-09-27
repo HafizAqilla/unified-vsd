@@ -236,7 +236,6 @@ run_fig("M4_parity", function() {
 "),
               .groups = "drop") %>% left_join(lims, by = "Panel")
   p <- ggplot(d, aes(Measured, Model)) +
-    geom_ribbon(data = band, aes(x = x, ymin = lo, ymax = hi), inherit.aes = FALSE, fill = "grey90") +
     geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.3) +
     geom_blank(data = corners) +
     geom_point(aes(colour = State, shape = State), size = 2) +
@@ -317,7 +316,6 @@ if (nzchar(noise_dir)) run_fig("M6_noise", function() {
                   LVEF = "LVEF", RVEF = "RVEF")
   O <- O %>% mutate(Label = factor(post_label[Metric], levels = rev(post_label)))
   pb <- ggplot(O, aes(x = Error_pct, y = Label)) +
-    annotate("rect", xmin = -10, xmax = 10, ymin = -Inf, ymax = Inf, fill = "grey90") +
     geom_vline(xintercept = 0, linewidth = 0.3) +
     geom_boxplot(outlier.shape = NA, width = 0.55, fill = NA, colour = col_post) +
     geom_jitter(height = 0.12, size = 0.6, colour = col_post, alpha = 0.6) +

@@ -39,15 +39,15 @@
 The complete pipeline was executed three times with the multi-start seeds 101, 202 and 303, fixed in advance, with clinical inputs and all other settings held constant. The seed enters only through the scrambling of starting points 2--6; starting point 1 is deterministic. All three runs are reported.
 
 \subsection{Result}
-The three runs returned the same accepted parameter set, so the pipeline is exactly reproducible under the seeds tested. The reason is visible in the multi-start record (Table~\ref{tab:S-multistart}): the clinically seeded starting point is deterministic and is not affected by the seed, it was the only start with no hard-target failure and the lowest governed error in runs 101 and 202, and it won the lexicographic selection in all three runs. The seed changes only the five scrambled starting points.
+The three runs returned the same selected parameter set, so the pipeline is exactly reproducible under the seeds tested. The reason is visible in the multi-start record (Table~\ref{tab:S-multistart}): the clinically seeded starting point is deterministic and is not affected by the seed, and in all three runs it had the lowest RMSE among the starts with no mean-pressure or flow target above the optimizer's 10\% setting, which is the first criterion of the selection rule (main text, Section~2.7). The seed changes only the five scrambled starting points.
 
-Variability therefore exists between starting points rather than between runs. Across the 18 starts, the governed RMSE ranged from 0.0909 to 0.1509. One scrambled start in run 303 reached 0.0909, below the accepted value of 0.1047, but failed one hard target and was rejected by the selection rule. This is the intended behaviour of the rule, and it means the reported result is not the lowest error attained, but the lowest error attained without a hard-target failure.
+Variability therefore exists between starting points rather than between runs. Across the 18 starts, the RMSE of relative error ranged from 0.0909 to 0.1509. One scrambled start in run 303 reached 0.0909, below the selected value of 0.1047, but had one mean-pressure or flow target above 10\%, so the selection rule ranked it below the seeded start. The reported result is therefore not the lowest RMSE attained, but the result the pre-specified selection rule chose.
 
-Because the accepted candidate does not vary, the three repeats do not quantify uncertainty. The measurement-noise simulation of the main text is the analysis intended for that purpose.
+Because the selected result does not vary, the three repeats do not quantify uncertainty. The measurement-noise simulation of the main text is the analysis intended for that purpose.
 
 \begin{table}[H]
 \centering\small
-\caption{Governed RMSE of the six starting points in each run, with the number of hard-target failures and gate failures in parentheses. The selected start is in bold.}
+\caption{RMSE of relative error over the nine fitted targets for the six starting points in each run. In parentheses: the number of the five mean-pressure and flow targets, and of all nine fitted targets, with a relative error above 10\%, the two counts used by the selection rule. The selected start is in bold.}
 \label{tab:S-multistart}
 \begin{tabular}{lccc}
 \toprule
@@ -108,14 +108,14 @@ Table~\ref{tab:S-weights} lists the target weights $w_k$ and the term weights of
 \toprule
 \textbf{Term} & \textbf{Quantity} & \textbf{Weight} \\
 \midrule
-Hard, direct ($\mathcal{H}^{*}$, tolerance 0.05) & mean PA pressure & 1.35 \\
+Group $\mathcal{H}^{*}$ (normalized by 0.05) & mean PA pressure & 1.35 \\
  & $Q_p/Q_s$ & 1.65 \\
-Hard, coupled systemic term $J_{\mathrm{sys}}$ & mean RA pressure; mean arterial pressure; $Q_s$ & 1.80; 2.03; 3.24 \\
-Soft ($\mathcal{S}$, tolerance 0.10) & PA systolic; PA diastolic & 0.50; 0.45 \\
+Coupled systemic term $J_{\mathrm{sys}}$ & mean RA pressure; mean arterial pressure; $Q_s$ & 1.80; 2.03; 3.24 \\
+Group $\mathcal{S}$ (normalized by 0.10) & PA systolic; PA diastolic & 0.50; 0.45 \\
  & RFA systolic; RFA diastolic & 1.40; 1.30 \\
  & shunt flow & 0.80 \\
 $J_{\mathrm{shape}}$ & shunt flow-consistency term & 0.15 \\
-Gate hinge & $\lambda_{\mathrm{g}}$, gate 10\% & 20 \\
+Penalty on relative error above 10\% & $\lambda_{\mathrm{g}}$ & 20 \\
 Prior & $\lambda_{\mathrm{p}}$ (stages A--D, F); stage E & 0.375; 2.25 \\
 Bound proximity & $\lambda$ (stages A--D, F); stage E & 17; 120 \\
 Physiological range & soft; hard band & 50; 400 \\
@@ -128,7 +128,7 @@ Physiological range & soft; hard band & 50; 400 \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\linewidth]{F01_gsa_tornado_screening.pdf}
-\caption{Total-order (bars) and first-order (points) Sobol' indices at the scaled baseline for each governed target, eight largest parameters per target. Dashed line: retention threshold 0.10.}
+\caption{Total-order (bars) and first-order (points) Sobol' indices at the scaled baseline for each of the nine fitted targets, eight largest parameters per target. Dashed line: retention threshold 0.10.}
 \label{fig:S-tornado-initial}
 \end{figure}
 
@@ -142,7 +142,7 @@ Physiological range & soft; hard band & 50; 400 \\
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.9\linewidth]{F03_calibration_before_after.pdf}
-\caption{Absolute relative error of each governed target at the scaled baseline and after calibration. Dashed line: 10\% acceptance gate.}
+\caption{Absolute relative error of each of the nine fitted targets at the scaled baseline and after calibration.}
 \label{fig:S-before-after}
 \end{figure}
 
