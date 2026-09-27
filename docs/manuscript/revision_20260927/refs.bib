@@ -484,11 +484,15 @@ title={An interactive simulation tool for patient-specific clinical decision sup
 
 @article{Olufsen2013, author={Olufsen, Mette S. and Ottesen, Johnny T.}, title={A practical approach to parameter estimation applied to model predicting heart rate regulation}, journal={Journal of Mathematical Biology}, volume={67}, number={1}, pages={39--68}, year={2013}, doi={10.1007/s00285-012-0535-8}}
 % =====================================================================
-% ADDED 2026-09-27. Every entry below was checked against Crossref by
-% DOI (title, journal, volume, pages, year) before it was cited.
-% refs.bib = your original entries + these; this file lists only the
-% additions so you can see exactly what is new.
+% ADDED 2026-09-27. Every entry below was checked against Crossref by DOI
+% (title, journal, volume, pages, year, authors) and, for the clinical
+% papers, against the PubMed abstract for the claim it supports.
+% On the authors' instruction, every added reference is from 2021--2026,
+% except Owashi2020, which the authors supplied as a style reference.
+% refs.bib = refs_original.bib + this file.
 % =====================================================================
+
+% ---- reference papers for layout and comparison --------------------------
 
 @article{Lechuga2026,
   author  = {Lechuga, Christopher G. and Kachabi, Amirreza and Colebank, Mitchel J. and Korcarz, Claudia E. and Raza, Farhan and Chesler, Naomi C.},
@@ -511,6 +515,8 @@ title={An interactive simulation tool for patient-specific clinical decision sup
   pages   = {e0229609},
   doi     = {10.1371/journal.pone.0229609}
 }
+
+% ---- modeling, calibration and uncertainty --------------------------------
 
 @article{Colunga2023,
   author  = {Colunga, Amy L. and Colebank, Mitchel J. and Olufsen, Mette S.},
@@ -544,102 +550,103 @@ title={An interactive simulation tool for patient-specific clinical decision sup
   doi     = {10.3389/fphys.2021.666915}
 }
 
-@article{Kheyfets2016,
-  author  = {Kheyfets, Vitaly O. and Dunning, Jamie and Truong, Uyen and Ivy, Dunbar and Hunter, Kendall and Shandas, Robin},
-  title   = {A Zero-Dimensional Model and Protocol for Simulating Patient-Specific Pulmonary Hemodynamics From Limited Clinical Data},
-  journal = {Journal of Biomechanical Engineering},
-  year    = {2016},
-  volume  = {138},
-  number  = {12},
-  pages   = {121001},
-  doi     = {10.1115/1.4034830}
+@article{Kachabi2025,
+  author  = {Kachabi, Amirreza and Altieri Correa, Sofia and Chesler, Naomi C. and Colebank, Mitchel J.},
+  title   = {Bayesian parameter inference and uncertainty quantification for a computational pulmonary hemodynamics model using Gaussian processes},
+  journal = {Computers in Biology and Medicine},
+  year    = {2025},
+  volume  = {194},
+  pages   = {110552},
+  doi     = {10.1016/j.compbiomed.2025.110552}
 }
 
-@article{Gerringer2018,
-  author  = {Gerringer, Jesse W. and Wagner, Julie C. and V{\'e}lez-Rend{\'o}n, Daniela and Valdez-Jasso, Daniela},
-  title   = {Lumped-parameter models of the pulmonary vasculature during the progression of pulmonary arterial hypertension},
-  journal = {Physiological Reports},
-  year    = {2018},
-  volume  = {6},
-  number  = {3},
-  pages   = {e13586},
-  doi     = {10.14814/phy2.13586}
+@article{Niederer2021,
+  author  = {Niederer, Steven A. and Sacks, Michael S. and Girolami, Mark and Willcox, Karen},
+  title   = {Scaling digital twins from the artisanal to the industrial},
+  journal = {Nature Computational Science},
+  year    = {2021},
+  volume  = {1},
+  number  = {5},
+  pages   = {313--320},
+  doi     = {10.1038/s43588-021-00072-5}
 }
 
-@article{Ellwein2008,
-  author  = {Ellwein, Laura M. and Tran, Hien T. and Zapata, Cheryl and Novak, Vera and Olufsen, Mette S.},
-  title   = {Sensitivity Analysis and Model Assessment: Mathematical Models for Arterial Blood Flow and Blood Pressure},
-  journal = {Cardiovascular Engineering},
-  year    = {2008},
-  volume  = {8},
-  number  = {2},
-  pages   = {94--108},
-  doi     = {10.1007/s10558-007-9047-3}
-}
+% ---- physiology: arterial load, venous return, coupling -------------------
 
-@article{Marquis2018,
-  author  = {Marquis, Andrew D. and Arnold, Andrea and Dean-Bernhoft, Caron and Carlson, Brian E. and Olufsen, Mette S.},
-  title   = {Practical identifiability and uncertainty quantification of a pulsatile cardiovascular model},
-  journal = {Mathematical Biosciences},
-  year    = {2018},
-  volume  = {304},
-  pages   = {9--24},
-  doi     = {10.1016/j.mbs.2018.07.001}
-}
-
-@article{Sankaran2011,
-  author  = {Sankaran, Sethuraman and Marsden, Alison L.},
-  title   = {A Stochastic Collocation Method for Uncertainty Quantification and Propagation in Cardiovascular Simulations},
-  journal = {Journal of Biomechanical Engineering},
-  year    = {2011},
-  volume  = {133},
-  number  = {3},
-  pages   = {031001},
-  doi     = {10.1115/1.4003259}
-}
-
-@article{Avolio2009,
-  author  = {Avolio, Alberto P. and Van Bortel, Luc M. and Boutouyrie, Pierre and others},
-  title   = {Role of Pulse Pressure Amplification in Arterial Hypertension: Experts' Opinion and Review of the Data},
-  journal = {Hypertension},
-  year    = {2009},
-  volume  = {54},
-  number  = {2},
-  pages   = {375--383},
-  doi     = {10.1161/HYPERTENSIONAHA.109.134379}
-}
-
-@article{Beerbaum2001,
-  author  = {Beerbaum, Philipp and K{\"o}rperich, Hermann and Barth, Peter and Esdorn, Harald and Gieseke, J{\"u}rgen and Meyer, Hans},
-  title   = {Noninvasive Quantification of Left-to-Right Shunt in Pediatric Patients: Phase-Contrast Cine Magnetic Resonance Imaging Compared With Invasive Oximetry},
-  journal = {Circulation},
-  year    = {2001},
-  volume  = {103},
-  number  = {20},
-  pages   = {2476--2482},
-  doi     = {10.1161/01.CIR.103.20.2476}
-}
-
-@article{LaFarge1970,
-  author  = {LaFarge, C. Grant and Miettinen, Olli S.},
-  title   = {The estimation of oxygen consumption},
-  journal = {Cardiovascular Research},
-  year    = {1970},
-  volume  = {4},
+@article{Persichini2022,
+  author  = {Persichini, Romain and Lai, Christopher and Teboul, Jean-Louis and Adda, Imane and Gu{\'e}rin, Laurent and Monnet, Xavier},
+  title   = {Venous return and mean systemic filling pressure: physiology and clinical applications},
+  journal = {Critical Care},
+  year    = {2022},
+  volume  = {26},
   number  = {1},
-  pages   = {23--30},
-  doi     = {10.1093/cvr/4.1.23}
+  pages   = {150},
+  doi     = {10.1186/s13054-022-04024-x}
 }
 
-@article{Seguela2012,
-  author  = {S{\'e}gu{\'e}la, Pierre-Emmanuel and Hasco{\"e}t, S{\'e}bastien and Brierre, Gilles and Bongard, Vanina and Acar, Philippe},
-  title   = {Feasibility of Three-Dimensional Transthoracic Echocardiography to Evaluate Right Ventricular Volumes in Children and Comparison to Left Ventricular Values},
-  journal = {Echocardiography},
-  year    = {2012},
-  volume  = {29},
+@article{FloresGeronimo2021,
+  author  = {Flores Ger{\'o}nimo, Joaqu{\'i}n and Corvera Poir{\'e}, Eugenia and Chowienczyk, Philip and Alastruey, Jordi},
+  title   = {Estimating Central Pulse Pressure From Blood Flow by Identifying the Main Physical Determinants of Pulse Pressure Amplification},
+  journal = {Frontiers in Physiology},
+  year    = {2021},
+  volume  = {12},
+  pages   = {608098},
+  doi     = {10.3389/fphys.2021.608098}
+}
+
+@article{Kempton2025,
+  author  = {Kempton, Hannah and Olsen, Nick and Kearney, Katherine and Hayward, Christopher S. and Muller, David W. and Adji, Audrey},
+  title   = {Empiric Pulmonary Arterial Compliance Reflects the Resistance-Compliance Relationship and Predicts Mortality in Pulmonary Hypertension},
+  journal = {Pulmonary Circulation},
+  year    = {2025},
+  volume  = {15},
   number  = {4},
-  pages   = {492--501},
-  doi     = {10.1111/j.1540-8175.2011.01596.x}
+  pages   = {e70184},
+  doi     = {10.1002/pul2.70184}
+}
+
+@article{Gouwy2025,
+  author  = {Gouwy, Eva and Ploegstra, Mark-Jan and Haarman, Meindina G. and Roofthooft, Marcus T. R. and Berger, Rolf M. F. and Douwes, Johannes M.},
+  title   = {Reduced pulmonary arterial compliance predicts poor short-term outcome in children with pulmonary arterial hypertension independent of pulmonary vascular resistance},
+  journal = {Frontiers in Cardiovascular Medicine},
+  year    = {2025},
+  volume  = {12},
+  pages   = {1526435},
+  doi     = {10.3389/fcvm.2025.1526435}
+}
+
+@article{Vriz2021,
+  author  = {Vriz, Olga and Fadl Elmula, Fadl-Elmula M. and Antonini-Canterin, Francesco},
+  title   = {Noninvasive Assessment of Ventricular-Arterial Coupling in Heart Failure},
+  journal = {Heart Failure Clinics},
+  year    = {2021},
+  volume  = {17},
+  number  = {2},
+  pages   = {245--254},
+  doi     = {10.1016/j.hfc.2020.12.003}
+}
+
+% ---- VSD clinical physiology and measurement --------------------------------
+
+@article{Uppu2022,
+  author  = {Uppu, Santosh C. and Srivastava, Shubhika and Love, Barry A.},
+  title   = {Ventricular septal defect Doppler peak gradient underestimates right ventricular systolic pressure in the presence of right bundle branch block},
+  journal = {Annals of Pediatric Cardiology},
+  year    = {2022},
+  volume  = {15},
+  number  = {3},
+  pages   = {320--322},
+  doi     = {10.4103/apc.apc_167_21}
+}
+
+@article{Safa2023,
+  author  = {Safa, Raya and Dean, Ashley and Sanil, Yamuna and Thomas, Ronald and Singh, Gautam and Charaf Eddine, Ahmad},
+  title   = {Effect of Preoperative Volume Overload on Left Ventricular Function Recovery After Ventricular Septal Defect Repair},
+  journal = {The American Journal of Cardiology},
+  year    = {2023},
+  volume  = {203},
+  pages   = {253--258},
+  doi     = {10.1016/j.amjcard.2023.06.118}
 }
 
 @article{Yuan2025,
@@ -653,24 +660,24 @@ title={An interactive simulation tool for patient-specific clinical decision sup
   doi     = {10.1016/j.heliyon.2025.e42157}
 }
 
-@article{CorralAcero2020,
-  author  = {Corral-Acero, Jorge and Margara, Francesca and Marciniak, Maciej and others},
-  title   = {The {Digital Twin} to enable the vision of precision cardiology},
-  journal = {European Heart Journal},
-  year    = {2020},
-  volume  = {41},
-  number  = {48},
-  pages   = {4556--4564},
-  doi     = {10.1093/eurheartj/ehaa159}
+@article{Ralston2023,
+  author  = {Ralston, Bradford H. and Waberski, Andrew T. and Kanter, Joshua P. and Schick, Jacob W. and Downing, Tacy E.},
+  title   = {Measured Oxygen Consumption During Pediatric Cardiac Catheterization is More Accurate than Assumed Oxygen Consumption},
+  journal = {Pediatric Cardiology},
+  year    = {2024},
+  volume  = {45},
+  number  = {7},
+  pages   = {1466--1474},
+  doi     = {10.1007/s00246-023-03186-x}
 }
 
-@article{Niederer2019,
-  author  = {Niederer, Steven A. and Lumens, Joost and Trayanova, Natalia A.},
-  title   = {Computational models in cardiology},
-  journal = {Nature Reviews Cardiology},
-  year    = {2019},
-  volume  = {16},
+@article{Schramm2023,
+  author  = {Schramm, Jennifer and Cronin, Ileen and McCarter, Robert and Mandell, Jason G. and Downing, Tacy and Kanter, Joshua and Cross, Russell and Olivieri, Laura},
+  title   = {Cardiac magnetic resonance haemodynamics in paediatric heart transplant patients: {Fick} oximetry versus cardiac magnetic resonance phase contrast},
+  journal = {Cardiology in the Young},
+  year    = {2024},
+  volume  = {34},
   number  = {2},
-  pages   = {100--111},
-  doi     = {10.1038/s41569-018-0104-y}
+  pages   = {262--267},
+  doi     = {10.1017/S1047951123001440}
 }
