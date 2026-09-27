@@ -89,20 +89,27 @@ run_fig <- function(name, fn) {
 # ---- F01/F02: tornado plots --------------------------------------------
 tornado <- function(d, title, name, with_range) {
   d <- d %>% filter(Output %in% governed) %>%
-    mutate(OutputLabel = lab(Output, metric_label), ParameterLabel = lab(Parameter, param_label))
+    mutate(OutputLabel = lab(Output, metric_label), ParameterLabel = lab(Parameter, param_label),
+           OutputLabel = sub("Pulmonary-to-systemic", "Pulmonary-to-
+systemic", OutputLabel))
   top <- d %>% group_by(Output) %>% slice_max(ST, n = 8, with_ties = FALSE) %>% ungroup() %>%
     mutate(ParameterLabel = tidytext_reorder(ParameterLabel, ST, OutputLabel))
   p <- ggplot(top, aes(x = ST, y = ParameterLabel)) +
     geom_col(aes(fill = "Total-order index"), width = 0.7) +
     geom_point(aes(x = S1, shape = "First-order index"), size = 1.2) +
     geom_vline(xintercept = 0.10, linetype = "dashed", linewidth = 0.3) +
-    facet_wrap(~OutputLabel, scales = "free_y", ncol = 3, labeller = label_wrap_gen(30)) +
+    # Facet titles wrapped to the panel width and never clipped: the long
+    # parameter names on the y axis make each panel narrow, and a clipped
+    # strip used to cut titles to fragments such as "olic pulmonary a".
+    facet_wrap(~OutputLabel, scales = "free_y", ncol = 3, labeller = label_wrap_gen(22)) +
     scale_y_discrete(labels = function(x) sub("___.*$", "", x)) +
     scale_fill_manual(values = "grey60", name = NULL) + scale_shape_manual(values = 16, name = NULL) +
     labs(x = "Sobol sensitivity index (dashed line: screening threshold 0.10)", y = NULL) +
-    theme_paper
+    theme_paper + theme(strip.clip = "off", strip.text = element_text(face = "bold", size = 7.5),
+                        axis.text.y = element_text(size = 6.5), panel.spacing.x = unit(0.8, "lines"),
+                        plot.margin = margin(5, 18, 5, 5))
   if (with_range) p <- p + geom_errorbar(aes(xmin = ST_min, xmax = ST_max), width = 0.3, linewidth = 0.3, orientation = "y")
-  save_fig(p, name, top, w = 19, h = 20)
+  save_fig(p, name, top, w = 19, h = 21)
 }
 tidytext_reorder <- function(x, by, within) {
   new <- paste(x, within, sep = "___")
