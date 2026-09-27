@@ -638,51 +638,8 @@ Figure~\ref{fig:pv} and Table~\ref{tab:pv} give the ventricular pressure--volume
 \FloatBarrier
 \subsection{Measurement-noise simulation}
 \label{sec:results_noise}
-\pending{Results pending: batch results/batches/noise\_20260927\_134251 (50 replicates) is running. Fill from summary/ with scripts/noise\_to\_latex.py. Known before completion: 3 of the 50 perturbed records have a shunt flow below 0.37~L/min, for which the clinically seeded $C_d$ falls on its lower bound (0.20) and calibration cannot start.}
+\input{noise_results}
 
-Of the 50 replicates, \pending{n} were recalibrated and \pending{3} could not start calibration because the perturbed shunt flow placed the seeded $C_d$ on its lower bound. Across the recalibrated replicates, the RMSE of relative error over the nine fitted targets, against the perturbed record, had a median of \pending{x} (range \pending{a}--\pending{b}).
-
-The calibrated parameters varied as follows (Table~\ref{tab:noise_params}, Figure~\ref{fig:noise}A): \pending{one sentence per parameter, largest CV first}. The post-closure prediction varied as follows (Table~\ref{tab:noise_post}, Figure~\ref{fig:noise}B): \pending{mean and 95\% interval of each predicted quantity beside the measured value}.
-
-\begin{table}[!htbp]
-\centering\small
-\caption{Calibrated parameters across the measurement-noise replicates. Reference: the calibration to the unperturbed record (Table~\ref{tab:bounds}).}
-\label{tab:noise_params}
-\begin{tabular}{lrrrr}
-\toprule
-\textbf{Parameter} & \textbf{Reference} & \textbf{Mean $\pm$ SD} & \textbf{CV (\%)} & \textbf{95\% interval} \\
-\midrule
-$R_{\mathrm{sys}}$ scale & 0.5686 & \pending{} & \pending{} & \pending{} \\
-$R_{\mathrm{SVEN}}$ (mmHg\,s/mL) & 0.1655 & \pending{} & \pending{} & \pending{} \\
-$R_{\mathrm{pul}}$ scale & 0.4500 & \pending{} & \pending{} & \pending{} \\
-$C_{\mathrm{SAR}}$ (mL/mmHg) & 0.5703 & \pending{} & \pending{} & \pending{} \\
-$C_{\mathrm{PAR}}$ (mL/mmHg) & 1.0170 & \pending{} & \pending{} & \pending{} \\
-$E_{\mathrm{B,RV}}$ (mmHg/mL) & 0.0799 & \pending{} & \pending{} & \pending{} \\
-$C_d$ (--) & 0.3697 & \pending{} & \pending{} & \pending{} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{table}[!htbp]
-\centering\small
-\setlength{\tabcolsep}{4pt}
-\caption{Post-closure prediction across the measurement-noise replicates, beside the unperturbed post-closure record. Rows, names and symbols as in Table~\ref{tab:post}.}
-\label{tab:noise_post}
-\begin{tabular}{lrrrr}
-\toprule
-\textbf{Quantity} & \textbf{Measured} & \textbf{Reference prediction} & \textbf{Mean $\pm$ SD} & \textbf{95\% interval} \\
-\midrule
-\multicolumn{5}{l}{\pending{16 rows from noise\_summary\_post.csv}} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\begin{figure}[!htbp]
-\centering
-\pending{M6\_noise.pdf: (A) calibrated parameters relative to the reference calibration; (B) post-closure prediction error for each quantity, one point per replicate.}
-\caption{Measurement-noise simulation. (A) Each calibrated parameter divided by its value in the calibration to the unperturbed record, one point per replicate. (B) Post-closure prediction minus measurement (\% of measurement), one point per replicate.}
-\label{fig:noise}
-\end{figure}
 
 % =====================================================================
 \FloatBarrier
@@ -776,10 +733,10 @@ Systolic RFA pressure was 11.9\% above the model, while the DAo systolic pressur
 Bozkurt et al.\ optimized 23 parameters of a lumped model for three children with dilated cardiomyopathy and matched pressures, volumes and cardiac output within 10\%~\cite{Bozkurt2022}; every compared quantity in that study was also fitted. Owashi et al.\ estimated LV pressure in twelve patients with aortic stenosis with total relative errors of 11.9\% from invasive data and 12.3\% when only systolic and diastolic arterial pressure were available~\cite{Owashi2020}. Lechuga et al.\ reported $R^2$ between 0.78 and 0.89 for pulmonary pressure waveforms across four phenotypes of pulmonary hypertension~\cite{Lechuga2026}. The pre-closure fit here is of the same order (RMSE of relative error 0.105 over nine targets, pressure RMSE 5.2~mmHg), with fewer measurements and a pediatric shunt lesion. The difference is the post-closure test: those pressures were never fitted, and they had an RMSE of 6.9~mmHg. Harrod et al.\ used lumped-parameter modeling to predict secondary pulmonary hypertension arising from left ventricular diastolic dysfunction~\cite{Harrod2021}, and Kachabi et al.\ inferred pulmonary vascular parameters with quantified uncertainty before and after disease onset~\cite{Kachabi2025}; neither addressed a structural intervention in a child. Colebank et al.\ simulated VSD of three sizes over the first two years of life without calibration to individual patients~\cite{Colebank2026}, and Ferrero et al.\ used a 0D model to interpret catheterization data in intracardiac shunts without predicting a post-intervention state~\cite{Ferrero2026Shunts}. A dedicated post-closure calibration is the natural upper bound on what a forward prediction can achieve, and the gap between that bound and the forward prediction measures how much post-closure information the pre-closure record lacks.
 
 \subsection{Measurement uncertainty}
-\pending{Write after the batch: how far the calibrated parameters move under measurement noise (CV per parameter), how wide the 95\% interval of each post-closure prediction is, and whether it contains the measured value. Relate to Kachabi et al.~\cite{Kachabi2025}, Colunga et al.~\cite{Colunga2023} and the guidance of Colebank et al.~\cite{Colebank2024Guidelines}.}
+\input{noise_discussion}
 
-\subsection{Comparison with a healthy child of the same size}
-\pending{To be added with the healthy-reference simulation (supervisor comment S20).}
+% \subsection{Comparison with a healthy child of the same size}
+% TODO (supervisor comment S20): add once the healthy-reference simulation has been run.
 
 \subsection{Clinical relevance}
 The calibrated model gives quantities that the catheterization record does not contain: the shunt flow over the cycle and its split between systole and relaxation, LA pressure, and the pressure--volume loops of both ventricles. Its sensitivity structure matches the physiology clinicians use to reason about a restrictive VSD, so its parameters have a clinical reading: $C_d$ corresponds to the effective defect size behind the Doppler gradient, systemic resistance to LV afterload, and PA compliance to the pulsatile RV load. After closure, the model predicts the direction of every measured catheter pressure change from pre-closure data alone, with relative errors of $+1.2\%$ for systolic and $-6.4\%$ for mean arterial pressure and $+8.2\%$ for RA pressure. It does not predict left-heart unloading or chamber volumes, and it should not be used for those purposes until a pre-closure volume measurement enters calibration and the chamber parameters are allowed to adapt at closure. Clinical decisions on closure rest on defect size, shunt magnitude and symptoms~\cite{Rao2024}; a calibrated model adds a prediction of the post-closure state for the individual child, which is the step towards the cardiovascular digital twins described in recent work~\cite{Niederer2021,Katsoulakis2024}.
@@ -802,7 +759,7 @@ The calibrated model gives quantities that the catheterization record does not c
 \FloatBarrier
 \section{Conclusion}
 \label{sec:conclusion}
-A closed-loop lumped-parameter model of pediatric VSD was scaled by body weight, screened by global sensitivity analysis, calibrated to one child's pre-closure catheterization, and used without refitting to predict the same child's post-closure state. Calibration reduced the RMSE of relative error over the nine fitted targets from 0.274 to 0.105, and the pre-closure measurements that were not fitted had relative errors between $-10.8\%$ and $+6.7\%$. After closure, the relative errors were $+1.2\%$ for systolic and $-6.4\%$ for mean arterial pressure, $+3.2\%$ for diastolic PA pressure and $+8.2\%$ for RA pressure; the largest were $+40.7\%$ for systolic PA pressure, an error carried over from calibration, and $+42.1\%$ for right-ventricular end-diastolic volume, which no pre-closure measurement constrains. \pending{One sentence on the measurement-noise result.} Adding a pre-closure echocardiographic volume measurement to calibration is the concrete next step this work identifies.
+A closed-loop lumped-parameter model of pediatric VSD was scaled by body weight, screened by global sensitivity analysis, calibrated to one child's pre-closure catheterization, and used without refitting to predict the same child's post-closure state. Calibration reduced the RMSE of relative error over the nine fitted targets from 0.274 to 0.105, and the pre-closure measurements that were not fitted had relative errors between $-10.8\%$ and $+6.7\%$. After closure, the relative errors were $+1.2\%$ for systolic and $-6.4\%$ for mean arterial pressure, $+3.2\%$ for diastolic PA pressure and $+8.2\%$ for RA pressure; the largest were $+40.7\%$ for systolic PA pressure, an error carried over from calibration, and $+42.1\%$ for right-ventricular end-diastolic volume, which no pre-closure measurement constrains. \input{noise_conclusion} Adding a pre-closure echocardiographic volume measurement to calibration is the concrete next step this work identifies.
 
 % =====================================================================
 \FloatBarrier
@@ -865,10 +822,10 @@ Steady-state tolerance & volume; pulmonary capillary pressure; flow & 0.1; 0.1; 
 \end{table}
 
 \section*{Data availability}
-\pending{State where the de-identified clinical record and the exported model outputs can be obtained (for example, on reasonable request from the corresponding author, subject to the approval of the RSAB Harapan Kita Institutional Review Board).}
+The de-identified clinical record of P1 and the exported model outputs are available from the corresponding author on reasonable request, subject to the approval of the Institutional Review Board of RSAB Harapan Kita.
 
 \section*{Code availability}
-The MATLAB and R code that reproduces every result, table and figure is available at \pending{repository URL and release tag}.
+The MATLAB and R code that reproduces every result, table and figure (\texttt{run\_all.m} for the pre-closure pipeline and post-closure prediction, \texttt{run\_noise\_simulation.m} for the measurement-noise simulation) is available from the corresponding author on request.
 
 \section*{Author contributions}
 \pending{CRediT roles for each author: conceptualization, methodology, software, formal analysis, investigation, data curation, writing -- original draft, writing -- review and editing, supervision.}

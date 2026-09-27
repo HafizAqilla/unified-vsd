@@ -308,19 +308,19 @@ if (nzchar(noise_dir)) run_fig("M6_noise", function() {
     geom_boxplot(outlier.shape = NA, width = 0.55, fill = "grey92") +
     geom_jitter(width = 0.12, size = 0.8, colour = col_pre, alpha = 0.7) +
     labs(x = NULL, y = "Calibrated value / reference calibration") + theme_paper +
-    theme(axis.text.x = element_text(angle = 35, hjust = 1))
-  post_label <- c(RAP_mean = "Mean RA pressure", PAP_min = "PA diastolic", PAP_max = "PA systolic",
-                  PAP_mean = "Mean PA pressure", SAP_min = "Systemic diastolic", SAP_max = "Systemic systolic",
-                  SAP_mean = "Mean arterial pressure", QpQs = "Qp/Qs", CO_Lmin = "Cardiac output",
-                  SVR = "SVR", LVEDV = "LVEDV", LVESV = "LVESV", RVEDV = "RVEDV", RVESV = "RVESV",
-                  LVEF = "LVEF", RVEF = "RVEF")
+    coord_flip()
+  post_label <- c(SAP_max = "Systolic pressure, RFA", SAP_min = "Diastolic pressure, RFA",
+                  SAP_mean = "Mean arterial pressure, RFA", PAP_max = "PA systolic pressure",
+                  PAP_min = "PA diastolic pressure", PAP_mean = "Mean PA pressure", RAP_mean = "Mean RA pressure",
+                  CO_Lmin = "Systemic flow Qs", QpQs = "Qp/Qs", SVR = "SVR", LVEDV = "LVEDV", LVESV = "LVESV",
+                  RVEDV = "RVEDV", RVESV = "RVESV", LVEF = "LVEF", RVEF = "RVEF")
   O <- O %>% mutate(Label = factor(post_label[Metric], levels = rev(post_label)))
   pb <- ggplot(O, aes(x = Error_pct, y = Label)) +
     geom_vline(xintercept = 0, linewidth = 0.3) +
     geom_boxplot(outlier.shape = NA, width = 0.55, fill = NA, colour = col_post) +
     geom_jitter(height = 0.12, size = 0.6, colour = col_post, alpha = 0.6) +
-    labs(x = "Predicted minus measured post-closure value (% of measured)", y = NULL) + theme_paper
-  p <- pa + pb + plot_layout(widths = c(1, 1.1)) + plot_annotation(tag_levels = "A")
-  save_fig(p, "M6_noise", O, w = 19, h = 10)
+    labs(x = "Prediction minus measurement (% of measurement)", y = NULL) + theme_paper
+  p <- pa / pb + plot_layout(heights = c(0.7, 1.3)) + plot_annotation(tag_levels = "A")
+  save_fig(p, "M6_noise", O, w = 16, h = 18)
 })
 cat("done\n")
