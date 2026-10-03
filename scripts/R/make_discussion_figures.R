@@ -135,11 +135,33 @@ err <- bind_rows(
     transmute(Replicate, Metric, Error = Error_pct, State = "Post-closure, predicted")) %>%
   mutate(Label = factor(met_lab[Metric], levels = rev(met_lab)),
          State = factor(State, levels = c("Pre-closure, calibrated", "Post-closure, predicted")))
+# Errors of the reference calibration and its prediction (main-text tables)
+ref_err <- tribble(
+  ~Metric,   ~Pre,  ~Post,
+  "SAP_max", -11.9,   1.2,
+  "SAP_min",  -7.5, -23.6,
+  "SAP_mean", -2.5,  -6.4,
+  "PAP_max",  25.5,  40.7,
+  "PAP_min",  -3.0,   3.2,
+  "PAP_mean",  5.5,  14.3,
+  "RAP_mean",  4.6,   8.2,
+  "CO_Lmin",  -8.0,  24.8,
+  "QpQs",     -3.1,  11.2,
+  "LVEDV",      NA,  13.8,
+  "LVESV",      NA, -15.8,
+  "RVEDV",      NA,  42.1,
+  "RVESV",      NA,  14.8) %>%
+  pivot_longer(-Metric, names_to = "State", values_to = "Error") %>% filter(!is.na(Error)) %>%
+  mutate(Label = factor(met_lab[Metric], levels = rev(met_lab)),
+         State = factor(ifelse(State == "Pre", "Pre-closure, calibrated", "Post-closure, predicted"),
+                        levels = c("Pre-closure, calibrated", "Post-closure, predicted")))
 pB <- ggplot(err, aes(x = Error, y = Label, fill = State)) +
   geom_vline(xintercept = 0, linewidth = 0.3) +
   geom_boxplot(outlier.shape = NA, width = 0.7, position = position_dodge(width = 0.8), alpha = 0.6) +
   geom_point(aes(colour = State), position = position_jitterdodge(jitter.height = 0.1, jitter.width = 0,
              dodge.width = 0.8), size = 0.9, show.legend = FALSE) +
+  geom_point(data = ref_err, aes(group = State), shape = 23, size = 2.2, fill = "white", colour = "black",
+             position = position_dodge(width = 0.8), show.legend = FALSE) +
   scale_fill_manual(values = c(col_pre, col_post), name = NULL) +
   scale_colour_manual(values = c(col_pre, col_post)) +
   labs(x = "Model minus measurement (% of measurement)", y = NULL) + theme_paper
