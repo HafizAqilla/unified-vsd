@@ -159,7 +159,7 @@ def main(batch, out):
         rec = (f"In the recalibrated replicate (replicate {k}), " + "; ".join(parts)
                + f"; every other perturbed target moved by less than {small_max:.1f}$\\sigma$. ")
         rec += (f"The recalibrated model fitted this perturbed record with an RMSE of relative error of {rmse[0]:.3f} "
-                f"($\\chi^2/N = {chi[0]:.2f}$), against 0.105 and 3.48 for the reference calibration to the measured record. ")
+                f"against 0.105 for the reference calibration to the measured record. ")
         chg = []
         for key, _, words, f in PARAMS:
             r = par[key]
