@@ -13,7 +13,7 @@ function summary = aggregate_noise_simulation(batch_dir)
 %   noise_pre_long.csv             pre-closure model vs original and
 %                                  perturbed record
 %   noise_post_long.csv            post-closure prediction vs held-out record
-%   noise_summary_parameters.csv   mean, SD, CV, 2.5/50/97.5 percentiles,
+%   noise_summary_parameters.csv   mean, SD, CV, min, 2.5/50/97.5 percentiles, max,
 %                                  and the unperturbed reference value
 %   noise_summary_pre.csv          same for each pre-closure target
 %   noise_summary_post.csv         same for each post-closure target, plus
@@ -112,17 +112,19 @@ writetable(spre, fullfile(out_dir, 'noise_summary_pre.csv'));
 metrics = unique(POST.Metric, 'stable');
 spost = describe(POST, 'Metric', 'Predicted', metrics);
 measured = nan(numel(metrics), 1); frac10 = nan(numel(metrics), 1);
-covered = false(numel(metrics), 1);
+covered = false(numel(metrics), 1); in_range = false(numel(metrics), 1);
 for i = 1:numel(metrics)
     sel = strcmp(POST.Metric, metrics{i});
     measured(i) = POST.Measured(find(sel, 1));
     frac10(i) = mean(abs(POST.Error_pct(sel)) <= 10);
     covered(i) = measured(i) >= spost.P2_5(i) && measured(i) <= spost.P97_5(i);
+    in_range(i) = measured(i) >= spost.Min(i) && measured(i) <= spost.Max(i);
 end
 spost = addvars(spost, measured, 'After', 'Metric', 'NewVariableNames', 'Measured');
 spost.MeanError_pct = 100 * (spost.Mean - measured) ./ abs(measured);
 spost.FractionWithin10 = frac10;
 spost.MeasuredInside95Band = covered;
+spost.MeasuredInsideRange = in_range;
 writetable(spost, fullfile(out_dir, 'noise_summary_post.csv'));
 
 summary.parameters = sp;
@@ -137,6 +139,7 @@ function T = describe(D, key, value, order)
 n = numel(order);
 Mean = nan(n, 1); SD = nan(n, 1); CV_pct = nan(n, 1);
 P2_5 = nan(n, 1); P50 = nan(n, 1); P97_5 = nan(n, 1); N = zeros(n, 1);
+Min = nan(n, 1); Max = nan(n, 1);
 for i = 1:n
     x = D.(value)(strcmp(D.(key), order{i}));
     x = x(isfinite(x));
@@ -146,9 +149,10 @@ for i = 1:n
     CV_pct(i) = 100 * SD(i) / abs(Mean(i));
     q = prctile(x, [2.5 50 97.5]);
     P2_5(i) = q(1); P50(i) = q(2); P97_5(i) = q(3);
+    Min(i) = min(x); Max(i) = max(x);
 end
-T = table(order(:), N, Mean, SD, CV_pct, P2_5, P50, P97_5, ...
-    'VariableNames', {key, 'N', 'Mean', 'SD', 'CV_pct', 'P2_5', 'P50', 'P97_5'});
+T = table(order(:), N, Mean, SD, CV_pct, Min, P2_5, P50, P97_5, Max, ...
+    'VariableNames', {key, 'N', 'Mean', 'SD', 'CV_pct', 'Min', 'P2_5', 'P50', 'P97_5', 'Max'});
 end
 
 function write_text(out_dir, runs, summary, sp, spost)

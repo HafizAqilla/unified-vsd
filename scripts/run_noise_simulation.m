@@ -26,6 +26,7 @@ function batch_dir = run_noise_simulation(varargin)
 %   >> run_noise_simulation('NumReplicates', 2, 'Workers', 0)   % pilot
 %   >> run_noise_simulation('NumReplicates', 50, 'Workers', 6)  % paper
 %   >> run_noise_simulation('BatchDir', 'results/batches/noise_...')  % resume
+%   >> run_noise_simulation('BatchDir', ..., 'NumReplicates', 20)    % resume, first 20 only
 %   >> aggregate_noise_simulation('results/batches/noise_...')  % tables only
 %
 % NAME-VALUE OPTIONS:
@@ -84,8 +85,27 @@ else
     batch_dir = char(opt.BatchDir);
     assert(isfolder(batch_dir), 'run_noise_simulation:noBatch', 'No batch folder %s', batch_dir);
     saved = jsondecode(fileread(fullfile(batch_dir, 'manifest.json')));
-    % A resumed batch must keep the settings it was started with.
+    % A resumed batch must keep the settings it was started with. The one
+    % exception is a smaller NumReplicates: the draws are sequential from a
+    % fixed stream, so replicates 1..M are the same for any total >= M and
+    % truncating to the first M keeps an unbiased, pre-drawn sample. The
+    % reduction is recorded in the manifest.
+    requested = opt.NumReplicates;
     opt.NumReplicates = saved.num_replicates;
+    if ~ismember('NumReplicates', p.UsingDefaults) && requested ~= saved.num_replicates
+        assert(requested < saved.num_replicates, 'run_noise_simulation:grow', ...
+            'A resumed batch can only be reduced (%d planned, %d requested).', ...
+            saved.num_replicates, requested);
+        if ~isfield(saved, 'num_replicates_initial')
+            saved.num_replicates_initial = saved.num_replicates;
+        end
+        saved.num_replicates = requested;
+        saved.num_replicates_changed = timestamp_now();
+        saved.num_replicates_reason = ['reduced to the first ' num2str(requested) ...
+            ' pre-drawn replicates because of compute cost (about 84 min per recalibration)'];
+        write_json(fullfile(batch_dir, 'manifest.json'), saved);
+        opt.NumReplicates = requested;
+    end
     opt.NoiseSeed = saved.noise_seed;
     opt.MultistartSeed = saved.multistart_seed;
     opt.NumStarts = saved.num_starts;

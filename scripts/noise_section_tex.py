@@ -16,11 +16,13 @@ least two values and are shown as --); with n >= 2 it reports the spread.
 The text always states how many of the planned replicates were run.
 """
 import csv
+import json
 import statistics
 import sys
 from pathlib import Path
 
-M_PLANNED = 50
+# Planned replicate count is read from the batch manifest (set in main()).
+M_PLANNED = None
 
 PARAMS = [  # key, symbol for tables, words for text, format
     ("group.R_sys_scale", r"$R_{\mathrm{sys}}$ scale", "the systemic resistance scale", "{:.4f}"),
@@ -89,19 +91,21 @@ def main(batch, out):
     spec = {r["Metric"]: r for r in read(batch / "noise_spec.csv")}
     draws = {int(r["Replicate"]): r for r in read(batch / "noise_draws.csv")}
     spread = n >= 2
+    global M_PLANNED
+    M_PLANNED = int(json.loads((batch / "manifest.json").read_text(encoding="utf-8"))["num_replicates"])
 
     def spread_cells(r, f):
         if not spread:
             return f.format(float(r["Mean"])), "--", "--"
         return (f"{f.format(float(r['Mean']))} $\\pm$ {f.format(float(r['SD']))}",
                 f"{float(r['CV_pct']):.1f}" if "CV_pct" in r else "--",
-                f"[{f.format(float(r['P2_5']))}, {f.format(float(r['P97_5']))}]")
+                f"{f.format(float(r['Min']))}--{f.format(float(r['Max']))}")
 
     # ------------------------------------------------------------ tables
     tab_par = [r"\begin{table}[!htbp]", r"\centering\small",
-               r"\caption{Calibrated parameters across the measurement-noise replicates (" + f"$n = {n}$ recalibrated of {a} run, {M_PLANNED} planned" + r"). Reference: the calibration to the unperturbed record (Table~\ref{tab:bounds}). SD, CV and the 2.5--97.5th percentile interval need at least two replicates; -- where not yet defined.}",
+               r"\caption{Calibrated parameters across the measurement-noise replicates (" + f"$n = {n}$ recalibrated of {a} run, {M_PLANNED} planned" + r"). Reference: the calibration to the unperturbed record (Table~\ref{tab:bounds}). SD, CV and the range (minimum--maximum) need at least two replicates; -- where not yet defined.}",
                r"\label{tab:noise_params}", r"\begin{tabular}{lrrrrr}", r"\toprule",
-               r"\textbf{Parameter} & \textbf{Reference} & \textbf{Mean $\pm$ SD} & \textbf{Change (\%)} & \textbf{CV (\%)} & \textbf{95\% interval} \\",
+               r"\textbf{Parameter} & \textbf{Reference} & \textbf{Mean $\pm$ SD} & \textbf{Change (\%)} & \textbf{CV (\%)} & \textbf{Range} \\",
                r"\midrule"]
     for key, sym, _, f in PARAMS:
         r = par[key]
@@ -113,7 +117,7 @@ def main(batch, out):
     tab_post = [r"\begin{table}[!htbp]", r"\centering\small", r"\setlength{\tabcolsep}{3pt}",
                 r"\caption{Post-closure prediction across the measurement-noise replicates (" + f"$n = {n}$" + r"), beside the unperturbed post-closure record and the reference prediction (Table~\ref{tab:post}). Rows, names and symbols as in Table~\ref{tab:post}; $\varepsilon$, relative error of the mean against the measurement; -- where not yet defined.}",
                 r"\label{tab:noise_post}", r"\resizebox{\linewidth}{!}{\begin{tabular}{lrrrrr}", r"\toprule",
-                r"\textbf{Quantity} & \textbf{Measured} & \textbf{Reference prediction} & \textbf{Mean $\pm$ SD} & $\varepsilon$ (\%) & \textbf{95\% interval} \\",
+                r"\textbf{Quantity} & \textbf{Measured} & \textbf{Reference prediction} & \textbf{Mean $\pm$ SD} & $\varepsilon$ (\%) & \textbf{Range} \\",
                 r"\midrule"]
     for key, label, ref, f in POST:
         r = post[key]
@@ -200,14 +204,14 @@ def main(batch, out):
             if key not in ("SAP_max", "SAP_min", "PAP_max", "CO_Lmin", "LVEDV", "RVEDV"):
                 continue
             r = post[key]
-            lines.append(f"{label.split(' (')[0]} [{f.format(float(r['P2_5']))}, {f.format(float(r['P97_5']))}] against {f.format(float(r['Measured']))} measured")
-        results += ("The 95\\% intervals of the post-closure prediction were: " + "; ".join(lines)
+            lines.append(f"{label.split(' (')[0]} {f.format(float(r['Min']))}--{f.format(float(r['Max']))} against {f.format(float(r['Measured']))} measured")
+        results += ("Across the replicates, the post-closure prediction ranged as follows: " + "; ".join(lines)
                     + r" (Table~\ref{tab:noise_post}, Figure~\ref{fig:noise}B).")
         disc = (f"Measurement noise at the declared level changed the calibrated parameters with CV up to {cvs[0][0]:.0f}\\% ({cvs[0][1]}). "
                 r"Tables~\ref{tab:noise_params} and \ref{tab:noise_post} give the resulting spread of every parameter and prediction beside the measured values; "
-                r"the width of each interval is the uncertainty that the pre-closure measurements alone transfer to the post-closure prediction~\cite{Kachabi2025,Colunga2023,Colebank2024Guidelines}.")
+                r"the width of each range is the uncertainty that the pre-closure measurements alone transfer to the post-closure prediction~\cite{Kachabi2025,Colunga2023,Colebank2024Guidelines}.")
         concl = (f"Under measurement noise at the declared level, the calibrated parameters varied with a coefficient of variation of up to {cvs[0][0]:.0f}\\%, "
-                 f"and the 95\\% interval of the predicted RVEDV was [{float(post['RVEDV']['P2_5']):.1f}, {float(post['RVEDV']['P97_5']):.1f}]~mL against 30.5~mL measured.")
+                 f"and the predicted RVEDV ranged from {float(post['RVEDV']['Min']):.1f} to {float(post['RVEDV']['Max']):.1f}~mL against 30.5~mL measured.")
 
     (out / "noise_results.tex").write_text(
         "% GENERATED by scripts/noise_section_tex.py from " + batch.as_posix() + " -- do not edit by hand.\n"
