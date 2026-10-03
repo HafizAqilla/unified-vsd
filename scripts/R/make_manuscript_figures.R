@@ -197,23 +197,23 @@ run_fig("M2_pre_waveforms", function() {
 # ---- M3: post-closure predicted waveforms --------------------------------
 run_fig("M3_post_waveforms", function() {
   d <- last_cycle("timeseries_post_prediction_all")
-  pa <- wave_panel(d, "P_SAR_mmHg", c(P_SAR_mmHg = "Systemic arterial (predicted)"), col_post,
+  pa <- wave_panel(d, "P_SAR_mmHg", c(P_SAR_mmHg = "Model, LV or vessel"), col_post,
                    mk("Measured systolic" = val(post_cmp, "^Systolic pressure, RFA"),
                       "Measured diastolic" = val(post_cmp, "^Diastolic pressure, RFA"),
                       "Measured mean" = val(post_cmp, "Mean arterial pressure \\(RFA")),
                    "Systemic arterial pressure", "Pressure (mmHg)")
-  pb <- wave_panel(d, c("P_LV_mmHg", "P_RV_mmHg"), c(P_LV_mmHg = "LV (predicted)", P_RV_mmHg = "RV (predicted)"),
+  pb <- wave_panel(d, c("P_LV_mmHg", "P_RV_mmHg"), c(P_LV_mmHg = "Model, LV or vessel", P_RV_mmHg = "Model, RV"),
                    c(col_post, "#009E73"), data.frame(), "Ventricular pressures", "Pressure (mmHg)")
-  pc <- wave_panel(d, "P_PAR_mmHg", c(P_PAR_mmHg = "Pulmonary arterial (predicted)"), col_post,
+  pc <- wave_panel(d, "P_PAR_mmHg", c(P_PAR_mmHg = "Model, LV or vessel"), col_post,
                    mk("Measured systolic" = val(post_cmp, "^PA systolic"),
                       "Measured diastolic" = val(post_cmp, "^PA diastolic"),
                       "Measured mean" = val(post_cmp, "^PA mean")),
                    "Pulmonary arterial pressure", "Pressure (mmHg)")
-  pd <- wave_panel(d, "P_RA_mmHg", c(P_RA_mmHg = "Right atrial (predicted)"), col_post,
+  pd <- wave_panel(d, "P_RA_mmHg", c(P_RA_mmHg = "Model, LV or vessel"), col_post,
                    mk("Measured mean" = val(post_cmp, "^RA mean")),
                    "Right atrial pressure", "Pressure (mmHg)")
-  p <- (pa + pb) / (pc + pd) + plot_annotation(tag_levels = "A")
-  save_fig(p, "M3_post_waveforms", d, w = 18, h = 14)
+  p <- (pa + pb) / (pc + pd) + plot_annotation(tag_levels = "A") & theme(legend.position = "none")
+  save_fig(p, "M3_post_waveforms", d, w = 18, h = 11)
 })
 
 # ---- M4: parity plots ------------------------------------------------------
@@ -221,7 +221,7 @@ run_fig("M4_parity", function() {
   keep_pre <- pre_cmp %>% filter(Role %in% c("fitted", "evaluation_only"), is.finite(ModelValue),
                                  is.finite(ComparedValue), !grepl("NIBP|form$", Variable),
                                  !grepl("^SVR|gradient", Variable)) %>%
-    mutate(State = ifelse(Role == "fitted", "Pre-closure, fitted", "Pre-closure, not fitted"))
+    mutate(State = ifelse(Role == "fitted", "Pre-closure, calibration target", "Pre-closure, not a target"))
   keep_post <- post_cmp %>% filter(grepl("predicted", Role), is.finite(ModelValue), is.finite(ComparedValue),
                                    !grepl("^SVR", Variable)) %>%
     mutate(State = "Post-closure, predicted")
@@ -229,12 +229,13 @@ run_fig("M4_parity", function() {
   d <- bind_rows(keep_pre[, cols], keep_post[, cols]) %>%
     mutate(Panel = case_when(Unit == "mmHg" ~ "Pressures (mmHg)", Unit == "mL" ~ "Volumes (mL)",
                              Unit == "L/min" ~ "Flows (L/min)", TRUE ~ "Ratios (-)")) %>%
-    select(State, Panel, Variable, Unit, Measured = ComparedValue, Model = ModelValue, ErrorPct)
+    select(State, Panel, Variable, Unit, Measured = ComparedValue, Model = ModelValue, ErrorPct) %>%
+    filter(Panel == "Pressures (mmHg)")
   stats <- d %>% group_by(Panel, State) %>%
     summarise(n = n(), R2 = ifelse(n >= 5, cor(Measured, Model)^2, NA),
               RMSE = sqrt(mean((Model - Measured)^2)), .groups = "drop")
-  panels <- c("Pressures (mmHg)", "Flows (L/min)", "Volumes (mL)", "Ratios (-)")
-  state_levels <- c("Pre-closure, fitted", "Pre-closure, not fitted", "Post-closure, predicted")
+  panels <- c("Pressures (mmHg)")
+  state_levels <- c("Pre-closure, calibration target", "Pre-closure, not a target", "Post-closure, predicted")
   d <- d %>% mutate(Panel = factor(Panel, levels = panels), State = factor(State, levels = state_levels))
   lims <- d %>% group_by(Panel) %>%
     summarise(lo = min(c(Measured, Model)), hi = max(c(Measured, Model)), .groups = "drop") %>%
@@ -257,13 +258,15 @@ run_fig("M4_parity", function() {
     geom_point(aes(colour = State, shape = State), size = 2) +
     geom_text(data = lab_txt, aes(x = lo, y = hi, label = txt), inherit.aes = FALSE,
               hjust = 0, vjust = 1, size = 2.1) +
-    scale_colour_manual(values = c("Pre-closure, fitted" = col_pre, "Pre-closure, not fitted" = col_pre,
+    scale_colour_manual(values = c("Pre-closure, calibration target" = col_pre, "Pre-closure, not a target" = col_pre,
                                    "Post-closure, predicted" = col_post), name = NULL, drop = FALSE) +
-    scale_shape_manual(values = c("Pre-closure, fitted" = 16, "Pre-closure, not fitted" = 1,
+    scale_shape_manual(values = c("Pre-closure, calibration target" = 16, "Pre-closure, not a target" = 1,
                                   "Post-closure, predicted" = 17), name = NULL, drop = FALSE) +
-    facet_wrap(~Panel, scales = "free", ncol = 2) +
-    labs(x = "Measured", y = "Model") + theme_paper + theme(aspect.ratio = 1)
-  save_fig(p, "M4_parity", d, w = 18, h = 18)
+    facet_wrap(~Panel, scales = "free", ncol = 1) +
+    labs(x = "Measured pressure (mmHg)", y = "Model pressure (mmHg)") + theme_paper +
+    theme(aspect.ratio = 1, legend.position = c(0.72, 0.15), legend.background = element_blank(),
+          strip.text = element_blank())
+  save_fig(p, "M4_parity", d, w = 10, h = 10)
   write.csv(stats, file.path(out_dir, "data", "M4_parity_stats.csv"), row.names = FALSE)
 })
 
