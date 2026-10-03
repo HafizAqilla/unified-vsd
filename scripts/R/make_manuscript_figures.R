@@ -49,10 +49,17 @@ save_fig <- function(p, name, data, w = 18, h = 12) {
 run_fig <- function(name, fn) tryCatch(fn(), error = function(e) cat("  FAILED:", name, "-", conditionMessage(e), "\n"))
 
 governed <- c("RAP_mean", "PAP_mean", "SAP_mean", "CO_Lmin", "QpQs", "PAP_min", "PAP_max", "SAP_min", "SAP_max")
-target_short <- c(RAP_mean = "Mean RA\npressure", PAP_mean = "Mean PA\npressure", SAP_mean = "Mean systemic\npressure",
-                  CO_Lmin = "Systemic\nflow", QpQs = "Qp/Qs", PAP_min = "PA diastolic\npressure",
-                  PAP_max = "PA systolic\npressure", SAP_min = "Systemic diastolic\npressure",
-                  SAP_max = "Systemic systolic\npressure")
+target_short <- c(RAP_mean = "Mean RA
+pressure", PAP_mean = "Mean PA
+pressure", SAP_mean = "Mean arterial
+pressure",
+                  CO_Lmin = "Qs", QpQs = "Qp/Qs", PAP_min = "Diastolic PA
+pressure",
+                  PAP_max = "Systolic PA
+pressure", SAP_min = "Diastolic RFA
+pressure",
+                  SAP_max = "Systolic RFA
+pressure")
 cand_label <- c("group.R_sys_scale" = "Systemic resistance scale", "group.R_pul_scale" = "Pulmonary resistance scale",
                 "R.SVEN" = "Systemic venous resistance", "C.SAR" = "Systemic arterial compliance",
                 "C.PAR" = "Pulmonary arterial compliance", "E.RV.EB" = "RV passive elastance",
@@ -71,27 +78,36 @@ run_fig("M1_gsa_screening", function() {
     group_by(Candidate, Output) %>% summarise(ST = max(ST), .groups = "drop")
   mx <- g %>% group_by(Candidate) %>% summarise(MaxST = max(ST), .groups = "drop") %>%
     mutate(Retained = MaxST >= 0.10, Label = cand_label[Candidate]) %>% arrange(desc(MaxST))
-  lvl <- mx$Label
-  pa <- ggplot(mx, aes(x = factor(Label, levels = lvl), y = MaxST, fill = Retained)) +
-    geom_col(width = 0.75) +
-    geom_hline(yintercept = 0.10, linetype = "dashed", linewidth = 0.35) +
-    geom_text(aes(label = sprintf("%.2f", MaxST)), vjust = -0.3, size = 2.3) +
+  lvl <- rev(mx$Label)                       # largest at the top
+  # (A) tornado-style: sorted horizontal bars, threshold as a vertical line
+  pa <- ggplot(mx, aes(y = factor(Label, levels = lvl), x = MaxST, fill = Retained)) +
+    geom_col(width = 0.72) +
+    geom_vline(xintercept = 0.10, linetype = "dashed", linewidth = 0.35) +
+    geom_text(aes(x = pmax(MaxST, 0.10), label = sprintf("%.2f", MaxST)), hjust = -0.2, size = 2.3) +
     scale_fill_manual(values = c(`TRUE` = col_pre, `FALSE` = "grey70"),
-                      labels = c(`TRUE` = "Retained and calibrated", `FALSE` = "Held at scaled value"), name = NULL) +
-    scale_y_continuous(limits = c(0, 0.8), expand = c(0, 0)) +
-    labs(x = NULL, y = expression("Largest total-order index, " * S[T])) +
-    theme_paper + theme(axis.text.x = element_text(angle = 40, hjust = 1))
-  hm <- g %>% mutate(Label = factor(cand_label[Candidate], levels = rev(lvl)),
-                     Target = factor(target_short[Output], levels = target_short[governed]))
+                      labels = c(`TRUE` = "Retained and calibrated", `FALSE` = "Held at scaled value"),
+                      breaks = c("TRUE", "FALSE"), name = NULL) +
+    scale_x_continuous(limits = c(0, 0.85), breaks = seq(0, 0.8, 0.2), expand = c(0, 0)) +
+    labs(y = NULL, x = expression("Largest total-order index, " * S[T])) +
+    theme_paper +
+    theme(legend.position = c(0.62, 0.12), legend.key.size = unit(3, "mm"),
+          legend.text = element_text(size = 7), legend.background = element_blank())
+  # (B) heat map, same row order as (A)
+  hm <- g %>% mutate(Label = factor(cand_label[Candidate], levels = lvl),
+                     Target = factor(gsub("
+", " ", target_short[Output]), levels = gsub("
+", " ", target_short[governed])))
   pb <- ggplot(hm, aes(x = Target, y = Label, fill = ST)) +
-    geom_tile(colour = "white") +
-    geom_text(aes(label = ifelse(ST >= 0.005, sprintf("%.2f", ST), "")), size = 2.1,
+    geom_tile(colour = "white", linewidth = 0.4) +
+    geom_tile(data = filter(hm, ST >= 0.10), colour = "black", fill = NA, linewidth = 0.45) +
+    geom_text(aes(label = ifelse(ST >= 0.05, sprintf("%.2f", ST), "")), size = 2.2,
               colour = ifelse(hm$ST > 0.45, "white", "black")) +
     scale_fill_gradient(low = "white", high = col_pre, limits = c(0, 0.75), name = expression(S[T])) +
     labs(x = NULL, y = NULL) + theme_paper +
-    theme(legend.position = "right", axis.text.x = element_text(size = 7, angle = 35, hjust = 1))
-  p <- pa / pb + plot_layout(heights = c(1, 1.25)) + plot_annotation(tag_levels = "A")
-  save_fig(p, "M1_gsa_screening", hm, w = 18, h = 20)
+    theme(legend.position = "right", axis.text.y = element_blank(), axis.ticks.y = element_blank(),
+          axis.line.y = element_blank(), axis.text.x = element_text(size = 6.8, angle = 45, hjust = 1))
+  p <- pa + pb + plot_layout(widths = c(1, 1.45)) + plot_annotation(tag_levels = "A")
+  save_fig(p, "M1_gsa_screening", hm, w = 18, h = 9.5)
 })
 
 # ---- measured values for the waveform figures -----------------------------
