@@ -142,6 +142,10 @@ switch scenario
         end
 
     case 'post_surgery'
+        % Same candidates, metrics and stages as pre_surgery without the
+        % shunt (R.vsd / vsd.Cd, Q_shunt_Lmin): the defect is closed. Which
+        % parameters and metrics are actually fitted is set by the case
+        % profile (config/calibration_recipes/reyna_post_surgery.m).
         calib.names_all = {
             'R.SAR'
             'R.SC'
@@ -155,11 +159,16 @@ switch scenario
             'E.LV.EB'
             'E.RV.EA'
             'E.RV.EB'
+            'E.LA.EA'
+            'E.RA.EA'
             'V0.LV'
             'V0.RV'
             };
         calib.metricFields = {
             'RAP_mean'
+            'LAP_mean'
+            'PAP_min'
+            'PAP_max'
             'PAP_mean'
             'SAP_min'
             'SAP_max'
@@ -169,15 +178,17 @@ switch scenario
             'PVR'
             'CO_Lmin'
             'LVEDV'
+            'LVESV'
             'RVEDV'
+            'RVESV'
             'LVEF'
             'RVEF'
             };
         calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN','C.SAR','C.PAR'};
-        calib.stageA.metricFields = {'RAP_mean','SAP_min','SAP_max','SAP_mean', ...
+        calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_min','SAP_max','SAP_mean', ...
             'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
-        calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
-        calib.stageB.metricFields = {'RAP_mean','LVEDV','LVEF','RVEDV','RVEF'};
+        calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','E.LA.EA','E.RA.EA','V0.LV','V0.RV'};
+        calib.stageB.metricFields = {'RAP_mean','LAP_mean','LVEDV','LVESV','LVEF','RVEDV','RVESV','RVEF'};
 
     otherwise
         error('calibration_param_sets:unknownScenario', ...
