@@ -1,0 +1,209 @@
+% =====================================================================
+% Results -- revision 2026-10-10
+% Numbers checked against results/runs/20260920_005419_reyna_pre_surgery/
+% supplement, results/batches/noise_20260927_134251/summary and
+% results/batches/postcal_20261007_220027. Grammar edited, semicolons
+% reduced. Lines marked "% CHANGED" differ in content from the 2026-10-10
+% draft; "% OPTIONAL" is a suggested addition.
+% =====================================================================
+\FloatBarrier
+\section{Results}
+\label{sec:results}
+
+\subsection{Sensitivity analysis}
+\label{sec:results_gsa}
+The screen retained seven of the 14 candidate parameters (Figure~\ref{fig:gsa}A): the systemic resistance scale (largest $S_T = 0.70$), the discharge coefficient $C_d$ (0.51), the RV passive elastance $E_{\mathrm{B,RV}}$ (0.48), the pulmonary resistance scale (0.40), the pulmonary arterial compliance $C_{\mathrm{PAR}}$ (0.39), the systemic arterial compliance $C_{\mathrm{SAR}}$ (0.12) and the systemic venous resistance $R_{\mathrm{SVEN}}$ (0.10). Of the other seven, the closest to the threshold were the RV active elastance (0.08) and the LV passive elastance (0.07).
+
+Each target was dominated by one parameter (Figure~\ref{fig:gsa}B). The systemic resistance scale dominated diastolic RFA pressure ($S_T = 0.70$), mean arterial pressure (0.58) and systolic RFA pressure (0.43). $C_d$ dominated $Q_p/Q_s$ (0.51), with the systemic resistance scale second (0.41). $E_{\mathrm{B,RV}}$ dominated mean RA pressure (0.48). The pulmonary resistance scale dominated diastolic and mean PA pressure (0.40 and 0.30), and $C_{\mathrm{PAR}}$ dominated systolic PA pressure (0.39). $Q_s$ had no single dominant parameter; its largest indices belonged to the systemic resistance scale (0.33), $C_{\mathrm{PAR}}$ (0.16) and $C_{\mathrm{SVEN}}$ (0.14). At the calibrated operating point (Supplementary Figure~S2), the dominant parameter was unchanged for eight of the nine targets. For systolic PA pressure it changed from $C_{\mathrm{PAR}}$ (0.06) to the pulmonary resistance scale (0.25), because calibration lowered $C_{\mathrm{PAR}}$ from 3.43 to 1.02~mL/mmHg and, with it, the absolute range sampled.
+
+The parameters that were not retained controlled outputs that had no pre-closure measurement. The LV active elastance controlled LVESV ($S_T = 0.59$) and LVEF (0.63), and the RV active elastance controlled RVESV (0.71) and RVEF (0.76). Of the four screened inputs that are not calibration candidates, $C_{\mathrm{SVEN}}$ exceeded 0.10 for five targets (largest 0.14). It is not calibrated directly but follows $R_{\mathrm{SVEN}}$ through Eq.~(\ref{eq:rc}). $C_{\mathrm{PVEN}}$, $V_{0,\mathrm{LA}}$ and $V_{0,\mathrm{RA}}$ stayed below 0.03.
+
+% CHANGED: LOO range (data: 0.0001--0.155 over 25 outputs, 0.038--0.073 over the nine targets)
+The leave-one-out errors of the polynomial chaos expansions were 0.038--0.073 for the nine calibration targets and at most 0.155 (LVESV) over all 25 outputs. All training simulations reached the 10-cycle limit, so the indices describe cycles 9--10 of each simulation.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.92\linewidth]{M1_gsa_screening.pdf}
+\caption{Global sensitivity screen at the scaled baseline ($N = 128$ simulations). (A) Largest total-order Sobol' index of each calibration candidate over the nine targets. The dashed line is the retention threshold $S_T = 0.10$. Blue, retained and calibrated. Grey, held at the scaled value. (B) Total-order index of each candidate (rows) for each target (columns). Blank cells are below 0.005.}
+\label{fig:gsa}
+\end{figure}
+
+\FloatBarrier
+\subsection{Pre-closure calibration}
+\label{sec:results_pre}
+% CHANGED: "within 8%" -> "within 10%" (Qs error is -8.01%)
+Calibration reduced the RMSE of the nine calibration targets from 0.274 at the scaled baseline to 0.105 (Table~\ref{tab:pre_targets}; baseline errors in Supplementary Figure~S3). Seven of the nine targets were within 10\% of their measurements. The two largest errors were in systolic PA pressure, 25.1 against 20~mmHg ($+25.5\%$, $z = +5.10$), and systolic RFA pressure, 88.1 against 100~mmHg ($-11.9\%$). Shunt flow was 0.50 against 0.66~L/min ($-25.3\%$).
+
+The measurements that were not calibration targets were reproduced within 11\%: LV and RV systolic pressure ($-5.3\%$ and $+6.7\%$), the LV--RV gradient ($-9.7\%$), DAo pressure ($-3.2\%$ and $-7.5\%$), $Q_p$ ($-10.8\%$) and SVR ($+5.4\%$). The cuff pressure (119/83~mmHg) was 19 and 26~mmHg above the RFA catheter reading of the same session and 26--36\% above the model.
+
+% CHANGED in table: diastolic model 52.8 -> 52.7 (52.746), Qp model 3.65 -> 3.64 (3.645)
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Pre-closure measurements against the calibrated model. Calibration targets are marked with an asterisk. $\sigma$, declared uncertainty; $\varepsilon$, relative error; $z = (\text{model}-\text{measured})/\sigma$; --, not measured.}
+\label{tab:pre_targets}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Quantity} & $\sigma$ & \textbf{Measured} & \textbf{Model} & $\varepsilon$ (\%) & $z$ \\
+\midrule
+\multicolumn{6}{l}{\emph{Systemic arterial pressure (mmHg)}} \\
+Systolic, RFA$^{*}$ & 10.0 & 100 & 88.1 & $-11.9$ & $-1.19$ \\
+Diastolic, RFA$^{*}$ & 5.70 & 57 & 52.7 & $-7.5$ & $-0.75$ \\
+Mean, RFA$^{*}$ & 3.57 & 71.3 & 69.6 & $-2.5$ & $-0.50$ \\
+Systolic / diastolic, DAo & -- & 91 / 57 & 88.1 / 52.7 & $-3.2$ / $-7.5$ & -- \\
+Systolic / diastolic, cuff & -- & 119 / 83 & 88.1 / 52.7 & $-26.0$ / $-36.4$ & -- \\
+\multicolumn{6}{l}{\emph{PA and RA pressure (mmHg)}} \\
+PA systolic$^{*}$ & 1.00 & 20 & 25.1 & $+25.5$ & $+5.10$ \\
+PA diastolic$^{*}$ & 0.50 & 10 & 9.7 & $-3.0$ & $-0.60$ \\
+PA mean$^{*}$ & 0.75 & 15 & 15.8 & $+5.5$ & $+1.09$ \\
+RA mean$^{*}$ & 0.25 & 5 & 5.2 & $+4.6$ & $+0.93$ \\
+\multicolumn{6}{l}{\emph{Ventricular pressure (mmHg)}} \\
+LV / RV systolic & -- & 94 / 25 & 89.0 / 26.7 & $-5.3$ / $+6.7$ & -- \\
+LV--RV systolic gradient & -- & 69 & 62.3 & $-9.7$ & -- \\
+\multicolumn{6}{l}{\emph{Flow and resistance}} \\
+$Q_p$ (L/min) & -- & 4.09 & 3.64 & $-10.8$ & -- \\
+$Q_s$ (L/min)$^{*}$ & 0.50 & 3.42 & 3.15 & $-8.0$ & $-0.55$ \\
+$Q_p/Q_s$ (--)$^{*}$ & 0.060 & 1.19 & 1.16 & $-3.1$ & $-0.61$ \\
+Shunt flow (L/min)$^{*}$ & 0.133 & 0.66 & 0.50 & $-25.3$ & $-1.27$ \\
+SVR (WU) & -- & 19.4 & 20.4 & $+5.4$ & -- \\
+\multicolumn{6}{l}{\emph{Ventricular volume and function (model only)}} \\
+LVEDV / LVESV (mL) & -- & -- & 39.8 / 9.8 & -- & -- \\
+RVEDV / RVESV (mL) & -- & -- & 43.3 / 14.9 & -- & -- \\
+LVEF / RVEF (--) & -- & -- & 0.75 / 0.65 & -- & -- \\
+\midrule
+RMSE of $\varepsilon$, nine targets & & & 0.105 & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% CHANGED: C_SAR is now also given relative to its clinical seed (0.570 / 0.669 = 0.85)
+Two of the seven parameters ended on their lower bounds: the pulmonary resistance scale (0.45) and $E_{\mathrm{B,RV}}$ (0.080~mmHg/mL) (Table~\ref{tab:bounds}, pre-closure columns). Relative to their scaled values, the systemic resistance scale fell to 0.57, $C_{\mathrm{SAR}}$ rose 2.2-fold (0.85 times its clinical seed) and $R_{\mathrm{SVEN}}$ 1.5-fold, and $C_{\mathrm{PAR}}$ stayed near its scaled value. $C_d$ settled at 0.37, close to its clinical seed (0.36) and about half of the adult reference (0.70).
+
+% MERGED: former Tables "Calibrated parameters", "Parameters calibrated before and after closure" and "Calibrated parameters across the 17 recalibrated replicates"
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\caption{Calibrated parameters. Pre-closure, calibration to the original measurements; ratio, pre-closure value divided by the allometrically scaled value. Measurement noise, calibration to the 17 recalibrated noise replicates (Section~\ref{sec:results_noise}); CV, coefficient of variation. Post-closure, calibration to the post-closure record (Section~\ref{sec:results_post_calib}); $C_d$ is not defined after closure. Seeds and bounds are given in Supplementary Table~S6.}
+\label{tab:bounds}\label{tab:post_calib_params}\label{tab:noise_params}
+\begin{tabular}{llrrrrrr}
+\toprule
+ & & \multicolumn{2}{c}{\textbf{Pre-closure}} & \multicolumn{3}{c}{\textbf{Measurement noise}} & \textbf{Post-closure} \\
+\cmidrule(lr){3-4}\cmidrule(lr){5-7}\cmidrule(lr){8-8}
+\textbf{Parameter} & \textbf{Unit} & \textbf{Value} & \textbf{Ratio} & \textbf{Median} & \textbf{Range} & \textbf{CV (\%)} & \textbf{Value} \\
+\midrule
+$R_{\mathrm{sys}}$ scale$^{\mathrm{a}}$ & -- & 0.569 & 0.57 & 0.623 & 0.465--1.324 & 30.6 & 0.940 \\
+$R_{\mathrm{SVEN}}$ & mmHg\,s/mL & 0.166 & 1.51 & 0.131 & 0.059--0.307 & 53.1 & 0.124 \\
+$R_{\mathrm{pul}}$ scale$^{\mathrm{b}}$ & -- & 0.450$^{\dagger}$ & 0.45 & 0.484 & 0.450--0.859 & 21.2 & 0.558 \\
+$C_{\mathrm{SAR}}$ & mL/mmHg & 0.570 & 2.24 & 0.453 & 0.259--0.994 & 39.9 & 1.192 \\
+$C_{\mathrm{PAR}}$ & mL/mmHg & 1.017 & 1.06 & 1.630 & 0.909--3.994 & 42.9 & 2.567 \\
+$E_{\mathrm{B,RV}}$ & mmHg/mL & 0.0799$^{\dagger}$ & 0.55 & 0.089 & 0.080--0.193 & 35.7 & 0.140 \\
+$C_d$ & -- & 0.370 & 0.53 & 0.365 & 0.214--0.606 & 32.8 & -- \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}
+{\footnotesize $^{\mathrm{a}}$Multiplies $R_{\mathrm{SAR}}$ and $R_{\mathrm{SC}}$. $^{\mathrm{b}}$Multiplies $R_{\mathrm{PAR}}$, $R_{\mathrm{PCOX}}$ and $R_{\mathrm{PVEN}}$. $^{\dagger}$At the lower bound.}
+\end{table}
+
+
+The calibrated model gave a pulmonary flow of 3.64~L/min, a systemic flow of 3.15~L/min and a mean LA pressure of 7.85~mmHg. The shunt was left-to-right throughout the cycle (Figure~\ref{fig:pre_waves}E), peaked at 0.93~L/min in systole and carried 4.2~mL per beat, 13.6\% of pulmonary flow. Of this volume, 6\% crossed during isovolumic contraction, 37\% during ejection, 40\% after aortic valve closure while the LV relaxed and 17\% during diastolic filling. The model PA pulse pressure was 15.4~mmHg against 10~mmHg measured, which is the source of the systolic PA error. The chamber volumes have no pre-closure measurement, and the parameters that control them were not calibrated (Section~\ref{sec:results_gsa}).
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{M2_pre_waveforms.pdf}
+\caption{Calibrated pre-closure waveforms over one cardiac cycle (blue) against the catheter measurements (black lines), with the scaled baseline (grey). (A) Systemic arterial pressure. (B) LV and RV pressure. (C) PA pressure. (D) RA pressure. (E) Shunt flow and its cycle mean against the Fick-derived shunt flow.}
+\label{fig:pre_waves}
+\end{figure}
+
+\FloatBarrier
+\subsection{Post-closure prediction}
+\label{sec:results_post}
+The prediction reproduced the post-closure systemic pressures within 7\%, except diastolic pressure (Table~\ref{tab:post}, prediction columns; Figure~\ref{fig:post_waves}). Systolic RFA pressure was 90.1 against 89~mmHg ($+1.2\%$) and mean arterial pressure 70.2 against 75~mmHg ($-6.4\%$). Diastolic RFA pressure was 52.0 against 68~mmHg ($-23.6\%$). The three measurement sites disagreed on diastolic pressure by 17~mmHg, from 55~mmHg by cuff to 72~mmHg in the DAo, and the prediction was closest to the cuff value ($-5.5\%$). PA diastolic and RA pressure were within 9\% of their measurements, and mean PA pressure was 14.3\% too high. The largest pressure error was again in systolic PA pressure, 23.9 against 17~mmHg ($+40.7\%$, $z = +8.14$). For the nine quantities fitted before closure, the RMSE was 0.191 after closure, against 0.105 before.
+% OPTIONAL (recommended): the no-change comparison
+Over the seven catheter pressures, the RMSE of the prediction was 6.9~mmHg. Carrying the pre-closure measurements forward unchanged gave 6.2~mmHg for the same pressures, because closure of this small shunt changed most pressures by only a few mmHg.
+
+$Q_s$ was 3.17 against 2.54~L/min ($+24.8\%$) and SVR 20.4 against 27.6~WU ($-25.9\%$). $Q_p/Q_s$ was 1.00 in the model against 0.90 measured. The predicted LV volumes were within 16\% of the measured values (LVEDV $+13.8\%$, LVESV $-15.8\%$). RVEDV had the largest volume error, 43.3 against 30.5~mL ($+42.1\%$), unchanged from the pre-closure model.
+
+Closing the defect lowered pulmonary flow from 3.64 to 3.17~L/min ($-13\%$), so that pulmonary and systemic flow became equal. Mean LA pressure stayed at 7.9~mmHg. Because heart rate fell from 119 to 108~bpm at the same time, pulmonary venous return per beat fell only from 30.6 to 29.4~mL ($-4\%$).
+
+% MERGED: former Tables "Post-closure measurements against the prediction" and "... against the model calibrated to them"
+\begin{table}[!htbp]
+\centering\small
+\setlength{\tabcolsep}{3.5pt}
+\caption{Post-closure measurements against the prediction and against the post-closure calibration. The prediction uses the pre-closure parameters with the defect closed; no post-closure value entered it. Values marked with an asterisk are the targets of the post-closure calibration; all other values are compared with the model only. $\sigma$, declared uncertainty; $\varepsilon$, relative error; $z = (\text{model}-\text{measured})/\sigma$; --, not measured.}
+\label{tab:post}\label{tab:post_calib}
+\begin{tabular}{lrrrrrrrr}
+\toprule
+ & & & \multicolumn{3}{c}{\textbf{Prediction}} & \multicolumn{3}{c}{\textbf{Post-closure calibration}} \\
+\cmidrule(lr){4-6}\cmidrule(lr){7-9}
+\textbf{Quantity} & $\sigma$ & \textbf{Measured} & \textbf{Model} & $\varepsilon$ (\%) & $z$ & \textbf{Model} & $\varepsilon$ (\%) & $z$ \\
+\midrule
+\multicolumn{9}{l}{\emph{Systemic arterial pressure (mmHg)}} \\
+Systolic, RFA$^{*}$ & 8.90 & 89 & 90.1 & $+1.2$ & $+0.12$ & 87.2 & $-2.0$ & $-0.20$ \\
+Diastolic, RFA$^{*}$ & 6.80 & 68 & 52.0 & $-23.6$ & $-2.36$ & 72.0 & $+5.9$ & $+0.59$ \\
+Mean, RFA$^{*}$ & 3.75 & 75.0 & 70.2 & $-6.4$ & $-1.28$ & 79.9 & $+6.5$ & $+1.31$ \\
+Systolic, DAo & -- & 104 & 90.1 & $-13.4$ & -- & 87.2 & $-16.1$ & -- \\
+Diastolic, DAo & -- & 72 & 52.0 & $-27.8$ & -- & 72.0 & $+0.0$ & -- \\
+Systolic, cuff & -- & 87 & 90.1 & $+3.5$ & -- & 87.2 & $+0.3$ & -- \\
+Diastolic, cuff & -- & 55 & 52.0 & $-5.5$ & -- & 72.0 & $+30.9$ & -- \\
+\multicolumn{9}{l}{\emph{PA and RA pressure (mmHg)}} \\
+PA systolic$^{*}$ & 0.85 & 17 & 23.9 & $+40.7$ & $+8.14$ & 16.1 & $-5.1$ & $-1.03$ \\
+PA diastolic$^{*}$ & 0.45 & 9 & 9.3 & $+3.2$ & $+0.65$ & 10.0 & $+11.4$ & $+2.27$ \\
+PA mean$^{*}$ & 0.65 & 13 & 14.9 & $+14.3$ & $+2.86$ & 12.9 & $-0.5$ & $-0.11$ \\
+RA mean$^{*}$ & 0.25 & 5 & 5.4 & $+8.2$ & $+1.64$ & 5.1 & $+2.6$ & $+0.51$ \\
+\multicolumn{9}{l}{\emph{Ventricular pressure (mmHg)}} \\
+LV systolic & -- & -- & 90.6 & -- & -- & 87.5 & -- & -- \\
+RV systolic & -- & -- & 25.3 & -- & -- & 17.0 & -- & -- \\
+\multicolumn{9}{l}{\emph{Flow and resistance}} \\
+$Q_p$ (L/min) & -- & -- & 3.17 & -- & -- & 2.39 & -- & -- \\
+$Q_s$ (L/min)$^{*}$ & 0.127 & 2.54 & 3.17 & $+24.8$ & $+4.97$ & 2.39 & $-5.9$ & $-1.17$ \\
+$Q_p/Q_s$ (--) & 0.045 & 0.90 & 1.00 & $+11.2$ & $+2.23$ & 1.00 & $+11.1$ & $+2.23$ \\
+SVR (WU) & 5.51 & 27.6 & 20.4 & $-25.9$ & $-1.29$ & 31.3 & $+13.5$ & $+0.67$ \\
+\multicolumn{9}{l}{\emph{Ventricular volume and function}} \\
+LVEDV (mL) & 3.61 & 36.1 & 41.1 & $+13.8$ & $+1.38$ & 33.8 & $-6.4$ & $-0.64$ \\
+LVESV (mL) & 1.38 & 13.8 & 11.6 & $-15.8$ & $-1.58$ & 11.6 & $-16.2$ & $-1.62$ \\
+RVEDV (mL) & 3.05 & 30.5 & 43.3 & $+42.1$ & $+4.21$ & 33.1 & $+8.4$ & $+0.84$ \\
+RVESV (mL) & 1.20 & 12.0 & 13.8 & $+14.8$ & $+1.48$ & 10.7 & $-11.2$ & $-1.12$ \\
+LVEF (--) & 0.062 & 0.618 & 0.717 & $+16.1$ & $+1.61$ & 0.658 & $+6.5$ & $+0.65$ \\
+RVEF (--) & 0.061 & 0.607 & 0.682 & $+12.5$ & $+1.25$ & 0.678 & $+11.7$ & $+1.17$ \\
+\midrule
+RMSE of $\varepsilon$, nine pre-closure targets & & & 0.191 & & & & & \\
+RMSE of $\varepsilon$, eight post-closure targets & & & 0.199 & & & 0.059 & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.95\linewidth]{M3_post_waveforms.pdf}
+\caption{Predicted post-closure waveforms over one cardiac cycle (orange) against the post-closure catheter measurements (black lines: dashed, systolic; dash-dotted, diastolic; solid, mean). (A) Systemic arterial pressure. (B) LV (orange) and RV (green) pressure. (C) PA pressure. (D) RA pressure.}
+\label{fig:post_waves}
+\end{figure}
+
+\FloatBarrier
+\subsection{Post-closure calibration}
+\label{sec:results_post_calib}
+Calibration to the post-closure record reduced the RMSE of the eight targets from 0.199 for the prediction to 0.059 (Table~\ref{tab:post}, post-closure calibration columns). All eight targets were within 12\% of their measurements, and the largest errors were in diastolic PA pressure (10.0 against 9~mmHg, $+11.4\%$) and mean arterial pressure ($+6.5\%$). Over the seven catheter pressures, the RMSE was 2.5~mmHg, against 6.9~mmHg for the prediction. Diastolic RFA pressure, which the prediction missed by $-23.6\%$, was 72.0 against 68~mmHg. The ventricular volumes, which were not fitted, were within 17\% of their measurements, and RVEDV was 33.1 against 30.5~mL ($+8.4\%$, against $+42.1\%$ for the prediction).
+
+Compared with the pre-closure calibration (Table~\ref{tab:bounds}, last column), the systemic resistance scale rose from 0.57 to 0.94, in line with the measured rise of SVR from 19.4 to 27.6~WU, and $E_\mathrm{B,RV}$ rose from its lower bound to 0.140~mmHg/mL. The pulmonary resistance scale rose from its lower bound (0.45) to 0.56, and $R_\mathrm{SVEN}$ fell by 25\%. $C_\mathrm{SAR}$ and $C_\mathrm{PAR}$ were 2.1 and 2.5 times their pre-closure values. Their bounds are centered on the clinical seed of each state (Section~\ref{sec:calibration}), and the two $C_\mathrm{SAR}$ intervals do not overlap, so these two changes follow largely from the measured stroke volume and pulse pressure rather than from the fit.
+
+
+
+\FloatBarrier
+\subsection{Pressure--volume loops}
+\label{sec:results_pv}
+Before closure, the LV loop had no isovolumic phases (Figure~\ref{fig:pv}). LV volume fell as soon as LV pressure exceeded RV pressure, because the LV ejected through the defect before the aortic valve opened. After closure, the LV loop regained its isovolumic phases. LVEDV rose from 39.8 to 41.1~mL and LVESV from 9.8 to 11.6~mL, while LV stroke volume (30.0 and 29.5~mL) and stroke work (0.28~J) were unchanged. In the RV, end-diastolic pressure fell from 9.8 to 4.1~mmHg and peak pressure from 26.7 to 25.3~mmHg, while RVEDV stayed at 43.3~mL.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{M5_pv_loops.pdf}
+\caption{LV and RV pressure--volume loops of the scaled baseline (grey), the calibrated pre-closure state (blue) and the post-closure prediction (orange). Vertical lines, measured post-closure end-diastolic (dashed) and end-systolic (dotted) volumes.}
+\label{fig:pv}
+\end{figure}
+
+\FloatBarrier
+\subsection{Measurement-noise simulation}
+\label{sec:results_noise}
+% CHANGED: replicate 15 failed because its calibration ended with four free parameters, not because of the sensitivity analysis
+Of the 20 replicates, 17 were recalibrated. In two, the seeded $C_d$ fell outside its bounds, and in one, the calibration ended with four instead of seven free parameters. Across the 17 recalibrated replicates, the coefficient of variation of the calibrated parameters ranged from 21\% to 53\% (Table~\ref{tab:bounds}, measurement-noise columns). It was largest for $R_{\mathrm{SVEN}}$ and smallest for the pulmonary resistance scale, which stayed at or near its lower bound. The predicted post-closure RVEDV ranged from 27.9 to 43.6~mL and LVEDV from 28.5 to 42.9~mL, against 30.5 and 36.1~mL measured. The systolic arterial pressure prediction ranged from $-16\%$ to $+31\%$ of its measurement, and the mean arterial pressure prediction from $-22\%$ to $+10\%$.
+

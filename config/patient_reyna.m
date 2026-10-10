@@ -66,7 +66,9 @@ clinical.common.BSA        = 0.588;   % [m^2] procedure log 06/04/2026 07.53.20
 % reporting field: 60/119 = 0.504 s vs 60/136 = 0.441 s — reverting this
 % value invalidates every previously published fit and is expected to change
 % downstream RMSE; see docs/CHANGES_SINCE_PR22.md for the reconciliation.
-clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart rate
+% Heart rate is recorded separately on each protocol form and is therefore
+% stored per scenario (pre.HR, post.HR below), never shared, so the two
+% states cannot inherit each other's cycle length.
 
 % PROVENANCE ONLY — not modelled as struct fields, no established target in
 % this model for outflow tract diameters or non-invasive vitals:
@@ -80,6 +82,8 @@ clinical.common.HR         = 119;     % [bpm] protocol form row 6, average heart
 %  Source: right-heart catheterisation and echocardiography
 %% =====================================================================
 pre = struct();
+
+pre.HR                = 119;     % [bpm] pre-closure protocol form row 6
 
 % ---- Shunt geometry / severity ----------------------------------------
 % VSD diameter: protocol row 7 — LV side 4.46–6.43 mm, RV side 3.63–3.70 mm.
@@ -102,15 +106,13 @@ pre.PVR_WU            = NaN;     % [WU] protocol row 24 blank; not used as clini
 % NIBP reference only: sys=119, dia=83, MAP_nibp=95 mmHg (row 10–11, 20)
 pre.SAP_sys_mmHg      = 100;     % [mmHg] RFA catheter systolic  (row 12; log 10.39.12)
 pre.SAP_dia_mmHg      = 57;      % [mmHg] RFA catheter diastolic (row 13; log 10.39.12)
-% MEAN: use the catheter's OWN stamped mean, not a form-factor reconstruction.
-% The procedure log records this reading as "RFA 100/57 (77)" — the transducer
-% reports 77 mmHg directly. The previous value of 71.3 came from applying
-% MAP = dia + (sys-dia)/3, which assumes a form factor this patient's waveform
-% does not have; the same ~5-6 mmHg offset recurs post-closure (formula 75 vs
-% stamped 79), so it is systematic, not noise.
-% Three MAP candidates existed: NIBP cuff 95 (different method, rejected),
-% form-factor 71.3 (reconstructed, rejected), catheter-stamped 77 (used).
-pre.SAP_mean_mmHg     = 77;      % [mmHg] procedure log 06/04/2026 10.39.12 "RFA 100/57 (77)"
+% MEAN: the protocol's own definition (row 20, MAP = 1/3 sys + 2/3 dia)
+% applied to the catheter RFA readings of rows 12-13, so every value is
+% traceable to the IRB protocol form. Applied identically post-closure.
+% Not used: the catheter-stamped mean of 77 mmHg (procedure log, not part of
+% the protocol record) and the form's MAP of 95 mmHg (row 20 computed from
+% the NIBP cuff, a different measurement method).
+pre.SAP_mean_mmHg     = (100 + 2*57)/3;   % [mmHg] = 71.33, protocol row 20 formula on rows 12-13
 %
 % PROVENANCE ONLY — descending aorta (DAO), not used as a fitted target:
 % protocol form rows 14-15 record DAO systolic/diastolic 91/57 mmHg, a
@@ -179,9 +181,11 @@ clinical.pre_surgery = pre;
 %% =====================================================================
 post = struct();
 
+post.HR               = 108;     % [bpm] post-closure protocol form row 6 (108, 108)
+
 % ---- Shunt (absent after closure) ------------------------------------
 % QpQs should be ~1.0; residual shunt is modelled by a small, finite R_VSD
-post.QpQs             = NaN;   % [-]      ≈ 1.0 expected; set NaN if not measured
+post.QpQs             = 0.90;  % [-] medical record, echocardiographic estimate (Dzakiyah 2026)
 
 % ======================================================================
 % SOURCE: the study "reyna" procedure log, 06/04/2026 (see
@@ -216,12 +220,10 @@ post.PVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorde
 % come from the right femoral artery rather than the descending aorta.
 post.SAP_sys_mmHg     = 89;    % [mmHg] post-closure RFA systolic
 post.SAP_dia_mmHg     = 68;    % [mmHg] post-closure RFA diastolic
-% Catheter-stamped mean, same policy as pre.SAP_mean_mmHg above. The
-% form-factor reconstruction would give 68 + (89-68)/3 = 75, again ~4 mmHg
-% below the transducer's own figure - the same systematic offset seen
-% pre-closure (71.3 vs 77).
-post.MAP_mmHg         = 79;    % [mmHg] mean arterial pressure (maps to SAP_mean target)
-post.SVR_WU           = NaN;   % [WU]   not measured; no post-closure CO recorded
+% Same definition as pre.SAP_mean_mmHg: protocol row 17 formula
+% (MAP = 1/3 sys + 2/3 dia) applied to the catheter RFA readings of rows 9-10.
+post.MAP_mmHg         = (89 + 2*68)/3;    % [mmHg] = 75.0 (maps to SAP_mean target)
+post.SVR_WU           = 27.56; % [WU]  medical record, derived from MAP, RAP and CO
 
 % ---- Atrial pressures ------------------------------------------------
 % log 12.28.14 / 12.28.24 / 12.28.35: RA 8/5 (5), 8/5 (5), 7/5 (5)
@@ -244,16 +246,146 @@ post.RVEDP_mmHg       = NaN;   % [mmHg] not captured in the procedure log
 % targets, not consistency-only. Anyone adding a post_surgery calibration
 % recipe for Reyna should decide deliberately whether that default is
 % appropriate, rather than inheriting it silently.
-post.LVEDV_mL         = 32.0;    % [mL] protocol row 26, pre-release occluder (= post-closure)
-post.LVESV_mL         = 23.6;    % [mL] protocol row 27, pre-release occluder (= post-closure)
-post.RVEDV_mL         = 30.5;    % [mL] protocol row 28, pre-release occluder (= post-closure)
-post.RVESV_mL         = 12.0;    % [mL] protocol row 29, pre-release occluder (= post-closure)
-post.EF               = 0.2625;  % [-] LV EF = (32-23.6)/32
-post.RVEF             = 0.6066;  % [-] RV EF = (30.5-12)/30.5
+% Post-closure echocardiography from the medical record, as used in the
+% companion post-closure thesis (Dzakiyah 2026, Tables 4.4-4.6) for this same
+% patient. Confirmed by the study owner (2026-09-20) as the medical-record
+% values; the underlying report is not filed in this repository.
+% The protocol form's rows 26-29 (32 / 23.6 / 30.5 / 12) are a different
+% reading of the same patient and remain declared as the alternative dataset
+% in clinical.post_surgery_variants, so both are reported.
+post.LVEDV_mL         = 36.13;   % [mL] medical record, post-closure echocardiography
+post.LVESV_mL         = 13.80;   % [mL] medical record, post-closure echocardiography
+post.RVEDV_mL         = 30.5;    % [mL] medical record (same in both datasets)
+post.RVESV_mL         = 12.0;    % [mL] medical record (same in both datasets)
+post.EF               = (36.13 - 13.80) / 36.13;  % [-] 0.618
+post.RVEF             = (30.5 - 12.0) / 30.5;     % [-] 0.607
 
 % ---- Cardiac output --------------------------------------------------
-post.CO_Lmin          = NaN;
+post.CO_Lmin          = 2.54;    % [L/min] medical record, echocardiographic estimate
 
 clinical.post_surgery = post;
 
+clinical.protocol = reyna_protocol_record();
+clinical.post_surgery_variants = reyna_post_variants(post);
+
+end
+
+% =======================================================================
+function v = reyna_post_variants(post_protocol)
+% REYNA_POST_VARIANTS - declared post-closure comparison datasets.
+%
+% Two datasets describe this patient's post-closure state and they disagree.
+% Both are evaluated and reported; neither overwrites the other.
+%
+%   protocol_form  IRB protocol form rows 26-29 (LVEDV 32, LVESV 23.6).
+%                  Primary, because it is the IRB-governed record.
+%   thesis_dzakiyah  The companion post-closure thesis (Dzakiyah 2026),
+%                  Tables 4.4-4.6, same patient: LVEDV 36.13, LVESV 13.80,
+%                  plus flow values absent from both forms. That thesis
+%                  cites only "medical record / echocardiography" and gives
+%                  no date or report, so its provenance is UNVERIFIED here.
+%                  The study owner asks that it be reported alongside.
+%
+% The two imply different left-ventricular function: LVEF 0.263 versus 0.618.
+% Resolving them needs the source echocardiography report.
+v = struct('name', {}, 'source', {}, 'provenance', {}, 'data', {});
+
+v(1).name = 'medical_record';
+v(1).source = ['post-closure echocardiography from the medical record, as used in ' ...
+    'the companion post-closure thesis (Dzakiyah 2026, Tables 4.4-4.6)'];
+v(1).provenance = ['medical record per the study owner (2026-09-20); the underlying ' ...
+    'echocardiography report is not filed in this repository'];
+v(1).data = post_protocol;
+
+alt = post_protocol;
+alt.LVEDV_mL = 32.0;
+alt.LVESV_mL = 23.6;
+alt.EF = (32.0 - 23.6) / 32.0;      % 0.2625
+alt.RVEF = (30.5 - 12.0) / 30.5;
+alt.CO_Lmin = NaN;
+alt.QpQs = NaN;
+alt.SVR_WU = NaN;
+v(2).name = 'protocol_form_rows_26_29';
+v(2).source = 'IRB protocol form, pre-closure sheet rows 26-29 ("pre release occluder")';
+v(2).provenance = ['verified against the scanned form; timing disputed (the same rows ' ...
+    'were read earlier as device-deployed-but-not-released)'];
+v(2).data = alt;
+end
+
+% =======================================================================
+function rec = reyna_protocol_record()
+% REYNA_PROTOCOL_RECORD - every entry of the two IRB protocol forms, verbatim.
+% Kept outside clinical.pre_surgery/post_surgery on purpose: nothing here is
+% read by calibration. It exists so every protocol value, used or not, can be
+% reported against the model with its row number (export_run_supplement).
+% Sources: "Filled Protokol_VSD Pre_Reyna (2).pdf" and
+% "Half-Filled Protokol_VSD Post_Reyna_09-04-2026.pdf", protocol V.03,
+% IRB/65/08/ETIK/2025. Repeated readings are listed in recorded order;
+% blank cells are empty ([]).
+f = @(row, name, readings, unit, method, note) struct('row', row, ...
+    'name', name, 'readings', readings, 'unit', unit, 'method', method, 'note', note);
+
+rec.pre = [ ...
+    f(1,  'Age',                         3 + 2/12,  'yr',    'medical record', '3 years 2 months')
+    f(3,  'Height',                      95,        'cm',    'direct measurement', '')
+    f(4,  'Weight',                      13.4,      'kg',    'medical record', '')
+    f(5,  'Body surface area',           0.588,     'm2',    'calculated from height and weight', '')
+    f(6,  'Heart rate',                  119,       'bpm',   'ECG monitor', '')
+    f(7,  'VSD diameter, LV side',       [4.46 6.43], 'mm',  'echocardiography Doppler', 'range')
+    f(7,  'VSD diameter, RV side',       [3.63 3.70], 'mm',  'echocardiography Doppler', 'range')
+    f(9,  'LV systolic pressure',        94,        'mmHg',  'catheterization', 'recorded as gradient row')
+    f(9,  'RV systolic pressure',        25,        'mmHg',  'catheterization', 'recorded as gradient row')
+    f(10, 'Systolic pressure, NIBP',     119,       'mmHg',  'NIBP cuff', '')
+    f(11, 'Diastolic pressure, NIBP',    83,        'mmHg',  'NIBP cuff', '')
+    f(12, 'Systolic pressure, RFA',      100,       'mmHg',  'catheterization', '')
+    f(13, 'Diastolic pressure, RFA',     57,        'mmHg',  'catheterization', '')
+    f(14, 'Systolic pressure, DAo',      91,        'mmHg',  'catheterization', '')
+    f(15, 'Diastolic pressure, DAo',     57,        'mmHg',  'catheterization', '')
+    f(16, 'PA systolic pressure',        [20 20 20], 'mmHg', 'catheterization', '')
+    f(17, 'PA diastolic pressure',       [10 10 10], 'mmHg', 'catheterization', '')
+    f(18, 'PA mean pressure',            [14 15 15], 'mmHg', 'catheterization', '')
+    f(19, 'RA mean pressure',            [5 5 5],   'mmHg',  'catheterization', '')
+    f(20, 'Mean arterial pressure, form', 95,       'mmHg',  'formula on NIBP', 'form value computed from rows 10-11')
+    f(21, 'Pulmonary flow Qp',           4.087,     'L/min', 'Fick (catheterization)', 'an earlier entry is crossed out')
+    f(22, 'Systemic flow Qs',            [],        'L/min', 'Fick (catheterization)', 'blank')
+    f(23, 'Qp/Qs',                       1.194,     '-',     'Fick (catheterization)', '')
+    f(24, 'PVR',                         [],        'WU',    'calculation', 'blank')
+    f(25, 'SVR',                         [],        'WU',    'calculation', 'blank')
+    f(26, 'LVEDV',                       32,        'mL',    'echocardiography biplane Simpson', 'post-closure state per study decision')
+    f(27, 'LVESV',                       23.6,      'mL',    'echocardiography biplane Simpson', 'post-closure state per study decision')
+    f(28, 'RVEDV',                       30.5,      'mL',    'echocardiography 3D', 'post-closure state per study decision')
+    f(29, 'RVESV',                       12,        'mL',    'echocardiography 3D', 'post-closure state per study decision')
+    f(30, 'Stroke volume',               [],        'mL',    'echocardiography', 'blank')
+    f(31, 'Cardiac output, echo',        [],        'L/min', 'echocardiography', 'blank')
+    f(32, 'Ejection fraction',           [],        '%',     'echocardiography', 'blank')
+    f(33, 'LVOT diameter',               1.2,       'cm',    'echocardiography', '')
+    f(34, 'LVOT VTI',                    [],        'cm',    'echocardiography', 'blank')
+    f(35, 'RVOT diameter',               1.4,       'cm',    'echocardiography', '')
+    f(36, 'RVOT VTI',                    [],        'cm',    'echocardiography', 'blank')];
+
+rec.post = [ ...
+    f(6,  'Heart rate',                  [108 108], 'bpm',   'ECG monitor', '')
+    f(7,  'Systolic pressure, NIBP',     [87 85 88], 'mmHg', 'NIBP cuff', '')
+    f(8,  'Diastolic pressure, NIBP',    [56 55 55], 'mmHg', 'NIBP cuff', '')
+    f(9,  'Systolic pressure, RFA',      [91 89 89], 'mmHg', 'catheterization', '')
+    f(10, 'Diastolic pressure, RFA',     [68 68 68], 'mmHg', 'catheterization', '')
+    f(11, 'Systolic pressure, DAo',      [104 106 103], 'mmHg', 'catheterization', 'handwritten values overwritten on form')
+    f(12, 'Diastolic pressure, DAo',     [75 72 68], 'mmHg', 'catheterization', 'handwritten values overwritten on form')
+    f(13, 'PA systolic pressure',        [17 17 17], 'mmHg', 'catheterization', '')
+    f(14, 'PA diastolic pressure',       [8 9 9],   'mmHg',  'catheterization', '')
+    f(15, 'PA mean pressure',            [13 13 13], 'mmHg', 'catheterization', '')
+    f(16, 'RA mean pressure',            [5 5 5],   'mmHg',  'catheterization', '')
+    f(17, 'Mean arterial pressure, form', [66 65 66], 'mmHg', 'formula on NIBP', 'each cell holds two numbers (67/66, 64/65, 66/66); lower values listed')
+    f(18, 'Pulmonary flow Qp',           [],        'L/min', 'echocardiography estimate', 'blank')
+    f(19, 'Systemic flow Qs',            [],        'L/min', 'echocardiography estimate', 'blank')
+    f(20, 'Qp/Qs',                       [],        '-',     'echocardiography estimate', 'blank')
+    f(21, 'PVR',                         [],        'WU',    'calculation', 'blank')
+    f(22, 'SVR',                         [],        'WU',    'calculation', 'blank')
+    f(23, 'LVEDV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 26')
+    f(24, 'LVESV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 27')
+    f(25, 'RVEDV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 28')
+    f(26, 'RVESV',                       [],        'mL',    'echocardiography', 'blank; evaluation uses pre-form row 29')
+    f(27, 'Stroke volume',               [],        'mL',    'echocardiography', 'blank')
+    f(28, 'Cardiac output',              [],        'L/min', 'echocardiography', 'blank')
+    f(29, 'Ejection fraction',           [],        '%',     'echocardiography', 'blank')];
 end

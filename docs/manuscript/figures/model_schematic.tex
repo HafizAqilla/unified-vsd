@@ -1,0 +1,110 @@
+% =====================================================================
+% Electrical analogue of the 14-state closed-loop lumped-parameter model.
+% Topology transcribed from src/models/system_rhs.m (states and equations),
+% src/models/valve_model.m and src/models/vsd_shunt_model.m.
+% Blue elements are the seven parameters selected by the global sensitivity
+% analysis (S_T >= 0.10) and fitted during calibration; grey elements are
+% held at their allometrically scaled values.
+%
+% The layout is deliberately near-square: the capillary beds sit on the
+% vertical sides of each loop so the figure stays narrow enough to stay
+% legible at one text width.
+%
+% Compile:  pdflatex model_schematic.tex
+% =====================================================================
+\documentclass[border=10pt, 12pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath}
+\usepackage[american]{circuitikz}
+\usetikzlibrary{arrows.meta, fit, backgrounds, positioning}
+
+\definecolor{calib}{RGB}{0,84,159}
+\definecolor{shunt}{RGB}{190,30,45}
+\definecolor{fixedel}{RGB}{60,60,60}
+
+\ctikzset{bipoles/length=1.4cm}
+\ctikzset{resistors/scale=1.0, capacitors/scale=1.1, inductors/scale=0.95, diodes/scale=0.95}
+\ctikzset{label/align = straight}
+\tikzset{chamber/.style={font=\large\bfseries}}
+\tikzset{banner/.style={font=\large\itshape, text=black!70}}
+
+\begin{document}
+\begin{circuitikz}[line width=0.9pt, font=\large, color=fixedel]
+
+% ---------------------------------------------------------------- heart
+\coordinate (LA) at (0,0);
+\coordinate (LV) at (2.6,0);
+\coordinate (RV) at (6.2,0);
+\coordinate (RA) at (8.8,0);
+
+\draw (LA) to[D*, l_=MV, *-*] (LV);
+\draw (RA) to[D*, l_=TV, *-*] (RV);
+
+\draw (LA) to[vC, l_=$E_{LA}(t)$] (0,-2.4) node[ground]{};
+\draw (LV) to[vC, l_=$E_{LV}(t)$] (2.6,-2.4) node[ground]{};
+\draw[calib] (RV) to[vC, l=$E_{RV}(t)$] (6.2,2.4) node[ground, rotate=180]{};
+\draw (RA) to[vC, l=$E_{RA}(t)$] (8.8,2.4) node[ground, rotate=180]{};
+
+\node[chamber, above left=3pt and 1pt of LA] {LA};
+\node[chamber, above left=6pt and 5pt of LV] {LV};
+\node[chamber, below right=3pt and 1pt of RV] {RV};
+\node[chamber, below right=3pt and 1pt of RA] {RA};
+\node[calib, font=\normalsize, anchor=south] at (6.2,3.1) {$E_{B,RV}$ fitted};
+
+% ------------------------------------------------------------- VSD shunt
+\draw[shunt, line width=1.1pt] (LV) to[vR, l=$C_d A_{\mathrm{VSD}}$, a_=$Q_{\mathrm{VSD}}$] (RV);
+\node[shunt, font=\normalsize] at (4.6,-2.0) {VSD orifice};
+
+% ------------------------------------------------ systemic circulation
+\draw (LV) -- (2.6,2.8);
+\draw (2.6,2.8) to[D*, l_=AV] (0.6,2.8) coordinate (SAR);
+\draw[calib] (SAR) to[C, l=$C_{SAR}$, a_=$P_{SAR}$] (0.6,5.0) node[ground, rotate=180]{};
+\draw[calib] (SAR) to[R, l_=$R_{SAR}$] (-1.4,2.8);
+\draw (-1.4,2.8) to[L, l_=$L_{SAR}$, a^=$Q_{SAR}$] (-3.4,2.8);
+\draw (-3.4,2.8) -- (-5.2,2.8);
+\draw[calib] (-5.2,2.8) to[R, l=$R_{SC}/2$] (-5.2,4.8) coordinate (SC);
+\draw (SC) to[C, l=$C_{SC}$, a=$P_{SC}$] (-3.0,4.8) node[ground, rotate=-90]{};
+\draw[calib] (SC) to[R, l=$R_{SC}/2$] (-5.2,6.8);
+\draw (-5.2,6.8) -- (-5.2,7.6) -- (-4.2,7.6) coordinate (SVEN);
+\draw (SVEN) to[C, l=$C_{SVEN}$, a_=$P_{SVEN}$] (-4.2,9.8) node[ground, rotate=180]{};
+\draw[calib] (SVEN) to[R, l_=$R_{SVEN}$] (-2.2,7.6);
+\draw (-2.2,7.6) to[L, l_=$L_{SVEN}$, a^=$Q_{SVEN}$] (-0.2,7.6);
+\draw (-0.2,7.6) -- (9.8,7.6) -- (9.8,0) -- (RA);
+
+\draw[-{Stealth[length=7pt]}] (3.6,7.6) -- (4.6,7.6);
+\draw[-{Stealth[length=7pt]}] (2.6,1.1) -- (2.6,2.1);
+\node[banner] at (4.4,8.7) {systemic circulation};
+
+% ----------------------------------------------- pulmonary circulation
+\draw (RV) -- (6.2,-3.0);
+\draw (6.2,-3.0) to[D*, l=PV] (8.2,-3.0) coordinate (PAR);
+\draw[calib] (PAR) to[C, l_=$C_{PAR}$, a^=$P_{PAR}$] (8.2,-5.2) node[ground]{};
+\draw[calib] (PAR) to[R, l=$R_{PAR}$] (10.2,-3.0);
+\draw (10.2,-3.0) to[L, l=$L_{PAR}$, a_=$Q_{PAR}$] (12.2,-3.0) coordinate (PC);
+\draw (PC) to[C, l=$C_{PC}$, a_=$P_{PC}$] (12.2,-0.8) node[ground, rotate=180]{};
+\draw (PC) -- (13.6,-3.0) -- (13.6,-3.6);
+\draw[calib] (13.0,-3.6) to[R, l_=$R_{PC,OX}$] (13.0,-5.8);
+\draw (14.2,-3.6) to[R, l=$R_{PC,NO}$] (14.2,-5.8);
+\draw (13.0,-3.6) -- (14.2,-3.6);
+\draw (13.0,-5.8) -- (14.2,-5.8);
+\draw (13.6,-5.8) -- (13.6,-7.6) -- (12.4,-7.6) coordinate (PVEN);
+\draw (PVEN) to[C, l=$C_{PVEN}$, a_=$P_{PVEN}$] (12.4,-9.8) node[ground]{};
+\draw[calib] (PVEN) to[R, l_=$R_{PVEN}$] (10.4,-7.6);
+\draw (10.4,-7.6) to[L, l_=$L_{PVEN}$, a^=$Q_{PVEN}$] (8.4,-7.6);
+\draw (8.4,-7.6) -- (-1.6,-7.6) -- (-1.6,0) -- (LA);
+
+\draw[-{Stealth[length=7pt]}] (5.0,-7.6) -- (4.0,-7.6);
+\draw[-{Stealth[length=7pt]}] (6.2,-1.3) -- (6.2,-2.3);
+\node[banner] at (4.4,-8.7) {pulmonary circulation};
+
+% ---------------------------------------------------------------- legend
+% top-right corner, above the systemic return rail
+\draw[fixedel] (8.6,10.2) -- (9.6,10.2);
+\node[anchor=west, font=\normalsize] at (9.75,10.2) {fixed by allometric scaling};
+\draw[calib, line width=1.1pt] (8.6,9.3) -- (9.6,9.3);
+\node[anchor=west, font=\normalsize] at (9.75,9.3) {calibrated ($S_T \ge 0.10$)};
+\draw[shunt, line width=1.1pt] (8.6,8.4) -- (9.6,8.4);
+\node[anchor=west, font=\normalsize] at (9.75,8.4) {septal defect ($C_d$ calibrated)};
+
+\end{circuitikz}
+\end{document}

@@ -142,6 +142,10 @@ switch scenario
         end
 
     case 'post_surgery'
+        % Same candidates, metrics and stages as pre_surgery without the
+        % shunt (R.vsd / vsd.Cd, Q_shunt_Lmin): the defect is closed. Which
+        % parameters and metrics are actually fitted is set by the case
+        % profile (config/calibration_recipes/reyna_post_surgery.m).
         calib.names_all = {
             'R.SAR'
             'R.SC'
@@ -155,11 +159,16 @@ switch scenario
             'E.LV.EB'
             'E.RV.EA'
             'E.RV.EB'
+            'E.LA.EA'
+            'E.RA.EA'
             'V0.LV'
             'V0.RV'
             };
         calib.metricFields = {
             'RAP_mean'
+            'LAP_mean'
+            'PAP_min'
+            'PAP_max'
             'PAP_mean'
             'SAP_min'
             'SAP_max'
@@ -169,15 +178,17 @@ switch scenario
             'PVR'
             'CO_Lmin'
             'LVEDV'
+            'LVESV'
             'RVEDV'
+            'RVESV'
             'LVEF'
             'RVEF'
             };
         calib.stageA.names = {'R.SAR','R.SC','R.SVEN','R.PAR','R.PCOX','R.PVEN','C.SAR','C.PAR'};
-        calib.stageA.metricFields = {'RAP_mean','SAP_min','SAP_max','SAP_mean', ...
+        calib.stageA.metricFields = {'RAP_mean','LAP_mean','SAP_min','SAP_max','SAP_mean', ...
             'PAP_mean','SVR','PVR','QpQs','CO_Lmin'};
-        calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','V0.LV','V0.RV'};
-        calib.stageB.metricFields = {'RAP_mean','LVEDV','LVEF','RVEDV','RVEF'};
+        calib.stageB.names = {'E.LV.EA','E.LV.EB','E.RV.EA','E.RV.EB','E.LA.EA','E.RA.EA','V0.LV','V0.RV'};
+        calib.stageB.metricFields = {'RAP_mean','LAP_mean','LVEDV','LVESV','LVEF','RVEDV','RVESV','RVEF'};
 
     otherwise
         error('calibration_param_sets:unknownScenario', ...
@@ -218,8 +229,9 @@ if numel(optMask) ~= numel(calib.names_all)
         'Mask length (%d) must match parameter count (%d).', ...
         numel(optMask), numel(calib.names_all));
 end
+% The sensitivity mask is final: case-profile polish lists may only choose
+% among masked parameters, never re-activate ones the GSA screened out.
 optMask = apply_case_profile_parameter_mask(optMask, calib.names_all, caseProfile);
-optMask = apply_case_profile_required_mask(optMask, calib.names_all, caseProfile);
 if ~any(optMask)
     error('calibration_param_sets:emptyActiveSet', ...
         'Mask deactivates all parameters.');
@@ -358,15 +370,6 @@ optMask = optMask & allowed_mask;
 if ~any(optMask) && any(allowed_mask)
     first_allowed = find(allowed_mask, 1, 'first');
     optMask(first_allowed) = true;
-end
-end
-
-function optMask = apply_case_profile_required_mask(optMask, names_all, case_profile)
-if isfield(case_profile, 'systemicPolishEnabled') && case_profile.systemicPolishEnabled && ...
-        isfield(case_profile, 'systemicPolishNames') && ~isempty(case_profile.systemicPolishNames)
-    required_mask = ismember(names_all(:), case_profile.systemicPolishNames(:));
-    optMask = optMask | required_mask;
-    return;
 end
 end
 

@@ -199,3 +199,6 @@ results/**
 # -----------------------------------------------------------------------------
 config/private/*.local.m
 !config/private/*.local.m.example
+
+# Manuscript figures are deliverables: keep their compiled PDFs
+!docs/manuscript/figures/*.pdf

@@ -1,0 +1,326 @@
+\documentclass{article}
+\usepackage[final,nonatbib]{aaj2026}
+\providecommand{\affilmark}[1]{\textsuperscript{#1}}
+\providecommand{\affiliations}[1]{}
+\providecommand{\correspondence}[1]{}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[backend=biber,style=ieee,sorting=none]{biblatex}
+\addbibresource{refs.bib}
+\addbibresource{refs_methods_additions_20261003.bib}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{xcolor}
+\providecommand{\pending}[1]{\textcolor{red}{[#1]}}
+\usepackage{placeins}
+\usepackage[hidelinks]{hyperref}
+\graphicspath{{figures/}}
+\renewcommand{\thesection}{S\arabic{section}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\theequation}{S\arabic{equation}}
+
+\title{Supplementary Material: Patient-Specific Lumped-Parameter Model for Quantifying Shunt Flow and Predicting Post-Closure Hemodynamics in Pediatric Ventricular Septal Defect}
+\author{Katili, Subagyo, Dzakiyah, Irnadiastputri, Azwani}
+\affiliations{}
+\correspondence{puspita.katili@ui.ac.id}
+
+\begin{document}
+\maketitle
+
+% Moved from the main text on the supervisor's instruction (2026-09-26):
+% the run-to-run repeats (S1) and the practical identifiability audit (S2).
+% Text is the authors' own, with cross-references adapted.
+
+\section{Run-to-run repeats of the calibration pipeline}
+\label{sec:S-repeats}
+
+\subsection{Method}
+The complete pipeline was executed three times with the multi-start seeds 101, 202 and 303, fixed in advance, with clinical inputs and all other settings held constant. The seed enters only through the scrambling of starting points 2--6; starting point 1 is deterministic. All three runs are reported.
+
+\subsection{Result}
+The three runs returned the same selected parameter set, so the pipeline is exactly reproducible under the seeds tested. The reason is visible in the multi-start record (Table~\ref{tab:S-multistart}): the clinically seeded starting point is deterministic and is not affected by the seed, and in all three runs it had the lowest RMSE among the starts with no mean-pressure or flow target above the optimizer's 10\% setting, which is the first criterion of the selection rule (main text, Section~2.7). The seed changes only the five scrambled starting points.
+
+Variability therefore exists between starting points rather than between runs. Across the 18 starts, the RMSE of relative error ranged from 0.0909 to 0.1509. One scrambled start in run 303 reached 0.0909, below the selected value of 0.1047, but had one mean-pressure or flow target above 10\%, so the selection rule ranked it below the seeded start. The reported result is therefore not the lowest RMSE attained, but the result the pre-specified selection rule chose.
+
+Because the selected result does not vary, the three repeats do not quantify uncertainty. The measurement-noise simulation of the main text is the analysis intended for that purpose.
+
+\begin{table}[H]
+\centering\small
+\caption{RMSE of relative error over the nine fitted targets for the six starting points in each run. In parentheses: the number of the five mean-pressure and flow targets, and of all nine fitted targets, with a relative error above 10\%, the two counts used by the selection rule. The selected start is in bold.}
+\label{tab:S-multistart}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Start} & \textbf{Run 101} & \textbf{Run 202} & \textbf{Run 303} \\
+\midrule
+Clinically seeded & \textbf{0.1047 (0, 2)} & \textbf{0.1047 (0, 2)} & \textbf{0.1047 (0, 2)} \\
+Sobol' 1 & 0.1509 (1, 5) & 0.1509 (1, 5) & 0.1509 (1, 5) \\
+Sobol' 2 & 0.1165 (1, 4) & 0.1288 (1, 3) & 0.1209 (1, 3) \\
+Sobol' 3 & 0.1211 (1, 3) & 0.1184 (1, 2) & 0.1509 (1, 5) \\
+Sobol' 4 & 0.1345 (0, 2) & 0.1392 (0, 2) & 0.1340 (1, 4) \\
+Sobol' 5 & 0.1229 (0, 2) & 0.1509 (1, 5) & 0.0909 (1, 2) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Practical identifiability}
+\label{sec:S-identifiability}
+
+\subsection{Method}
+Practical identifiability was assessed at the calibrated operating point from the scaled sensitivity matrix~\cite{Pope2009,Olufsen2013}
+\begin{equation}
+S_{ij} = \frac{\partial y_i}{\partial \theta_j}\,\frac{\theta_j}{\sigma_i},
+\end{equation}
+with $\sigma_i$ the declared measurement uncertainty of target $i$. Parameters with small column norms are weakly constrained; pairs with $|\rho| \ge 0.9$ between columns were flagged as collinear. The condition number $\mathrm{cond}(S)$ was evaluated for every subset of size $k \le p$ and the best-conditioned subset at each size reported as a candidate reduced set~\cite{vanOsta2020}. Subsets were scored by linear algebra alone, without re-simulation or recalibration.
+
+\subsection{Result}
+With 9 governed targets and 7 fitted parameters the pre-closure problem has 2 degrees of freedom. At the calibrated operating point, $\mathrm{cond}(S)$ of the full seven-parameter set was 61.9, identical in all three runs. No parameter pair was collinear at the $|\rho| \ge 0.9$ criterion; the strongest correlation was $-0.73$ between the pulmonary resistance scale and $C_{\mathrm{SAR}}$, followed by $+0.51$ between the systemic resistance scale and $R_{\mathrm{SVEN}}$. The weakest column was $C_d$ (norm 3.72), followed by $R_{\mathrm{SVEN}}$ (6.56); the pulmonary resistance scale was the best-constrained (27.6).
+
+Conditioning improved sharply on removal of one parameter (Table~\ref{tab:S-cond}): the best six-parameter subset, which drops $R_{\mathrm{SVEN}}$, had $\mathrm{cond}(S) = 9.68$. The seven-parameter set retained here is therefore the least well-conditioned of the candidates, and is kept because it is the set the screen selected, not because it is the best conditioned. The reduced subsets were scored by linear algebra alone and were not recalibrated; they are reported as candidates for a future run.
+
+\begin{table}[H]
+\centering\small
+\caption{Best condition number of the scaled sensitivity matrix by subset size ($N = 9$ governed targets). Values are identical in all three runs.}
+\label{tab:S-cond}
+\begin{tabular}{rrrl}
+\toprule
+$p$ & dof & $\mathrm{cond}(S)$ & \textbf{Parameters} \\
+\midrule
+7 & $+2$ & 61.90 & full retained set \\
+6 & $+3$ & 9.68 & $R_{\mathrm{sys}}, R_{\mathrm{pul}}, C_{\mathrm{SAR}}, C_{\mathrm{PAR}}, E_{\mathrm{B,RV}}, C_d$ \\
+5 & $+4$ & 4.00 & $R_{\mathrm{SVEN}}, C_{\mathrm{SAR}}, C_{\mathrm{PAR}}, E_{\mathrm{B,RV}}, C_d$ \\
+4 & $+5$ & 2.65 & $R_{\mathrm{SVEN}}, C_{\mathrm{PAR}}, E_{\mathrm{B,RV}}, C_d$ \\
+3 & $+6$ & 1.72 & $C_{\mathrm{SAR}}, C_{\mathrm{PAR}}, E_{\mathrm{B,RV}}$ \\
+2 & $+7$ & 1.07 & $C_{\mathrm{PAR}}, E_{\mathrm{B,RV}}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Objective function}
+\label{sec:S-weights}
+This section defines every term of the objective function of the main text (Section ``Objective function'') as implemented, with the values used in the reported calibration. $\varepsilon_k = (y_k - y_k^{\mathrm{clin}})/y_k^{\mathrm{clin}}$ is the signed relative error, $\lvert\varepsilon_k\rvert$ its magnitude, and $z_k = (y_k - y_k^{\mathrm{clin}})/\sigma_k$ the standardized residual with the declared uncertainty $\sigma_k$ (main text, Section ``Comparison between model and measurements'').
+
+\paragraph{Target terms.} $\sum_{k\in\mathcal{P}} w_k(\varepsilon_k/0.05)^2 + \sum_{k\in\mathcal{S}} w_k(\varepsilon_k/0.10)^2$, with the weights $w_k$ of Table~\ref{tab:S-weights}. Mean RA pressure, mean arterial pressure and $Q_s$ are not in these sums; they enter $J_{\mathrm{sys}}$.
+
+\paragraph{Coupled systemic term.}
+\begin{equation*}
+J_{\mathrm{sys}} = 1.45\,z_{Q_s}^2 + 1.35\,z_{\overline{P}}^2 + 0.65\,z_{\mathrm{RA}}^2
++ 2.10\,d^2 + 3.00\,f^2 + 3.00\,f^2 + 0.40\left(\frac{Q_{\mathrm{AV}} - Q_s}{\sigma_{Q_s}}\right)^2,
+\end{equation*}
+where $d = \max(0, -z_{Q_s})$ is the one-sided deficit of $Q_s$, $f = \max[0, (Q_s^{\mathrm{clin}} - \sigma_{Q_s} - Q_s)/\max(0.5\sigma_{Q_s}, 0.05\,Q_s^{\mathrm{clin}})]$ is the deficit below one standard deviation, and $Q_{\mathrm{AV}}$ is the cycle-mean aortic valve flow. SVR enters with zero weight because it is a derived quantity.
+
+\paragraph{Pressure-shape term.} $J_{\mathrm{shape}} = 0.8(\varepsilon_{\mathrm{RFA,sys}}/0.10)^2 + 0.6(\varepsilon_{\mathrm{RFA,dia}}/0.10)^2 + 0.8(\varepsilon_{\mathrm{RFA,pulse}}/0.10)^2 + 0.8(\varepsilon_{\mathrm{PA,pulse}}/0.10)^2$, with the pulse pressure defined as systolic minus diastolic pressure.
+
+\paragraph{Shunt term.} $J_{\mathrm{shunt}} = 0.65\left[(e_1/0.10)^2 + 0.25(e_2/0.10)^2\right]$, where $e_1 = \lvert \overline{Q}_{\mathrm{VSD}} - (Q_p - Q_s)\rvert / Q_{\mathrm{shunt}}^{\mathrm{clin}}$ checks that the cycle-mean orifice flow equals the model's $Q_p - Q_s$, and $e_2 = \lvert (Q_p - Q_s) - Q_{\mathrm{shunt}}^{\mathrm{clin}}\rvert / Q_{\mathrm{shunt}}^{\mathrm{clin}}$.
+
+\paragraph{Guard term.} For each calibration target, $J_{\mathrm{guard}}$ adds $35[\max(0, \lvert\varepsilon_k\rvert - 0.12)/0.12]^2$ for systolic and diastolic RFA and PA pressure and mean PA pressure, and $55[\max(0, \lvert\varepsilon_k\rvert - 0.08)/0.08]^2$ for mean PA pressure.
+
+\paragraph{Gate term.} $J_{\mathrm{gate}} = 20\sum_{k}[\max(0, \lvert\varepsilon_k\rvert - 0.10)/0.10]^2$ over the nine calibration targets.
+
+\paragraph{Prior term.} $J_{\mathrm{prior}} = \lambda_{\mathrm{p}}\sum_j c_j \ln^2(x_j/x_j^{\mathrm{s}})$, with $c_j = 2.0$ for $C_{\mathrm{SAR}}$ and $C_{\mathrm{PAR}}$, $c_j = 1.0$ for the other parameters, and $\lambda_{\mathrm{p}} = 0.375$ (2.25 in stage E).
+
+\paragraph{Bound term.} $J_{\mathrm{bound}} = \lambda_{\mathrm{b}}\sum_j\left\{[\max(0, 0.10 - d_j^{\mathrm{lo}})]^2 + [\max(0, 0.10 - d_j^{\mathrm{up}})]^2\right\}$, where $d_j^{\mathrm{lo}}$ and $d_j^{\mathrm{up}}$ are the distances of $x_j$ to its lower and upper bound as fractions of the bound interval, and $\lambda_{\mathrm{b}} = 17$ (120 in stage E).
+
+\paragraph{Range term.} For each output without a clinical value, $J_{\mathrm{range}}$ adds $50(e/w)^2$ when the output leaves its soft range and $400(e/w)^2$ when it leaves its hard range, where $e$ is the distance outside the range and $w$ the width of the range (Table~\ref{tab:S-ranges}). A simulation that does not reach steady state adds $10^3$, and a simulation that fails adds a penalty of the same size.
+
+\begin{table}[H]
+\centering\small
+\caption{Target weights $w_k$ of the objective function in the reported calibration.}
+\label{tab:S-weights}
+\begin{tabular}{llr}
+\toprule
+\textbf{Group} & \textbf{Quantity} & $w_k$ \\
+\midrule
+$\mathcal{P}$ (normalized by 0.05) & mean PA pressure & 1.35 \\
+ & $Q_p/Q_s$ & 1.65 \\
+$\mathcal{S}$ (normalized by 0.10) & PA systolic; PA diastolic & 0.50; 0.45 \\
+ & RFA systolic; RFA diastolic & 1.40; 1.30 \\
+ & shunt flow & 0.80 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{Soft and hard pediatric ranges used by the range term for outputs without a clinical value. The same ranges were used to screen the scaled baseline.}
+\label{tab:S-ranges}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Output} & \textbf{Soft low} & \textbf{Soft high} & \textbf{Hard low} & \textbf{Hard high} \\
+\midrule
+LVEDV (mL) & 5 & 120 & 1 & 220 \\
+LVESV (mL) & 1 & 80 & 0.2 & 180 \\
+RVEDV (mL) & 5 & 140 & 1 & 260 \\
+RVESV (mL) & 1 & 90 & 0.2 & 200 \\
+LVEF (--) & 0.40 & 0.85 & 0.20 & 0.95 \\
+RVEF (--) & 0.30 & 0.80 & 0.15 & 0.95 \\
+PVR (WU) & 0.3 & 12 & 0.05 & 25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Numerical verification}
+\label{sec:S-verification}
+The calibrated pre-closure state and the post-closure prediction were recomputed with tighter solver tolerances, a smaller maximum step and 20 further cycles after the steady-state flag (script \texttt{verify\_solver\_convergence.m}). Table~\ref{tab:S-verification} gives, for each setting, the largest relative change over 16 outputs (systemic and PA pressures, mean RA and LA pressure, $Q_s$, $Q_p/Q_s$, ventricular volumes and ejection fractions) against the reference settings, the lowest atrial and venous pressures, and the range of total blood volume over the last two cycles.
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\caption{Numerical verification of the reported states. Reference settings: relative and absolute tolerance $10^{-5}$ and $10^{-6}$, maximum step $T_{\mathrm{HB}}/20$.}
+\label{tab:S-verification}
+\resizebox{\linewidth}{!}{\begin{tabular}{llrrrr}
+\toprule
+\textbf{State} & \textbf{Setting} & \textbf{Largest change (\%)} & \textbf{Min.\ atrial $P$ (mmHg)} & \textbf{Min.\ venous $P$ (mmHg)} & \textbf{Volume range (mL)} \\
+\midrule
+Pre-closure & reference & -- & 2.90 & 8.66 & $<10^{-11}$ \\
+ & tolerances $\times 10^{-1}$ & 0.032 & 2.90 & 8.66 & $<10^{-11}$ \\
+ & tolerances $\times 10^{-2}$ & 0.039 & 2.90 & 8.66 & $<10^{-11}$ \\
+ & maximum step $T_{\mathrm{HB}}/50$ & 0.000 & 2.90 & 8.66 & $<10^{-11}$ \\
+ & 20 further cycles & 0.047 & 2.90 & 8.66 & $<10^{-11}$ \\
+Post-closure & reference & -- & 2.87 & 8.52 & $<10^{-11}$ \\
+ & tolerances $\times 10^{-1}$ & 0.064 & 2.87 & 8.52 & $<10^{-11}$ \\
+ & tolerances $\times 10^{-2}$ & 0.069 & 2.87 & 8.52 & $<10^{-11}$ \\
+ & maximum step $T_{\mathrm{HB}}/50$ & 0.000 & 2.87 & 8.52 & $<10^{-11}$ \\
+ & 20 further cycles & 0.012 & 2.87 & 8.52 & $<10^{-11}$ \\
+\bottomrule
+\end{tabular}}
+\end{table}
+
+\section{Parameter bounds}
+\label{sec:S-bounds}
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\caption{Bounds of the seven calibrated parameters, with the scaled value, the clinical seed and the rule that sets each bound. The bounds were chosen by the authors.}
+\label{tab:S-bounds}
+\resizebox{\linewidth}{!}{\begin{tabular}{lrrrrl}
+\toprule
+\textbf{Parameter} & \textbf{Scaled} & \textbf{Seed} & \textbf{Lower} & \textbf{Upper} & \textbf{Rule} \\
+\midrule
+$R_{\mathrm{sys}}$ scale (--) & 1.000 & 1.000 & 0.250 & 2.800 & fixed multiplier interval \\
+$R_{\mathrm{SVEN}}$ (mmHg\,s/mL) & 0.1097 & 0.1097 & 0.0439 & 0.3070 & $[0.40,\,2.8]\times$ scaled \\
+$R_{\mathrm{pul}}$ scale (--) & 1.000 & 1.000 & 0.450 & 2.800 & fixed multiplier interval \\
+$C_{\mathrm{SAR}}$ (mL/mmHg) & 0.2546 & 0.6689 & 0.2419 & 0.9031 & $[0.75,\,1.35]\times$ seed; lower bound extended below scaled \\
+$C_{\mathrm{PAR}}$ (mL/mmHg) & 0.9571 & 3.4345 & 0.9056 & 4.9800 & $[0.70,\,1.45]\times$ seed; lower bound extended below scaled \\
+$E_{\mathrm{B,RV}}$ (mmHg/mL) & 0.1451 & 0.1451 & 0.0798 & 0.3773 & $[0.55,\,2.6]\times$ scaled \\
+$C_d$ (--) & 0.700 & 0.3561 & 0.2849 & 0.7350 & $[0.8\times$ seed, $1.05\times$ adult reference$]$ \\
+\bottomrule
+\end{tabular}}
+\par\vspace{2pt}
+{\footnotesize \emph{Note:} An extended lower bound equals the scaled value minus the larger of 5\% of the scaled value and 2\% of the bound interval, so that the scaled value stays feasible.}
+\end{table}
+
+\section{Nominal parameters and the healthy-child baseline}
+\label{sec:S-baseline}
+The nominal adult parameters (main text, Appendix B) were tuned manually, starting from the adult sets of Valenti~\cite{Valenti2023}, Zhang et al.~\cite{zhang2019multiscale} and Bozkurt~\cite{Bozkurt2019}. Table~\ref{tab:S-sources} lists each nominal value beside its three sources. Table~\ref{tab:S-healthy} gives the outputs of the nominal set scaled by weight to a healthy 3-year-old (14~kg, 98~cm), without a defect, beside pediatric reference ranges. The nominal values were kept within the range spanned by the three sources, except $E_{\mathrm{A,LV}}$, $R_{\mathrm{PVEN}}$, the venous inertances and the non-oxygenated capillary branch. The healthy-child outputs lie within their reference ranges except cardiac output (2.15~L/min against 2.2--4.85~L/min).
+
+\begin{table}[H]
+\centering\small
+\setlength{\tabcolsep}{3pt}
+\caption{Nominal adult parameters beside the three source sets. --, not reported by the source. Units: elastance mmHg/mL; volume mL; resistance mmHg\,s/mL; compliance mL/mmHg; inertance mmHg\,s$^2$/mL.}
+\label{tab:S-sources}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Parameter} & \textbf{Valenti} & \textbf{Zhang} & \textbf{Bozkurt} & \textbf{Nominal} \\
+\midrule
+$E_{\mathrm{A,LA}}$ & 0.38 & 0.35 & -- & 0.35 \\
+$E_{\mathrm{B,LA}}$ & 0.27 & 0.20 & -- & 0.20 \\
+$V_{0,\mathrm{LA}}$ & 2.3085 & 5.0 & 5.0 & 2.3085 \\
+$E_{\mathrm{A,LV}}$ & 2.70 & 3.00 & -- & 3.50 \\
+$E_{\mathrm{B,LV}}$ & 0.069 & 0.08 & -- & 0.08 \\
+$V_{0,\mathrm{LV}}$ & 3.5385 & 10.0 & 15.0 & 3.5385 \\
+$E_{\mathrm{A,RA}}$ & 0.126 & 0.30 & -- & 0.30 \\
+$E_{\mathrm{B,RA}}$ & 0.195 & 0.10 & -- & 0.10 \\
+$V_{0,\mathrm{RA}}$ & 3.5385 & 5.0 & 5.0 & 3.5385 \\
+$E_{\mathrm{A,RV}}$ & 0.43 & 1.20 & -- & 0.50 \\
+$E_{\mathrm{B,RV}}$ & 0.0412 & 0.08 & -- & 0.042 \\
+$V_{0,\mathrm{RV}}$ & 8.4067 & 10.0 & 40.0 & 8.4067 \\
+$R_{\mathrm{SAR}}$ & 0.5911 & -- & 0.050 & 0.050 \\
+$C_{\mathrm{SAR}}$ & 1.3315 & -- & 0.20 & 1.33 \\
+$L_{\mathrm{SAR}}$ & $2.96\times10^{-4}$ & -- & $1\times10^{-5}$ & $1\times10^{-5}$ \\
+$R_{\mathrm{SC}}$ & 0.0217 & -- & 0.95 & 0.80 \\
+$C_{\mathrm{SC}}$ & 0.2798 & -- & 1.70 & 1.00 \\
+$R_{\mathrm{SVEN}}$ & 0.3596 & -- & 0.050 & 0.050 \\
+$C_{\mathrm{SVEN}}$ & 75.0 & -- & 30.0 & 30.0 \\
+$L_{\mathrm{SVEN}}$ & $2.06\times10^{-5}$ & -- & -- & $1\times10^{-5}$ \\
+$R_{\mathrm{PAR}}$ & 0.0714 & -- & 0.010 & 0.010 \\
+$C_{\mathrm{PAR}}$ & 6.0043 & -- & 5.00 & 5.00 \\
+$L_{\mathrm{PAR}}$ & $2.06\times10^{-5}$ & -- & $1\times10^{-5}$ & $1\times10^{-5}$ \\
+$R_{\mathrm{PCOX}}$ & $\sim$0.0167 & -- & 0.15$^{\mathrm{a}}$ & $\sim$0.060 \\
+$C_{\mathrm{PCOX}}$ & $\sim$5.8293 & -- & 0.20$^{\mathrm{a}}$ & $\sim$0.20 \\
+$R_{\mathrm{PCNO}}$ & 0.3517 & -- & -- & 1.264 \\
+$C_{\mathrm{PCNO}}$ & 0.0490 & -- & -- & 0.0017 \\
+$R_{\mathrm{PVEN}}$ & 0.0375 & -- & 0.050 & 0.020 \\
+$C_{\mathrm{PVEN}}$ & 11.381 & -- & 30.0 & 13.75 \\
+$L_{\mathrm{PVEN}}$ & $2.06\times10^{-5}$ & -- & -- & $1\times10^{-5}$ \\
+$R_{\mathrm{open}}$ & 0.0063 & -- & 0.001--0.002 & 0.004 \\
+$R_{\mathrm{closed}}$ & $9.42\times10^{4}$ & -- & -- & $9.42\times10^{4}$ \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}
+{\footnotesize \emph{Note:} $^{\mathrm{a}}$Single pulmonary capillary compartment in Bozkurt; compared with the oxygenated branch.}
+\end{table}
+
+\begin{table}[H]
+\centering\small
+\caption{Outputs of the nominal parameter set scaled by weight to a healthy 3-year-old (14~kg, 98~cm) without a defect, beside pediatric reference ranges.}
+\label{tab:S-healthy}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Output} & \textbf{Reference range} & \textbf{Simulated} \\
+\midrule
+Heart rate (bpm) & 73--142~\cite{Joyce2025} & 121.55 \\
+Cardiac output (L/min) & 2.2--4.85 & 2.15 \\
+LV stroke volume (mL) & 15--25 & 17.72 \\
+LVEF (--) & 0.55--0.73 & 0.574 \\
+RVEF (--) & 0.45--0.78 & 0.556 \\
+LVEDV (mL) & 25--41 & 30.86 \\
+LVESV (mL) & 10--16 & 13.13 \\
+RVEDV (mL) & 30.73--65.68 & 31.89 \\
+RVESV (mL) & 7--29 & 14.14 \\
+SVR (WU) & 13.8--33 & 32.27 \\
+PVR (WU) & $<6$ & 4.63 \\
+Systolic arterial pressure (mmHg) & 90--103~\cite{Flynn2017} & 99.71 \\
+Diastolic arterial pressure (mmHg) & 47--59~\cite{Flynn2017} & 51.01 \\
+Mean arterial pressure (mmHg) & 61--74 & 73.91 \\
+Systolic PA pressure (mmHg) & $<32.9$~\cite{MalakanRad2024} & 22.13 \\
+Diastolic PA pressure (mmHg) & $<14.95$~\cite{MalakanRad2024} & 10.47 \\
+Mean PA pressure (mmHg) & $<21$~\cite{MalakanRad2024} & 15.80 \\
+Mean LA pressure (mmHg) & 2--10 & 5.82 \\
+Mean RA pressure (mmHg) & 3--6~\cite{MalakanRad2024} & 4.42 \\
+Mean pulmonary wedge pressure (mmHg) & $<12$ & 8.04 \\
+$Q_p/Q_s$ (--) & 1.0 & 1.001 \\
+\bottomrule
+\end{tabular}
+\par\vspace{2pt}
+{\footnotesize \emph{Note:} \pending{Source of the ranges without a citation.}}
+\end{table}
+
+\section{Supplementary figures}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{F01_gsa_tornado_screening.pdf}
+\caption{Total-order (bars) and first-order (points) Sobol' indices at the scaled baseline for each of the nine fitted targets, eight largest parameters per target. Dashed line: retention threshold 0.10.}
+\label{fig:S-tornado-initial}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.95\linewidth]{F02_gsa_tornado_calibrated.pdf}
+\caption{Sobol' indices repeated at the calibrated operating point (mean and range over the three runs).}
+\label{fig:S-tornado-final}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth]{F03_calibration_before_after.pdf}
+\caption{Absolute relative error of each of the nine fitted targets at the scaled baseline and after calibration.}
+\label{fig:S-before-after}
+\end{figure}
+
+\printbibliography
+\end{document}

@@ -53,7 +53,7 @@ if isfield(clinical, 'common')
     common = clinical.common;
 end
 
-HR_bpm = field_or_nan(common, 'HR');                % [bpm]
+HR_bpm = clinical_heart_rate(clinical, scenario);   % [bpm]
 CO_Lmin = field_or_nan(src, 'CO_Lmin');             % [L/min]
 QpQs = field_or_nan(src, 'QpQs');                   % [-]
 LVEDV_mL = field_or_nan(src, 'LVEDV_mL');           % [mL]

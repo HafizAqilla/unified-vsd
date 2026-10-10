@@ -1,0 +1,78 @@
+% =====================================================================
+% DRAFT for the authors to reword -- main-text pieces that follow from
+% moving the repeats and identifiability to the supplement (2026-09-26).
+% Every statement below describes what scripts/run_noise_simulation.m
+% actually does; if you change the wording, keep the facts.
+% Items in [brackets] are filled from results/batches/noise_<id>/summary/.
+% =====================================================================
+
+% ---------------------------------------------------------------------
+% 1. Replace the last paragraph of Section 2.4.2 ("The complete pipeline
+%    was executed three times ...") with:
+% ---------------------------------------------------------------------
+The multi-start seed was fixed in advance at 101. Repeating the pipeline with
+two further seeds (202 and 303) returned the identical accepted parameter set;
+these repeats are reported in Supplementary Section~S1.
+
+% ---------------------------------------------------------------------
+% 2. Delete Section 2.4.4 (Practical identifiability). If one sentence is
+%    wanted in the main text, add at the end of Section 2.4.1:
+% ---------------------------------------------------------------------
+The practical identifiability of the retained set at the calibrated operating
+point is reported in Supplementary Section~S2.
+
+% ---------------------------------------------------------------------
+% 3. Replace Section 2.6 with:
+% ---------------------------------------------------------------------
+\subsection{Measurement-noise simulation}
+
+The effect of measurement uncertainty on the calibrated parameters and on the
+post-closure prediction was assessed by Monte Carlo simulation. In each of
+$M = [50]$ replicates, every directly measured pre-closure target was
+perturbed independently by zero-mean Gaussian noise with standard deviation
+equal to its declared measurement uncertainty $\sigma_k$ (Section~2.5):
+mean right atrial pressure, mean, systolic and diastolic pulmonary arterial
+pressure, systolic and diastolic systemic arterial pressure, systemic flow
+$Q_s$ and $Q_p/Q_s$ (Table~S[x]). Quantities that the clinical record derives
+from these measurements were recomputed from the perturbed values with the same
+formulas: mean arterial pressure as $(P_{\mathrm{sys}} + 2P_{\mathrm{dia}})/3$
+and shunt flow as $Q_s(Q_p/Q_s - 1)$. Draws that were physically impossible
+(a non-positive value, diastolic above systolic pressure, mean pulmonary
+pressure outside its systolic--diastolic range, or $Q_p/Q_s \le 1$) were
+redrawn; [n] draws were redrawn in total. Model inputs (age, weight, height,
+heart rate and defect diameter) and all post-closure measurements were not
+perturbed. The noise draws used a fixed seed (20260926).
+
+Each perturbed record was recalibrated with the procedure of Section~2.4.2
+unchanged: the same clinical seeding, staged objective, six starting points
+and multi-start seed (101). The fitted parameter set was held at the seven
+parameters selected by the sensitivity screen of Section~2.4.1 and was not
+re-screened, so that only the measurements differ between replicates. The
+recalibrated parameters were then applied with the defect closed, as in
+Section~2.4.3, and the prediction was compared with the unperturbed
+post-closure measurements, which remained withheld from calibration.
+
+For each calibrated parameter and each predicted quantity we report the mean,
+standard deviation, coefficient of variation and the 2.5th--97.5th percentile
+interval across replicates, and for each post-closure target the fraction of
+replicates within the $\pm10\%$ gate and whether the measured value lies
+inside the 95\% interval of the prediction. All replicates are reported,
+including any that failed or were not accepted.
+
+% ---------------------------------------------------------------------
+% 4. Section 3.7 -- replace the current table ENTIRELY. The current table
+%    (Rep 1-3, RMSE 0.0627 / 0.0546 / 0.0822, measured MAP 77) is not a
+%    noise simulation: it is the superseded 12-parameter three-seed batch.
+%    Suggested structure once the batch has run:
+% ---------------------------------------------------------------------
+\subsection{Measurement-noise simulation}
+
+[M] of [M] replicates completed; [k] were classified accepted, [k]
+physiological but poor fit and [k] not accepted. Across replicates the
+governed RMSE against the perturbed record was [median] (range [a]--[b]).
+
+% Table A -- calibrated parameters: noise_summary_parameters.csv
+%   Parameter | Reference (Table 3) | Mean +- SD | CV (%) | 95% interval
+% Table B -- post-closure prediction: noise_summary_post.csv
+%   Target | Measured | Predicted (Table 7) | Mean [95% interval] |
+%   within 10% (% of replicates) | measured inside interval

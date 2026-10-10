@@ -1,0 +1,96 @@
+% =====================================================================
+% Post-closure calibration: Methods, Results and Discussion additions
+% Numbers from results/batches/postcal_20261007_220027 (commit 7d73262,
+% recipe config/calibration_recipes/reyna_post_surgery.m), exported by
+% scripts/export_post_closure_calibration.m. The calibrated parameters are
+% re-simulated with the defect closed exactly (A_VSD = 0) at 108 bpm, as
+% for the prediction in Table 8.
+%
+% Preamble addition (main.tex):
+%   \addbibresource{refs_drug_simulation.bib}
+% =====================================================================
+
+
+% ---------------------------------------------------------------------
+% METHODS -- insert after Section 2.9 (Post-closure prediction)
+% ---------------------------------------------------------------------
+\subsection{Post-closure calibration}
+\label{sec:post_calib_methods}
+After the prediction had been compared with the post-closure record, the model was calibrated a second time, to the post-closure measurements. This calibration does not change the prediction; it estimates the parameters of the circulation after closure so that they can be compared with the pre-closure parameters. The procedure of Section~\ref{sec:calibration} was repeated with the defect closed and the heart rate set to 108~bpm: the same scaling, clinical seeding from the post-closure record, bound widths, weights, six starting points and staged optimization. The free parameters were the six pre-closure parameters other than $C_d$, which has no effect once the defect is closed; the sensitivity screen was not repeated. The targets were the seven post-closure catheter pressures and $Q_s$. $Q_p/Q_s$ was not a target, because a value below one cannot be reached without a shunt, and the shunt terms were removed from the objective. The ventricular volumes were compared but not fitted, as before closure.
+
+
+% ---------------------------------------------------------------------
+% RESULTS -- insert after Section 3.3 (Post-closure prediction)
+% ---------------------------------------------------------------------
+\subsection{Post-closure calibration}
+\label{sec:results_post_calib}
+Calibration to the post-closure record reduced the RMSE of the eight targets from 0.199 for the prediction to 0.059 (Table~\ref{tab:post_calib}). All eight targets were within 12\% of their measurements; the largest errors were in diastolic PA pressure (10.0 against 9~mmHg, $+11.4\%$) and mean arterial pressure ($+6.5\%$). Over the seven catheter pressures the RMSE was 2.5~mmHg, against 6.9~mmHg for the prediction. Diastolic RFA pressure, which the prediction missed by $-23.6\%$, was 72.0 against 68~mmHg. The ventricular volumes, which were not fitted, were within 17\% of their measurements, and RVEDV was 33.1 against 30.5~mL ($+8.4\%$, against $+42.1\%$ for the prediction).
+
+Compared with the pre-closure calibration (Table~\ref{tab:post_calib_params}), the systemic resistance scale rose from 0.57 to 0.94, in line with the measured rise of SVR from 19.4 to 27.6~WU, and $E_\mathrm{B,RV}$ rose from its lower bound to 0.140~mmHg/mL. The pulmonary resistance scale rose from its lower bound (0.45) to 0.56 and $R_\mathrm{SVEN}$ fell by 25\%. $C_\mathrm{SAR}$ and $C_\mathrm{PAR}$ were 2.1 and 2.5 times their pre-closure values. Their bounds are centred on the clinical seed of each state (Section~\ref{sec:calibration}), and the two $C_\mathrm{SAR}$ intervals do not overlap, so these two changes follow largely from the measured stroke volume and pulse pressure rather than from the fit.
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Post-closure measurements against the model calibrated to them. Calibration targets are marked with an asterisk; all other values are compared with the model only. $\sigma$, declared uncertainty; $\varepsilon$, relative error; $z = (\text{model}-\text{measured})/\sigma$; --, not measured.}
+\label{tab:post_calib}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Quantity} & $\sigma$ & \textbf{Measured} & \textbf{Model} & $\varepsilon$ (\%) & $z$ \\
+\midrule
+\multicolumn{6}{l}{\emph{Systemic arterial pressure (mmHg)}} \\
+Systolic, RFA$^*$ & 8.90 & 89 & 87.2 & $-2.0$ & $-0.20$ \\
+Diastolic, RFA$^*$ & 6.80 & 68 & 72.0 & $+5.9$ & $+0.59$ \\
+Mean, RFA$^*$ & 3.75 & 75.0 & 79.9 & $+6.5$ & $+1.31$ \\
+Systolic / diastolic, DAo & -- & 104 / 72 & 87.2 / 72.0 & $-16.1$ / $+0.0$ & -- \\
+Systolic / diastolic, cuff & -- & 87 / 55 & 87.2 / 72.0 & $+0.3$ / $+30.9$ & -- \\
+\multicolumn{6}{l}{\emph{PA and RA pressure (mmHg)}} \\
+PA systolic$^*$ & 0.85 & 17 & 16.1 & $-5.1$ & $-1.03$ \\
+PA diastolic$^*$ & 0.45 & 9 & 10.0 & $+11.4$ & $+2.27$ \\
+PA mean$^*$ & 0.65 & 13 & 12.9 & $-0.5$ & $-0.11$ \\
+RA mean$^*$ & 0.25 & 5 & 5.1 & $+2.6$ & $+0.51$ \\
+\multicolumn{6}{l}{\emph{Ventricular pressure (mmHg)}} \\
+LV / RV systolic & -- & -- & 87.5 / 17.0 & -- & -- \\
+\multicolumn{6}{l}{\emph{Flow and resistance}} \\
+$Q_p$ (L/min) & -- & -- & 2.39 & -- & -- \\
+$Q_s$ (L/min)$^*$ & 0.127 & 2.54 & 2.39 & $-5.9$ & $-1.17$ \\
+$Q_p/Q_s$ (--) & 0.045 & 0.90 & 1.00 & $+11.1$ & $+2.23$ \\
+SVR (WU) & 5.51 & 27.6 & 31.3 & $+13.5$ & $+0.67$ \\
+\multicolumn{6}{l}{\emph{Ventricular volume and function}} \\
+LVEDV / LVESV (mL) & 3.61 / 1.38 & 36.1 / 13.8 & 33.8 / 11.6 & $-6.4$ / $-16.2$ & $-0.64$ / $-1.62$ \\
+RVEDV / RVESV (mL) & 3.05 / 1.20 & 30.5 / 12.0 & 33.1 / 10.7 & $+8.4$ / $-11.2$ & $+0.84$ / $-1.12$ \\
+LVEF / RVEF (--) & 0.062 / 0.061 & 0.618 / 0.607 & 0.658 / 0.678 & $+6.5$ / $+11.7$ & $+0.65$ / $+1.17$ \\
+\midrule
+RMSE of $\varepsilon$, eight targets & & & 0.059 & & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Parameters calibrated before and after closure. Ratio, post-closure value divided by pre-closure value. $C_d$ is not defined after closure.}
+\label{tab:post_calib_params}
+\begin{tabular}{llrrr}
+\toprule
+\textbf{Parameter} & \textbf{Unit} & \textbf{Pre-closure} & \textbf{Post-closure} & \textbf{Ratio} \\
+\midrule
+$R_\mathrm{sys}$ scale ($R_\mathrm{SAR}, R_\mathrm{SC}$) & -- & 0.569 & 0.940 & 1.65 \\
+$R_\mathrm{SVEN}$ & mmHg\,s/mL & 0.166 & 0.124 & 0.75 \\
+$R_\mathrm{pul}$ scale ($R_\mathrm{PAR}, R_\mathrm{PCOX}, R_\mathrm{PVEN}$) & -- & 0.450$^\dagger$ & 0.558 & 1.24 \\
+$C_\mathrm{SAR}$ & mL/mmHg & 0.570 & 1.192 & 2.09 \\
+$C_\mathrm{PAR}$ & mL/mmHg & 1.017 & 2.567 & 2.52 \\
+$E_\mathrm{B,RV}$ & mmHg/mL & 0.0799$^\dagger$ & 0.140 & 1.75 \\
+$C_d$ & -- & 0.370 & -- & -- \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize $^\dagger$At the lower bound.}
+\end{tabular}
+\end{table}
+
+
+% ---------------------------------------------------------------------
+% DISCUSSION -- new subsection, insert before Limitations
+% ---------------------------------------------------------------------
+\subsection{Post-closure calibration as a basis for drug simulation}
+\label{sec:disc_drug}
+The two calibrations give one parameter set for each state of the same child. The difference between them, mainly a 65\% higher systemic resistance after closure, is the part of the closure response that the prediction could not represent (Table~\ref{tab:post_calib_params}), and the post-closure parameters describe the circulation in which post-operative drugs act. Milrinone is given to children after repair of congenital heart defects to prevent low cardiac output~\cite{Hoffman2003}, and its inotropic and vasodilating effects correspond to model parameters, namely active elastance and systemic and pulmonary resistance. Lumped-parameter and closed-loop models have already been used in this way. Casas et al.\ personalized a reduced-order model at rest and under dobutamine and recovered the expected rise in contractility~\cite{Casas2018}. Guyton-type models have generated virtual patients to study blood pressure regulation and its treatment~\cite{Moss2012}. CircAdapt digital twins have predicted the response to a device therapy~\cite{Koopsen2024}, and virtual surgery has been simulated in single-ventricle models~\cite{Corsini2014}. At the cellular level, in silico drug trials predicted clinical cardiotoxicity more accurately than animal models~\cite{Passini2017}, and electromechanical models have predicted inotropic drug effects~\cite{Margara2021}. Together, these studies describe the digital twin of precision cardiology~\cite{CorralAcero2020}.
+
+Before such simulations can guide treatment, three steps are required. First, a drug must be linked to the parameters it changes through a pharmacokinetic--pharmacodynamic relation, and the simulated response must be compared with a measured one, as was done here for closure. Second, records that differ only within measurement error were reproduced by different parameter sets (Section~\ref{sec:results_noise}), and the compliances changed between states mainly through their seeds. A simulated drug response should therefore be reported with the range produced by parameter uncertainty~\cite{Schiavazzi2017,Colebank2024Guidelines}, and its credibility should be assessed for its context of use~\cite{Viceconti2021}. Third, a single patient cannot show how the response varies between children; that requires a cohort of calibrated models~\cite{Niederer2020,Niederer2021}.

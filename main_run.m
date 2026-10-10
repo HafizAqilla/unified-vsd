@@ -84,6 +84,17 @@ USE_PCE_IN_CALIBRATION = false; % recovery default: direct ODE calibration (PCE 
 % WARNING: Only reuse a mask from patients of the SAME scenario and roughly
 % the same defect physiology. Do NOT reuse a post_surgery mask for pre_surgery.
 MASK_FILE = '';   % '' = full GSA; path string = reuse saved mask (irrelevant when DO_GSA=false)
+mask_file_env = strtrim(getenv('UNIFIED_VSD_MASK_FILE'));
+if ~isempty(mask_file_env)
+    if ~isfile(mask_file_env)
+        error('main_run:maskFileMissing', 'UNIFIED_VSD_MASK_FILE not found: %s', mask_file_env);
+    end
+    MASK_FILE = mask_file_env;
+end
+% UNIFIED_VSD_SKIP_FINAL_GSA=1 skips the post-calibration GSA (Step 7).
+% Used by the measurement-noise simulation, which recalibrates many times
+% with a fixed parameter set and does not report sensitivity indices.
+DO_FINAL_GSA = ~env_flag('UNIFIED_VSD_SKIP_FINAL_GSA', false);
 
 % Optional runtime override from environment variable:
 %   UNIFIED_VSD_DO_PLOTS=0|false|off -> disable plotting
@@ -435,7 +446,7 @@ end
 %% =====================================================================
 %  STEP 7 — Final GSA (Sobol) with calibrated parameters
 %% =====================================================================
-if DO_GSA
+if DO_GSA && DO_FINAL_GSA
     % PCE-based post-calibration GSA (same method as Step 4, applied to
     % calibrated parameters).  Sobol indices are extracted analytically
     % from the trained PCE — no additional Monte Carlo sampling required.
@@ -446,7 +457,7 @@ if DO_GSA
     gsa_final_cfg = gsa_pce_setup(params_cal, scenario, uqlab_path, sobios_path, registry_context_final);
     gsa_final_out = gsa_run_pce(gsa_final_cfg, params_cal);
 else
-    fprintf('\n[main_run] Final PCE GSA skipped (DO_GSA=false).\n');
+    fprintf('\n[main_run] Final PCE GSA skipped (DO_GSA=%d, DO_FINAL_GSA=%d).\n', DO_GSA, DO_FINAL_GSA);
 end
 
 %% =====================================================================
@@ -674,7 +685,7 @@ diag_fname = fullfile(results_dir, ...
 save(diag_fname, 'calib_diag');
 fprintf('[main_run] Calibration diagnostics saved to:\n          %s\n', diag_fname);
 
-if DO_GSA
+if DO_GSA && ~isempty(gsa_init_out) && ~isempty(gsa_final_out)
     % Display summary table for initial and final GSA
     fprintf('\n[main_run] Initial PCE/Sobol summary table:\n');
     gsa_summary_init = make_gsa_summary_table(gsa_init_out);
@@ -1028,10 +1039,21 @@ timestamp = datestr(now, 'yyyymmdd_HHMMSS');
 patient_label = resolve_patient_label(clinical);
 run_name = sprintf('%s_%s_%s', timestamp, patient_label, scenario);
 
+% Optional routing for batch drivers that may start several runs within the
+% same second (parallel noise replicates): a parent folder and a unique tag.
+runs_parent = strtrim(getenv('UNIFIED_VSD_RUNS_PARENT'));
+if isempty(runs_parent)
+    runs_parent = fullfile(root, 'results', 'runs');
+end
+run_tag = strtrim(getenv('UNIFIED_VSD_RUN_TAG'));
+if ~isempty(run_tag)
+    run_name = sprintf('%s_%s', run_name, run_tag);
+end
+
 run_ctx = struct();
 run_ctx.timestamp = timestamp;
 run_ctx.patient_label = patient_label;
-run_ctx.root = fullfile(root, 'results', 'runs', run_name);
+run_ctx.root = fullfile(runs_parent, run_name);
 run_ctx.tables_dir = fullfile(run_ctx.root, 'tables');
 run_ctx.figures_dir = fullfile(run_ctx.root, 'figures');
 run_ctx.gsa_dir = fullfile(run_ctx.root, 'gsa');

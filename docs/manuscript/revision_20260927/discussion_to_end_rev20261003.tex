@@ -1,0 +1,148 @@
+% =====================================================================
+% Discussion, Conclusion, back matter, references and appendices,
+% revised 2026-10-03 (second version). Replaces everything from
+% \section{Discussion} to \end{document} in main.tex.
+% Figures: D3_noise_boxplots (scripts/R/make_discussion_figures.R), M4_parity.
+% NOTE: the noise numbers in Section 4.1 are from 9 recalibrated replicates;
+% update them when the 20-replicate batch is complete.
+% =====================================================================
+\FloatBarrier
+\section{Discussion}
+\label{sec:discussion}
+
+\subsection{Pre- and post-closure errors under measurement uncertainty}
+\label{sec:disc_noise}
+Figure~\ref{fig:noise} compares the errors of the calibrated pre-closure model and of the post-closure prediction when the pre-closure record was varied within its measurement uncertainty. Before closure, the errors of the mean pressures and of $Q_p/Q_s$ stayed close to zero, with medians within 5\%, so calibration reproduced the record whichever noisy version it received. Only $Q_s$ was under-estimated in most replicates (median $-18\%$), because calibration traded systemic flow against the pressures. After closure the errors shifted in a consistent direction. Diastolic RFA pressure was under-predicted in every replicate (median $-15\%$), mean PA pressure was over-predicted (median $+13\%$), and RVEDV was over-predicted in most replicates (median $+29\%$), whereas mean arterial pressure stayed centered on the measurement (median $+2\%$). The reference prediction lay within the replicate spread for most quantities and at its upper edge for systolic PA pressure and RVEDV. These offsets persist whatever version of the record is used, so they come from the model structure and from the parameters held fixed at closure rather than from measurement noise. The spread of the volume errors, from $-21\%$ to $+19\%$ for LVEDV, shows that a volume prediction from this record needs an uncertainty range.
+
+The calibrated parameters varied much more than the errors (Figure~\ref{fig:noise}A). PA compliance ranged from $-11\%$ to $+293\%$ of its reference value, and systemic venous resistance, systemic arterial compliance and the discharge coefficient changed by up to 50--85\% in either direction, while the pulmonary resistance scale and RV passive elastance often stayed on their lower bounds. Records that differ only within measurement error are therefore fitted equally well by markedly different parameter sets. Schiavazzi et al.\ reported the same behaviour when estimating closed-loop parameters in single-ventricle circulation under measurement uncertainty~\cite{Schiavazzi2017}, and Kachabi et al.\ showed that pulmonary vascular parameters inferred from routine data carry wide uncertainty~\cite{Kachabi2025}. Owashi et al.\ found relative errors of about 12\% when LV pressure was estimated from invasive data in twelve patients~\cite{Owashi2020}, which is of the same order as the pre-closure errors here. The present results add that the post-closure errors are not only larger but also shifted, which a single deterministic calibration cannot reveal. In line with recommendations for mechanistic cardiovascular models~\cite{Colebank2024Guidelines}, a prediction from a sparse pre-closure record should therefore be reported with the range produced by measurement uncertainty.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{D3_noise_boxplots.pdf}
+\caption{Measurement-noise simulation. (A) Each calibrated parameter divided by its value in the reference calibration (log scale). (B) Model minus measurement, as a percentage of the measurement, for the calibrated pre-closure model (blue) and the post-closure prediction (orange). Boxes show the median and interquartile range, points show the individual replicates, and diamonds show the reference calibration and its prediction. \pending{n = 20 recalibrated replicates.}}
+\label{fig:noise}
+\end{figure}
+
+\subsection{Comparison with post-intervention prediction studies}
+\label{sec:disc_prediction}
+Few patient-specific lumped-parameter studies test a forward prediction against measurements taken after the intervention. In transcatheter aortic valve replacement, Khodaei et al.\ and Bahadormanesh et al.\ built separate models of the pre- and post-procedural states from the measurements of each state~\cite{Khodaei2021,Bahadormanesh2023}, so the post-procedural state was reproduced rather than predicted. Ooida et al.\ predicted the effect of mitral edge-to-edge repair from pre-procedural models but compared the result with the post-procedural state only qualitatively~\cite{Ooida2024}. Chen et al.\ predicted hemodynamics after virtual surgery in ten infants with borderline left ventricles and compared the predictions with the operation chosen clinically, not with measured post-operative values~\cite{Chen2026BLV}. Song et al.\ showed that post-operative conditions can differ markedly from the pre-operative state, which limits predictions that carry pre-operative conditions forward~\cite{Song2025}.
+
+Against this background, the present study is a quantitative forward test. The seven post-closure catheter pressures, none of which entered calibration, were predicted with an RMSE of 6.9~mmHg against 5.2~mmHg for the calibrated pre-closure pressures (Figure~\ref{fig:parity}), and systolic and mean arterial pressure were within 7\% of their measurements. The errors that remained are examined in Section~\ref{sec:disc_closure}. Earlier VSD models simulated defects of different sizes without calibration to a patient~\cite{Colebank2026} or interpreted catheterization data without predicting a post-intervention state~\cite{Ferrero2026Shunts}, so this result has no direct counterpart in the VSD literature.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.55\linewidth]{M4_parity.pdf}
+\caption{Model against measured catheter pressure. Filled circles, pre-closure calibration targets. Open circles, pre-closure pressures that were not targets. Triangles, post-closure prediction. Dashed line, identity.}
+\label{fig:parity}
+\end{figure}
+
+\subsection{Sensitivity results against clinical physiology}
+\label{sec:disc_gsa}
+The parameters that dominated each output in the sensitivity screen (Figure~\ref{fig:gsa}) agree with the determinants that clinical physiology assigns to them. In a restrictive defect, the orifice limits flow and the pressure difference between the ventricles sets the shunt~\cite{Rao2024,Haas_2024}. Accordingly, $Q_p/Q_s$ depended on the discharge coefficient and on systemic resistance, which sets the LV pressure that drives the shunt, while pulmonary resistance had almost no effect ($S_T = 0.01$). Pulmonary resistance controlled the mean and diastolic PA pressure, and PA compliance controlled the systolic PA pressure, which is the separation of the steady and pulsatile parts of RV afterload described by Kempton et al.\ and by Gouwy et al.\ in children~\cite{Kempton2025,Gouwy2025}. Mean RA pressure depended on RV passive elastance and systemic venous compliance, in line with the view that RA pressure reflects RV filling and the mean systemic filling pressure~\cite{Persichini2022}. Two results agree only in part. Systolic arterial pressure depended more on resistance than on arterial compliance, whereas pulse-pressure physiology gives compliance a larger role~\cite{FloresGeronimo2021}, and $Q_s$ depended on arterial resistance partly because blood volume, its main physiological determinant, was not screened~\cite{Persichini2022}.
+
+These results have three implications for clinicians. First, the calibrated discharge coefficient corresponds to the effective defect size behind the Doppler gradient that clinicians already measure~\cite{Uppu2022}, so the shunt of a restrictive defect can be characterized from the gradient and the defect diameter. Second, because pulmonary resistance hardly affected $Q_p/Q_s$ in this restrictive defect, a change in pulmonary resistance would not be expected to change the shunt, whereas in a nonrestrictive defect it would dominate. The parameters to calibrate should therefore be selected again for each defect type. Third, the active elastances controlled the end-systolic volumes and ejection fractions but none of the measured pressures and flows, as ventricular--arterial coupling predicts~\cite{Vriz2021}. A pre-closure catheterization therefore cannot inform contractility, and an echocardiographic volume measurement before closure is required before the model can predict chamber volumes after closure. Lechuga et al.\ reached a similar conclusion in pulmonary hypertension, where the screen retained only the parameters that governed measured pressure and flow~\cite{Lechuga2026}, as recommended for mechanistic cardiovascular models~\cite{Colebank2024Guidelines}.
+
+\subsection{Post-closure response against clinical physiology}
+\label{sec:disc_closure}
+Removing a restrictive left-to-right shunt is expected to lower pulmonary flow to the systemic flow, lower PA pressure, leave systemic and RA pressure unchanged or slightly higher, and unload the left heart~\cite{Rao2024,Yuan2025}. The predicted response was consistent with most of these changes (Figure~\ref{fig:closure}). Pulmonary flow fell by 13\% to equal systemic flow, $Q_p/Q_s$ became 1.00, mean, systolic and diastolic PA pressure fell, mean arterial pressure rose and RA pressure stayed at about 5~mmHg, the same directions as in the measurements. The model changes were smaller than the measured ones for every pressure except RA pressure, as expected from a model whose vascular properties do not change at closure. For a shunt of this size ($Q_p/Q_s = 1.19$), small changes are expected, and both the simulated and the measured pressure changes were small.
+
+Two predicted changes were not consistent with the expected physiology. The model predicted no unloading of the left heart. Mean LA pressure stayed at 7.9~mmHg and LVEDV rose from 39.8 to 41.1~mL, whereas LV dimensions in children normalize after transcatheter VSD closure, most of the change occurring in the first month~\cite{Yuan2025}. The cause is visible in the flows. Pulmonary venous return per minute fell by 13\%, but heart rate fell at the same time from 119 to 108~bpm, so the return per beat fell only by 4\% while diastole lengthened. With chamber properties held at their pre-closure values, the LV filled to a slightly larger volume. The model also predicted a small fall of diastolic RFA pressure where the measurement rose by 11~mmHg, a change in vascular tone that a model with fixed arterial properties cannot reproduce. This diastolic error ($-16$~mmHg) is nevertheless smaller than the disagreement between the three post-closure measurement sites, which ranged from 55~mmHg by cuff to 72~mmHg in the DAo.
+
+Three measured changes were not consistent with the physiology of closure, and they explain the largest flow errors. Systemic flow fell from 3.42 to 2.54~L/min, although closure does not reduce systemic output, and $Q_p/Q_s$ fell to 0.90, which is not possible after complete closure without a right-to-left pathway. The pre-closure flows came from the Fick method and the post-closure flows from echocardiography. In pediatric catheterization, Fick output computed with an assumed oxygen consumption has a mean bias of $+27.5\%$ against thermodilution or MRI~\cite{Ralston2023}, and Fick and MRI flows agreed poorly in children after heart transplantation~\cite{Schramm2023}. The change of method is therefore a sufficient explanation for the measured fall in systemic flow and for the $+25\%$ error of the predicted $Q_s$. The measured fall of systolic RFA pressure, from 100 to 89~mmHg, also ran against the expected response and coincided with a rise of systolic DAo pressure from 91 to 104~mmHg, which points to the measurement site rather than to the circulation.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=0.75\linewidth]{D1_closure_response.pdf}
+\caption{Change at closure, as a percentage of the pre-closure value, in the model (bars) and in the measurements (diamonds). A missing diamond means that the quantity was not measured in both states.}
+\label{fig:closure}
+\end{figure}
+
+\subsection{Limitations}
+This study has several limitations. Only one patient was studied, so no claim of population-level performance can be made. The prediction describes the acute state only, because chamber and vascular properties are held at their pre-closure values, and it cannot represent the adaptation of the LV and of vascular tone over the hours and weeks after closure. The study protocol schedules measurements one day after closure and at the first outpatient visit, and calibrating time-dependent parameters to these data is the next step. No post-closure calibration was performed. Refitting the model to the post-closure record would show which parameters change at closure and would allow what-if simulations of the closed-defect circulation. No chamber volume was measured before closure, so the chamber parameters were not calibrated. A single pulmonary arterial compartment could not reproduce the narrow PA pulse pressure, which left systolic PA pressure $5.1\sigma$ above its measurement. Finally, the sensitivity screen used 128 simulations stopped at 10 cycles and sampled each input independently, without the resistance--compliance coupling used in calibration, so its indices rank the parameters but are not precise values.
+
+% =====================================================================
+\FloatBarrier
+\section{Conclusion}
+\label{sec:conclusion}
+In this work, a closed-loop lumped-parameter model of pediatric VSD was scaled by body weight, screened by global sensitivity analysis, calibrated to one child's pre-closure catheterization and used without refitting to predict the same child's post-closure state. Calibration reduced the RMSE of the nine targets from 0.274 to 0.105. After closure, systolic and mean arterial pressure were predicted within 7\% and the seven catheter pressures with an RMSE of 6.9~mmHg. The largest errors were in systolic PA pressure, carried over from calibration, and in RV end-diastolic volume, which no pre-closure measurement constrains. Measurement uncertainty changed the calibrated parameters markedly and shifted the post-closure errors in a consistent direction.
+
+The sensitivity structure of the model matched the physiology of a restrictive VSD, so its parameters can be read clinically. Adding a pre-closure echocardiographic volume measurement to calibration, measuring the patient again after closure, and studying more children are the next steps towards using such a model to plan VSD closure for the individual child.
+
+% =====================================================================
+\section*{Acknowledgments}
+\pending{Clinical staff of RSAB Harapan Kita who acquired the data, if they are not authors.}
+
+\section*{Funding}
+\pending{Funding source and grant number, or ``This research received no external funding.''}
+
+\section*{Conflict of interest}
+\pending{``The authors declare no conflict of interest.'' or the declared conflicts.}
+
+\section*{Author contributions}
+\pending{CRediT roles for each author.}
+
+\section*{Data availability}
+The de-identified clinical record of P1 and the exported model outputs are available from the corresponding author on reasonable request, subject to the approval of the Institutional Review Board of RSAB Harapan Kita.
+
+\section*{Code availability}
+The MATLAB and R code that reproduces every result, table and figure is available at \url{https://github.com/HafizAqilla/unified-vsd}. \texttt{run\_all.m} reproduces the pre-closure pipeline and the post-closure prediction, and \texttt{run\_noise\_simulation.m} reproduces the measurement-noise simulation.
+
+\clearpage
+\printbibliography
+
+% =====================================================================
+\clearpage
+\appendix
+\section{Circulation equations}
+\label{app:circuit}
+Chamber pressures follow Eq.~(\ref{eq:elastance}). Vascular pressures are $P_i = (V_i - V_{0,i})/C_i$ for $i \in \{\mathrm{SAR}, \mathrm{SC}, \mathrm{SVEN}, \mathrm{PAR}, \mathrm{PVEN}\}$, with RA, LA, systemic venous and pulmonary venous pressure bounded below at $-5$~mmHg. Valve flows follow Eq.~(\ref{eq:valve}) and the shunt Eq.~(\ref{eq:orifice}). The systemic capillary resistance is split into two halves around the capillary compliance. The vascular balances are
+\begin{align}
+\dot{V}_{\mathrm{SAR}} &= Q_{\mathrm{AV}} - Q_{\mathrm{SAR}}, \\
+L_{\mathrm{SAR}}\dot{Q}_{\mathrm{SAR}} &= P_{\mathrm{SAR}} - P_{\mathrm{SC}} - \left(R_{\mathrm{SAR}} + \tfrac{1}{2}R_{\mathrm{SC}}\right)Q_{\mathrm{SAR}}, \\
+\dot{V}_{\mathrm{SC}} &= Q_{\mathrm{SAR}} - Q_{\mathrm{SC}}, \qquad Q_{\mathrm{SC}} = \frac{P_{\mathrm{SC}} - P_{\mathrm{SVEN}}}{\tfrac{1}{2}R_{\mathrm{SC}}}, \\
+\dot{V}_{\mathrm{SVEN}} &= Q_{\mathrm{SC}} - Q_{\mathrm{SVEN}}, \\
+L_{\mathrm{SVEN}}\dot{Q}_{\mathrm{SVEN}} &= P_{\mathrm{SVEN}} - P_{\mathrm{RA}} - R_{\mathrm{SVEN}}Q_{\mathrm{SVEN}}, \\
+\dot{V}_{\mathrm{PAR}} &= Q_{\mathrm{PV}} - Q_{\mathrm{PAR}}, \\
+L_{\mathrm{PAR}}\dot{Q}_{\mathrm{PAR}} &= P_{\mathrm{PAR}} - P_{\mathrm{PC}} - R_{\mathrm{PAR}}Q_{\mathrm{PAR}}, \\
+\left(C_{\mathrm{PCOX}} + C_{\mathrm{PCNO}}\right)\dot{P}_{\mathrm{PC}} &= Q_{\mathrm{PAR}} - Q_{\mathrm{PC}}, \qquad Q_{\mathrm{PC}} = \left(P_{\mathrm{PC}} - P_{\mathrm{PVEN}}\right)\left(\frac{1}{R_{\mathrm{PCOX}}} + \frac{1}{R_{\mathrm{PCNO}}}\right), \\
+\dot{V}_{\mathrm{PVEN}} &= Q_{\mathrm{PC}} - Q_{\mathrm{PVEN}}, \\
+L_{\mathrm{PVEN}}\dot{Q}_{\mathrm{PVEN}} &= P_{\mathrm{PVEN}} - P_{\mathrm{LA}} - R_{\mathrm{PVEN}}Q_{\mathrm{PVEN}}.
+\end{align}
+
+\section{Nominal adult reference parameters}
+\label{app:nominal_parameters}
+Table~\ref{tab:nominal_parameters} gives the nominal parameter set used before allometric scaling. The values were tuned from the adult sets of Valenti~\cite{Valenti2023}, Zhang et al.~\cite{zhang2019multiscale} and Bozkurt~\cite{Bozkurt2019} as described in Section~\ref{sec:model}. Supplementary Section~S6 gives the three source values of every entry.
+
+\begin{table}[!htbp]
+\centering\small
+\caption{Nominal adult reference values used before allometric scaling.}
+\label{tab:nominal_parameters}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.7cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}p{4.0cm} >{\raggedright\arraybackslash}p{2.7cm}}
+\toprule
+\textbf{Group} & \textbf{Parameters} & \textbf{Nominal values} & \textbf{Unit} \\
+\midrule
+Heart rate & HR & 75 & bpm \\
+LV elastance & $E_{\mathrm{A,LV}}$, $E_{\mathrm{B,LV}}$ & 3.5, 0.08 & mmHg/mL \\
+RV elastance & $E_{\mathrm{A,RV}}$, $E_{\mathrm{B,RV}}$ & 0.5, 0.042 & mmHg/mL \\
+LA elastance & $E_{\mathrm{A,LA}}$, $E_{\mathrm{B,LA}}$ & 0.35, 0.20 & mmHg/mL \\
+RA elastance & $E_{\mathrm{A,RA}}$, $E_{\mathrm{B,RA}}$ & 0.30, 0.10 & mmHg/mL \\
+Chamber $V_0$ & $V_{0,\mathrm{RA}}$, $V_{0,\mathrm{RV}}$, $V_{0,\mathrm{LA}}$, $V_{0,\mathrm{LV}}$ & 3.5385, 8.4067, 2.3085, 3.5385 & mL \\
+Systemic resistance & $R_{\mathrm{SAR}}$, $R_{\mathrm{SC}}$, $R_{\mathrm{SVEN}}$ & 0.050, 0.80, 0.050 & mmHg\,s/mL \\
+Systemic compliance & $C_{\mathrm{SAR}}$, $C_{\mathrm{SC}}$, $C_{\mathrm{SVEN}}$ & 1.33, 1.00, 30.0 & mL/mmHg \\
+Systemic inertance & $L_{\mathrm{SAR}}$, $L_{\mathrm{SVEN}}$ & $1.0\times10^{-5}$, $1.0\times10^{-5}$ & mmHg\,s$^2$/mL \\
+Systemic vascular $V_0$ & $V_{0,\mathrm{SAR}}$, $V_{0,\mathrm{SC}}$, $V_{0,\mathrm{SVEN}}$ & 90.9, 49.0, 450.0 & mL \\
+Pulmonary resistance & $R_{\mathrm{PAR}}$, $R_{\mathrm{PCOX}}$, $R_{\mathrm{PCNO}}$, $R_{\mathrm{PVEN}}$ & 0.010, 0.0630, 1.2640, 0.020 & mmHg\,s/mL \\
+Pulmonary compliance & $C_{\mathrm{PAR}}$, $C_{\mathrm{PCOX}}$, $C_{\mathrm{PCNO}}$, $C_{\mathrm{PVEN}}$ & 5.000, 0.1983, 0.0017, 13.750 & mL/mmHg \\
+Pulmonary inertance & $L_{\mathrm{PAR}}$, $L_{\mathrm{PVEN}}$ & $1.0\times10^{-5}$, $1.0\times10^{-5}$ & mmHg\,s$^2$/mL \\
+Pulmonary vascular $V_0$ & $V_{0,\mathrm{PAR}}$, $V_{0,\mathrm{PCOX}}$, $V_{0,\mathrm{PCNO}}$, $V_{0,\mathrm{PVEN}}$ & 196.0, 0, 0, 0 & mL \\
+Valve resistance & $R_{\mathrm{open}}$, $R_{\mathrm{closed}}$ & $4.0\times10^{-3}$, $9.4168\times10^4$ & mmHg\,s/mL \\
+Smoothing widths & $\varepsilon_{\mathrm{v}}$, $\varepsilon_{\mathrm{s}}$ & 0.5, 0.1 & mmHg \\
+Shunt & $C_d$ (adult reference), $\rho$ & 0.7, 1060 & --, kg/m$^3$ \\
+Ventricular timing & $T_{vc,\mathrm{LV}}$, $T_{vr,\mathrm{LV}}$, $T_{vc,\mathrm{RV}}$, $T_{vr,\mathrm{RV}}$ & 0.265, 0.40, 0.30, 0.40 & fraction of $T_{\mathrm{HB}}$ \\
+LA timing & $t_{ac,\mathrm{LA}}$, $T_{ac,\mathrm{LA}}$, $T_{ar,\mathrm{LA}}$ & 0.75, 0.10, 0.80 & fraction of $T_{\mathrm{HB}}$ \\
+RA timing & $t_{ac,\mathrm{RA}}$, $T_{ac,\mathrm{RA}}$, $T_{ar,\mathrm{RA}}$ & 0.80, 0.10, 0.70 & fraction of $T_{\mathrm{HB}}$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\end{document}

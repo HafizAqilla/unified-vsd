@@ -121,11 +121,15 @@ JP(14, [3  13 14])   = 1;   % dQ_PVEN
 %  SOLVER OPTIONS
 % =====================================================================
 odefun = @(t_ode, X) system_rhs(t_ode, X, params);
+maxstep_div = 20;   % [-] MaxStep = T_HB/maxstep_div; override only for verification
+if isfield(params.sim, 'maxstep_div') && isfinite(params.sim.maxstep_div)
+    maxstep_div = params.sim.maxstep_div;
+end
 opts   = odeset( ...
     'RelTol',   params.sim.rtol, ...
     'AbsTol',   params.sim.atol, ...
     'JPattern', JP, ...
-    'MaxStep',  T_HB / 20);   % T_HB/20 gives ≥6 steps in systole (~30% of cycle)
+    'MaxStep',  T_HB / maxstep_div);   % default T_HB/20 gives ≥6 steps in systole (~30% of cycle)
                               % T_HB/10 was insufficient for accurate peak/trough capture
 
 nCyc       = params.sim.nCyclesSteady;
